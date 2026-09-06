@@ -1,0 +1,1 @@
+PASS native UI: connection error, demo capture, library, playback, hold/release, landscape and large text screenshots

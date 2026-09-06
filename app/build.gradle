@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'cn.moment.s5'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'cn.moment.s5'
+        minSdk 33
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        testInstrumentationRunner 'cn.moment.s5.DeviceChecks'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildTypes { release { minifyEnabled false } }
+    buildFeatures { buildConfig true }
+    lint { abortOnError true }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }

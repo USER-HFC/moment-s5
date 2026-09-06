@@ -1,0 +1,12 @@
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+.env
+.env.*
+!.env.example
+.idea/
+.tools/
+evidence/initial.png
+evidence/detail.png

@@ -1,0 +1,18 @@
+PASS Android capture → JPEG + AVC → Motion Photo → MediaStore; AAC mux and video decode
+{
+  "schema": 1,
+  "demo": true,
+  "source": "DEMO.jpg",
+  "createdAt": 1788629754543,
+  "frames": 39,
+  "maxGapMs": 86,
+  "hasPostFrames": true,
+  "audio": false,
+  "shutterTimeBasis": "USB command dispatch; exposure time is approximate",
+  "stillUs": 1466666,
+  "shutterOffsetUs": 1439127,
+  "durationUs": 2939127,
+  "motionQuality": "USB preview, not camera-recorded video",
+  "complete": true
+}
+Output: <app-private-files>/moments/<synthetic-demo-capture> (path anonymized for publication)
