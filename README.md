@@ -4,9 +4,9 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.1.1 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.1.1) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[下载 v0.1.2 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.1.2) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
-v0.1.1 修正标准 PTP OpenSession 返回 `0x201E`（会话已打开）时连接被错误中止的问题；其他 PTP 错误会同时显示指令编号。可覆盖安装 v0.1.0，具体变更和验证见 [发布说明](.github/releases/v0.1.1.md)。
+v0.1.2 修复拍摄准备耗时导致“快门前动态帧不足”：统一就绪判定，读取照片索引后缓存过期时先补齐新画面，再触发快门；保留 v0.1.1 的 `0x201E` 会话恢复修复。可覆盖安装旧版，具体变更和验证见 [发布说明](.github/releases/v0.1.2.md)。
 
 <img src="evidence/03-demo-live.png" alt="使用合成演示素材的拍摄界面，非 S5 真机画面" width="260"> <img src="evidence/06-playing.png" alt="实况动态回放界面，使用合成演示素材" width="260">
 
@@ -27,11 +27,11 @@ v0.1.1 修正标准 PTP OpenSession 返回 `0x201E`（会话已打开）时连�
 
 ## 在 OPPO 上使用
 
-1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentS5-0.1.1-debug.apk`。这是开发测试签名，不是商店发行包；与 v0.1.0 签名一致，可直接覆盖安装。
+1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentS5-0.1.2-debug.apk`。这是开发测试签名，不是商店发行包；与 v0.1.0 / v0.1.1 签名一致，可直接覆盖安装。
 2. 手机设置搜索“OTG”并开启。使用支持数据的 USB-C to USB-C 线接 S5。
 3. S5 选择 **PC(Tether)**、单张拍摄、JPEG 或 RAW+JPEG，确认 SD 卡可写。先用较短快门测试，例如 1/125s。
 4. App 点“连接相机”，允许 USB 访问，等取景和 1.5 秒缓存就绪。
-5. 用 **App 的实况快门**拍摄。在接收这张照片期间不要同时按机身快门或连接其他遥控软件。
+5. 用 **App 的实况快门**拍摄。如显示“正在补齐快门前动态”，请保持构图，App 会等待新画面就绪再触发机身快门。在接收这张照片期间不要同时按机身快门或连接其他遥控软件。
 6. 到“片刻”长按照片回放，也可以点“播放 / 停止实况”。“保存到系统相册”写入 `DCIM/MomentS5`。
 7. 如需声音，在“连接”页开启“录制手机环境声”。离开 App 后停止收音和连接；回来手动重连。
 
@@ -72,7 +72,7 @@ adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debu
 adb -s emulator-5554 shell am instrument -w cn.moment.s5.test/cn.moment.s5.DeviceChecks
 ```
 
-检查会创建明确标记的演示照片并导出一份到模拟器相册，覆盖完整 CaptureEngine、原片尺寸、AVC 样本时间、视频解码、XMP 视频长度、AAC 合并与相册字节一致性。它不测试真实 USB。
+检查会创建明确标记的演示照片并导出一份到模拟器相册，覆盖 2.2 秒准备卡顿后的自动补帧、完整 CaptureEngine、原片尺寸、AVC 样本时间、视频解码、XMP 视频长度、AAC 合并与相册字节一致性。它不测试真实 USB。
 
 `tools/ui-smoke.ps1` 只允许模拟器，执行连接错误提示、演示快门、片刻列表、回放和截图，再采集横屏、小屏及大字体截图；会在结束时恢复模拟器显示设置。
 

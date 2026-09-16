@@ -6,6 +6,8 @@ import java.util.List;
 
 /** JPEG ring, bounded by both time and bytes. Uses monotonic microseconds. */
 public final class FrameRing {
+    public static final long PRE_CAPTURE_US=1_500_000;
+    public static final long MAX_FRAME_AGE_US=500_000;
     public static final class Frame {
         public final long us;
         public final byte[] jpeg;
@@ -22,6 +24,21 @@ public final class FrameRing {
     }
     public synchronized List<Frame> slice(long from,long through) {
         ArrayList<Frame> out=new ArrayList<>(); for(Frame f:frames) if(f.us>=from && f.us<=through) out.add(f); return out;
+    }
+    /** The exact window used by both the shutter button and the capture worker. */
+    public synchronized List<Frame> preCaptureWindow(long nowUs) {
+        long from=nowUs-PRE_CAPTURE_US;
+        ArrayList<Frame> out=new ArrayList<>();Frame anchor=null;int recent=0;
+        for(Frame f:frames) {
+            if(f.us<from) {anchor=f;continue;}
+            if(f.us>nowUs) break;
+            out.add(f);recent++;
+        }
+        // An optional boundary frame avoids readiness flicker between preview samples.
+        if(anchor!=null && from-anchor.us<=MAX_FRAME_AGE_US) out.add(0,anchor);
+        if(recent<2 || out.get(0).us>from+50_000 || nowUs-out.get(out.size()-1).us>=MAX_FRAME_AGE_US)
+            return List.of();
+        return out;
     }
     public synchronized long durationUs() { return frames.size()<2 ? 0 : frames.getLast().us-frames.getFirst().us; }
     public synchronized long lastUs() { return frames.isEmpty()?0:frames.getLast().us; }

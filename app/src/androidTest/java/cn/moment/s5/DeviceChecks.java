@@ -25,7 +25,17 @@ public final class DeviceChecks extends Instrumentation {
                 @Override public void exposure(String s) {}
             });
             engine.demo();require(ready.await(12,TimeUnit.SECONDS),"prebuffer warmup");
-            engine.capture();require(saved.await(60,TimeUnit.SECONDS),"capture completes\n"+logs);
+            // Deterministically reproduce a slow serialized USB preparation step without a camera.
+            // This keeps the production API free of test-only delay controls.
+            var workerField=CaptureEngine.class.getDeclaredField("worker");workerField.setAccessible(true);
+            ExecutorService captureWorker=(ExecutorService)workerField.get(engine);
+            CountDownLatch blocked=new CountDownLatch(1),resume=new CountDownLatch(1);
+            captureWorker.execute(()->{blocked.countDown();try{resume.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}});
+            require(blocked.await(3,TimeUnit.SECONDS),"capture worker paused");
+            require(engine.ready(),"prebuffer ready before simulated USB delay");
+            engine.capture();Thread.sleep(2200);resume.countDown();
+            require(saved.await(60,TimeUnit.SECONDS),"capture recovers from stale prebuffer\n"+logs);
+            require(logs.toString().contains("预缓存过期"),"capture replenished frames after delayed preparation");
             File dir=output[0];JSONObject meta=MomentStore.metadata(dir);
             require(meta.getBoolean("demo") && meta.getBoolean("complete"),"demo clearly marked");
             require(meta.getBoolean("hasPostFrames"),"post-shutter frames");
@@ -66,7 +76,7 @@ public final class DeviceChecks extends Instrumentation {
                 }
             }
             engine.disconnect();
-            result.putString("stream","PASS Android capture → JPEG + AVC → Motion Photo → MediaStore; AAC mux and video decode\n"+meta.toString(2)+"\nOutput: "+dir);
+            result.putString("stream","PASS delayed capture (2200 ms stall) → fresh prebuffer → JPEG + AVC → Motion Photo → MediaStore; AAC mux and video decode\n"+meta.toString(2)+"\nOutput: "+dir);
             finish(-1,result);
         } catch(Throwable e) {
             StringWriter trace=new StringWriter();e.printStackTrace(new PrintWriter(trace));result.putString("stream","FAIL\n"+trace);finish(1,result);

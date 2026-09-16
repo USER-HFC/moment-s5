@@ -66,7 +66,7 @@ public final class CaptureEngine {
         byte[] bytes=demo?demoFrame(now(),960,640):(camera==null?null:camera.preview());
         if(bytes!=null) {long t=now();ring.add(t,bytes);listener.frame(bytes,ring.durationUs(),demo);}
     }
-    public boolean ready() {return active && !busy && ring.durationUs()>=1_450_000 && now()-ring.lastUs()<500_000;}
+    public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
     public void capture() {
         if(!ready()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
         busy=true;
@@ -75,9 +75,25 @@ public final class CaptureEngine {
             try {
                 if(!active) throw new IOException("相机已断开");
                 Set<Integer> baseline=null;
-                if(!demo) {try {baseline=camera.handles();} catch(IOException e) {log("文件列表读取不可用，将使用事件："+e.getMessage());} camera.clearCaptureEvents();}
-                long shutterUs=now();List<FrameRing.Frame> pre=ring.slice(shutterUs-1_500_000,shutterUs);
-                if(pre.size()<2) throw new IOException("快门前动态帧不足");
+                if(!demo) {
+                    listener.status("正在准备拍摄 · 读取照片索引",false);
+                    long indexStart=now();
+                    try {baseline=camera.handles();} catch(IOException e) {log("文件列表读取不可用，将使用事件："+e.getMessage());}
+                    log("照片索引读取耗时 "+(now()-indexStart)/1000+" ms");
+                }
+                long shutterUs=now();List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
+                if(pre.isEmpty()) {
+                    log("拍摄准备使预缓存过期，继续取景后再触发快门");
+                    listener.status("正在补齐快门前动态 · 请保持构图",false);
+                    long warmupDeadline=now()+8_000_000;
+                    while(pre.isEmpty() && active && now()<warmupDeadline) {
+                        grab();shutterUs=now();pre=ring.preCaptureWindow(shutterUs);
+                        if(pre.isEmpty()) Thread.sleep(65);
+                    }
+                }
+                if(!active) throw new IOException("相机已断开，尚未触发快门");
+                if(pre.isEmpty()) throw new IOException("取景持续不足，尚未触发快门；请检查实时画面并分享连接诊断");
+                if(!demo) camera.clearCaptureEvents();
                 listener.status("正在拍摄 · 保留快门前后瞬间",false);
                 if(!demo) camera.shutter();
                 long deadline=shutterUs+1_500_000;
@@ -86,7 +102,7 @@ public final class CaptureEngine {
                 List<FrameRing.Frame> fs=new ArrayList<>(pre);fs.addAll(ring.slice(shutterUs+1,deadline));
                 short[] capturedAudio=null;
                 AudioRing recording=microphone;
-                if(recording!=null)try{capturedAudio=recording.slice(pre.get(0).us,deadline);}catch(IOException e){log(e.getMessage());}
+                if(recording!=null)try{capturedAudio=recording.slice(shutterUs-FrameRing.PRE_CAPTURE_US,deadline);}catch(IOException e){log(e.getMessage());}
                 short[] audioSamples=capturedAudio;
                 boolean hasPost=fs.get(fs.size()-1).us>shutterUs+200_000;
                 dir=store.create();byte[] still;
@@ -103,7 +119,7 @@ public final class CaptureEngine {
                 JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demo);meta.put("source",filename);
                 meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),deadline-fs.get(fs.size()-1).us)/1000);
                 meta.put("hasPostFrames",hasPost);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","USB command dispatch; exposure time is approximate");
-                long from=pre.get(0).us,to=deadline;
+                long from=shutterUs-FrameRing.PRE_CAPTURE_US,to=deadline;
                 long stillUs=Math.round((shutterUs-from)*VideoEncoder.FPS/1_000_000.0)*1_000_000L/VideoEncoder.FPS;
                 meta.put("stillUs",stillUs);meta.put("shutterOffsetUs",shutterUs-from);meta.put("durationUs",to-from);
                 meta.put("motionQuality","USB preview, not camera-recorded video");
