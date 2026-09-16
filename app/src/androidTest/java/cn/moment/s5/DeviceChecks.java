@@ -17,10 +17,11 @@ public final class DeviceChecks extends Instrumentation {
         try {
             Context c=getTargetContext();CountDownLatch ready=new CountDownLatch(1),saved=new CountDownLatch(1);
             File[] output={null};StringBuilder logs=new StringBuilder();
+            boolean[] shutterStarted={false};int[] postFrames={0},postFramesAtSave={-1};
             engine=new CaptureEngine(c,new CaptureEngine.Listener() {
-                @Override public void status(String s,boolean r) {logs.append(s).append('\n');}
-                @Override public void frame(byte[] b,long duration,boolean demo) {if(duration>=1_500_000)ready.countDown();}
-                @Override public void saved(File d) {output[0]=d;saved.countDown();}
+                @Override public void status(String s,boolean r) {logs.append(s).append('\n');if(s.startsWith("正在拍摄"))shutterStarted[0]=true;}
+                @Override public void frame(byte[] b,long duration,boolean demo) {if(shutterStarted[0])postFrames[0]++;if(duration>=FrameRing.PRE_CAPTURE_US)ready.countDown();}
+                @Override public void saved(File d) {output[0]=d;postFramesAtSave[0]=postFrames[0];saved.countDown();}
                 @Override public void log(String s) {logs.append(s).append('\n');}
                 @Override public void exposure(String s) {}
             });
@@ -38,7 +39,10 @@ public final class DeviceChecks extends Instrumentation {
             require(logs.toString().contains("预缓存过期"),"capture replenished frames after delayed preparation");
             File dir=output[0];JSONObject meta=MomentStore.metadata(dir);
             require(meta.getBoolean("demo") && meta.getBoolean("complete"),"demo clearly marked");
-            require(meta.getBoolean("hasPostFrames"),"post-shutter frames");
+            require(postFramesAtSave[0]==0,"no preview frames requested between shutter and save");
+            require("pre-only".equals(meta.getString("captureMode")) && !meta.getBoolean("hasPostFrames"),"pre-only capture metadata");
+            require(meta.getLong("durationUs")==3_000_000 && meta.getLong("shutterOffsetUs")==3_000_000,"entire three-second clip precedes shutter");
+            require(meta.getLong("maxGapMs")<=500,"preparation stall is not included in clip");
             require(meta.getInt("frames")>10,"multiple captured frames");
             File video=new File(dir,"motion.mp4"),jpeg=new File(dir,"original.jpg"),motion=new File(dir,"MOMENT_MP.jpg");
             android.graphics.BitmapFactory.Options opts=new android.graphics.BitmapFactory.Options();opts.inJustDecodeBounds=true;
@@ -52,9 +56,11 @@ public final class DeviceChecks extends Instrumentation {
                 while(extractor.getSampleTime()>=0) {long now=extractor.getSampleTime();require(now>prior,"monotonic presentation time");if(now==meta.getLong("stillUs"))hasKeyTime=true;prior=now;samples++;extractor.advance();}
                 require(samples>=38,"encoded video samples "+samples);
                 require(hasKeyTime,"Motion Photo still timestamp matches an encoded video frame");
+                require(meta.getLong("stillUs")==prior,"still marker is the last encoded sample");
             } finally {extractor.release();}
             byte[] packed=Files.readAllBytes(motion.toPath()),clip=Files.readAllBytes(video.toPath());
             require(java.util.Arrays.equals(clip,java.util.Arrays.copyOfRange(packed,packed.length-clip.length,packed.length)),"video suffix preserved");
+            require(new String(packed,java.nio.charset.StandardCharsets.ISO_8859_1).contains("MotionPhotoPresentationTimestampUs=\""+meta.getLong("stillUs")+"\""),"XMP still marker matches final sample");
             android.net.Uri uri=MomentStore.export(c,dir);
             try(InputStream in=c.getContentResolver().openInputStream(uri)) {require(in!=null && java.util.Arrays.equals(in.readAllBytes(),packed),"MediaStore export byte identical");}
             require(new MomentStore(c).list().contains(dir),"library persistence");
@@ -71,12 +77,12 @@ public final class DeviceChecks extends Instrumentation {
             }finally{decoder.release();}
             if(c.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==android.content.pm.PackageManager.PERMISSION_GRANTED){
                 try(AudioRing microphone=new AudioRing()){
-                    microphone.start();Thread.sleep(1800);long end=CaptureEngine.now();
-                    require(microphone.slice(end-1_500_000,end).length==72000,"microphone ring captures timestamped PCM");
+                    microphone.start();Thread.sleep(3300);long end=CaptureEngine.now();
+                    require(microphone.slice(end-FrameRing.PRE_CAPTURE_US,end).length==144000,"microphone ring captures three-second pre-roll PCM");
                 }
             }
             engine.disconnect();
-            result.putString("stream","PASS delayed capture (2200 ms stall) → fresh prebuffer → JPEG + AVC → Motion Photo → MediaStore; AAC mux and video decode\n"+meta.toString(2)+"\nOutput: "+dir);
+            result.putString("stream","PASS delayed capture (2200 ms stall) → fresh 3-second pre-only buffer → JPEG + AVC → Motion Photo → MediaStore; no post-shutter preview, final-sample XMP marker, AAC mux and video decode\n"+meta.toString(2)+"\nOutput: "+dir);
             finish(-1,result);
         } catch(Throwable e) {
             StringWriter trace=new StringWriter();e.printStackTrace(new PrintWriter(trace));result.putString("stream","FAIL\n"+trace);finish(1,result);

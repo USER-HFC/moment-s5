@@ -93,18 +93,17 @@ public final class CaptureEngine {
                 }
                 if(!active) throw new IOException("相机已断开，尚未触发快门");
                 if(pre.isEmpty()) throw new IOException("取景持续不足，尚未触发快门；请检查实时画面并分享连接诊断");
-                if(!demo) camera.clearCaptureEvents();
-                listener.status("正在拍摄 · 保留快门前后瞬间",false);
-                if(!demo) camera.shutter();
-                long deadline=shutterUs+1_500_000;
-                while(now()<deadline && active) {grab();Thread.sleep(65);}
-                if(!active) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
-                List<FrameRing.Frame> fs=new ArrayList<>(pre);fs.addAll(ring.slice(shutterUs+1,deadline));
+                List<FrameRing.Frame> fs=pre;
+                long from=shutterUs-FrameRing.PRE_CAPTURE_US,to=shutterUs;
                 short[] capturedAudio=null;
                 AudioRing recording=microphone;
-                if(recording!=null)try{capturedAudio=recording.slice(shutterUs-FrameRing.PRE_CAPTURE_US,deadline);}catch(IOException e){log(e.getMessage());}
+                // Snapshot audio before the shutter command can block or age out the ring.
+                if(recording!=null)try{capturedAudio=recording.slice(from,to);}catch(IOException e){log(e.getMessage());}
                 short[] audioSamples=capturedAudio;
-                boolean hasPost=fs.get(fs.size()-1).us>shutterUs+200_000;
+                if(!demo) camera.clearCaptureEvents();
+                listener.status("正在拍摄 · 已保留快门前 3 秒",false);
+                if(!demo) camera.shutter();
+                if(!active) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
                 dir=store.create();byte[] still;
                 String filename;
                 if(demo) {still=demoFrame(shutterUs,2400,1600);filename="DEMO.jpg";}
@@ -117,10 +116,10 @@ public final class CaptureEngine {
                 }
                 Files.write(new File(dir,"original.jpg").toPath(),still);
                 JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demo);meta.put("source",filename);
-                meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),deadline-fs.get(fs.size()-1).us)/1000);
-                meta.put("hasPostFrames",hasPost);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","USB command dispatch; exposure time is approximate");
-                long from=shutterUs-FrameRing.PRE_CAPTURE_US,to=deadline;
-                long stillUs=Math.round((shutterUs-from)*VideoEncoder.FPS/1_000_000.0)*1_000_000L/VideoEncoder.FPS;
+                meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000);
+                meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","pre-shutter buffer snapshot; exposure time is approximate");
+                // The still marker uses the last encoded sample, never an out-of-range end timestamp.
+                long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
                 meta.put("stillUs",stillUs);meta.put("shutterOffsetUs",shutterUs-from);meta.put("durationUs",to-from);
                 meta.put("motionQuality","USB preview, not camera-recorded video");
                 meta.put("complete",false);meta.put("error","合成尚未完成，已接收的原片可以分享");
@@ -138,7 +137,7 @@ public final class CaptureEngine {
                         MotionPhoto.write(new File(finalDir,"original.jpg"),new File(finalDir,"motion.mp4"),new File(finalDir,"MOMENT_MP.jpg"),stillUs);
                         meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);listener.saved(finalDir);
                         log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");
-                        listener.status(hasPost?"实况已保存":"已保存 · 快门后取景中断，动态末尾有停顿",false);
+                        listener.status("实况已保存",false);
                     } catch(Exception e) {saveFailure(finalDir,meta,e);fail(e);}
                     finally {busy=false;ring.clear();}
                 });

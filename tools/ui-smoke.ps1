@@ -1,9 +1,9 @@
-param([string]$Adb = '', [string]$Serial = 'emulator-5554')
+param([string]$Adb = '', [string]$Serial = 'emulator-5554', [string]$EvidenceDir = '')
 $ErrorActionPreference='Stop'
 $projectDir=Split-Path $PSScriptRoot -Parent
 if(!$Adb){$Adb=Join-Path (Split-Path $projectDir -Parent) 'work/android-tools/sdk/platform-tools/adb.exe'}
 if($Serial -notlike 'emulator-*'){throw 'This visual smoke check changes screen settings; run it only on an emulator.'}
-$evidence=Join-Path $projectDir 'evidence'
+$evidence=if($EvidenceDir){$EvidenceDir}else{Join-Path $projectDir 'evidence'}
 New-Item -ItemType Directory -Force $evidence | Out-Null
 function Device([string[]]$Commands){ & $Adb -s $Serial @Commands; if($LASTEXITCODE -ne 0){throw "adb failed: $Commands"} }
 function Tree {
@@ -31,7 +31,7 @@ Tap '拍摄';Tap '体验实况演示';Tap '进入演示'
 $ready=$false
 for($i=0;$i -lt 10;$i++){
     $tree=Tree
-    $shutter=$tree.SelectNodes('//node') | Where-Object { $_.GetAttribute('content-desc') -eq '拍摄实况照片，保留快门前后各一秒半' }
+    $shutter=$tree.SelectNodes('//node') | Where-Object { $_.GetAttribute('content-desc') -eq '拍摄实况照片，保留快门前三秒' }
     if($shutter.enabled -eq 'true'){$ready=$true;break}
 }
 if(!$ready){throw 'Demo prebuffer never became ready'}

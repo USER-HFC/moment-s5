@@ -87,11 +87,11 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         root.addView(nav);setContentView(root);root.requestApplyInsets();
     }
     private void cameraPage() {
-        LinearLayout tag=row();tag.addView(text("LIVE PHOTO",12,ACCENT),new LinearLayout.LayoutParams(0,-2,1));tag.addView(text("1.5s  +  1.5s",12,MUTED));body.addView(tag);space(12);
+        LinearLayout tag=row();tag.addView(text("LIVE PHOTO",12,ACCENT),new LinearLayout.LayoutParams(0,-2,1));tag.addView(text("快门前 3s",12,MUTED));body.addView(tag);space(12);
         preview=new PreviewView(this);body.addView(preview,new LinearLayout.LayoutParams(-1,-2));space(12);
         exposure=text(exposureValue,13,MUTED);exposure.setTypeface(Typeface.MONOSPACE);body.addView(exposure);
-        space(20);bufferText=text("快门前缓存  0.0 / 1.5 秒",14,TEXT);body.addView(bufferText);
-        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(1500);progress.setProgressTintList(ColorStateList.valueOf(ACCENT));
+        space(20);bufferText=text("快门前缓存  0.0 / 3.0 秒",14,TEXT);body.addView(bufferText);
+        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax((int)(FrameRing.PRE_CAPTURE_US/1000));progress.setProgressTintList(ColorStateList.valueOf(ACCENT));
         body.addView(progress,new LinearLayout.LayoutParams(-1,dp(8)));space(8);
         status=text(statusValue,14,MUTED);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);body.addView(status);space(16);
         LinearLayout controls=row();
@@ -100,7 +100,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         body.addView(controls);space(16);
         LinearLayout capture=row();capture.setGravity(Gravity.CENTER);
         shutter=button("实况\n快门",true,()-> {engine.capture();shutter.setEnabled(false);shutter.setAlpha(.45f);});
-        shutter.setContentDescription("拍摄实况照片，保留快门前后各一秒半");shutter.setTextSize(16);shutter.setBackground(ripple(ACCENT,dp(50)));shutter.setEnabled(engine.ready());shutter.setAlpha(engine.ready()?1:.45f);
+        shutter.setContentDescription("拍摄实况照片，保留快门前三秒");shutter.setTextSize(16);shutter.setBackground(ripple(ACCENT,dp(50)));shutter.setEnabled(engine.ready());shutter.setAlpha(engine.ready()?1:.45f);
         capture.addView(shutter,new LinearLayout.LayoutParams(dp(100),dp(100)));body.addView(capture);space(16);
         body.addView(button("连接相机",false,this::connect));
         body.addView(button("体验实况演示",false,()->new AlertDialog.Builder(this).setTitle("体验完整拍摄流程")
@@ -183,7 +183,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
             body.addView(button("播放 / 停止实况",true,()->{if(playing)stop.run();else play.run();}));space(12);
             long gap=m.optLong("maxGapMs");
             body.addView(text(m.optInt("frames")+" 帧 · "+(m.optBoolean("audio")?"含环境声":"无声")+" · 最长帧间隔 "+gap+" ms",13,MUTED));
-            if(gap>300 || !m.optBoolean("hasPostFrames",true)) body.addView(text("取景有停顿：播放保留原始时间，停顿期间显示上一帧。",13,0xffffd197));
+            if(gap>300 || (!"pre-only".equals(m.optString("captureMode")) && !m.optBoolean("hasPostFrames",true))) body.addView(text("取景有停顿：播放保留原始时间，停顿期间显示上一帧。",13,0xffffd197));
             if(!m.optBoolean("complete")) body.addView(text(m.optString("error","合成尚未完成"),14,0xffffd197));
             Button export=button("保存到系统相册",true,()-> {toast("正在导出…");io.execute(()->{try{MomentStore.export(this,d);main.post(()->toast("已保存到 DCIM/MomentS5；相册识别情况需实测"));}catch(Exception e){main.post(()->error(e));}});});
             export.setEnabled(m.optBoolean("complete"));body.addView(export);
@@ -206,8 +206,8 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=1;
         Bitmap b=BitmapFactory.decodeByteArray(jpeg,0,jpeg.length,o);
         main.post(()-> {if(destroyed || preview==null){if(b!=null)b.recycle();return;}preview.image(b);
-            if(progress!=null)progress.setProgress((int)Math.min(1500,bufferedUs/1000));
-            if(bufferText!=null)bufferText.setText(getString(R.string.buffer_status,demo?"演示 · ":"",Math.min(1.5,bufferedUs/1_000_000.0)));
+            if(progress!=null)progress.setProgress((int)(Math.min(FrameRing.PRE_CAPTURE_US,bufferedUs)/1000));
+            if(bufferText!=null)bufferText.setText(getString(R.string.buffer_status,demo?"演示 · ":"",Math.min(FrameRing.PRE_CAPTURE_US,bufferedUs)/1_000_000.0));
             if(shutter!=null){boolean r=engine.ready();shutter.setEnabled(r);shutter.setAlpha(r?1:.45f);}
         });
     }

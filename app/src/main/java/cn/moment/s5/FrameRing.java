@@ -6,7 +6,7 @@ import java.util.List;
 
 /** JPEG ring, bounded by both time and bytes. Uses monotonic microseconds. */
 public final class FrameRing {
-    public static final long PRE_CAPTURE_US=1_500_000;
+    public static final long PRE_CAPTURE_US=3_000_000;
     public static final long MAX_FRAME_AGE_US=500_000;
     public static final class Frame {
         public final long us;
@@ -36,7 +36,7 @@ public final class FrameRing {
         }
         // An optional boundary frame avoids readiness flicker between preview samples.
         if(anchor!=null && from-anchor.us<=MAX_FRAME_AGE_US) out.add(0,anchor);
-        if(recent<2 || out.get(0).us>from+50_000 || nowUs-out.get(out.size()-1).us>=MAX_FRAME_AGE_US)
+        if(recent<2 || out.get(0).us>from+50_000 || nowUs-out.get(out.size()-1).us>=MAX_FRAME_AGE_US || maxGap(out)>MAX_FRAME_AGE_US)
             return List.of();
         return out;
     }
