@@ -9,6 +9,13 @@ import java.util.Arrays;
 /** Bounded PTP dataset parsing; vendor constants follow MIT-licensed tethr. */
 public final class Ptp {
     private Ptp() {}
+    public static void requireSuccess(int operation,int response) throws IOException {
+        // Match tethr: an existing standard PTP session is usable after USB reconnect.
+        // Do not accept this response for capture, vendor commands or arbitrary operations.
+        if(response==0x2001 || (operation==0x1002 && response==0x201e)) return;
+        String detail=response==0x201e?"（会话已打开）":response==0x2019?"（机身忙）":"";
+        throw new IOException(String.format(java.util.Locale.ROOT,"PTP 指令 0x%04X，响应 0x%04X%s",operation,response,detail));
+    }
     public static ByteBuffer le(byte[] b) { return ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN); }
     public static byte[] command(int op, int tx, int... params) {
         if (params.length > 5) throw new IllegalArgumentException("PTP parameter count");

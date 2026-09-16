@@ -126,7 +126,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         TextView log=text((devices.length()==0?"尚未发现 USB 设备\n":devices.toString())+engine.diagnostics(),12,MUTED);log.setTextIsSelectable(true);body.addView(log);
         body.addView(button("分享诊断记录",false,()-> {
             try {File d=new File(store.root,"diagnostics");if(!d.isDirectory() && !d.mkdirs()) throw new IOException("目录创建失败");
-                File f=new File(d,"diagnostics.txt");Files.write(f.toPath(),("Moment S5 0.1.0\nAndroid "+Build.VERSION.RELEASE+" / "+Build.MANUFACTURER+" "+Build.MODEL+"\n"+devices+engine.diagnostics()).getBytes(java.nio.charset.StandardCharsets.UTF_8));share(f);
+                File f=new File(d,"diagnostics.txt");Files.write(f.toPath(),("Moment S5 "+BuildConfig.VERSION_NAME+"\nAndroid "+Build.VERSION.RELEASE+" / "+Build.MANUFACTURER+" "+Build.MODEL+"\n"+devices+engine.diagnostics()).getBytes(java.nio.charset.StandardCharsets.UTF_8));share(f);
             } catch(Exception e){error(e);}
         }));space(12);
         body.addView(text("驱动基于开源 tethr；初代 S5 2.9 与 Find X8 的兼容性需真机验证。程序不包含固件更新、删除照片或服务模式指令。",12,MUTED));

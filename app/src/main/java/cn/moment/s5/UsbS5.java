@@ -56,7 +56,8 @@ public final class UsbS5 implements AutoCloseable {
         log.accept(info.manufacturer+" "+info.model+" / "+info.version);
         if(!info.model.equalsIgnoreCase("DC-S5") && !info.model.equalsIgnoreCase("S5"))
             throw new IOException("当前驱动限定初代 S5；检测到 "+info.model);
-        exchange(0x1002,null,0,1).ok(); session=true;
+        Result opened=exchange(0x1002,null,0,1);opened.ok();session=true;
+        if(opened.code==0x201e) log.accept("PTP OpenSession 0x1002 返回 0x201E：继续使用已存在的会话");
         exchange(0x9102,null,0,0x00010001).ok(); vendorSession=true;
         startEvents();
         exchange(0x9412,null,0,0x0d000010).ok();live=true;
@@ -118,9 +119,9 @@ public final class UsbS5 implements AutoCloseable {
         },"s5-events");eventThread.start();
     }
     private static final class Result {
-        final int code; final byte[] data;
-        Result(int code,byte[] data) {this.code=code;this.data=data;}
-        void ok() throws IOException {if(code!=0x2001) throw new IOException(String.format(Locale.US,"PTP 响应 0x%04X%s",code,code==0x2019?"（机身忙）":""));}
+        final int operation,code; final byte[] data;
+        Result(int operation,int code,byte[] data) {this.operation=operation;this.code=code;this.data=data;}
+        void ok() throws IOException {Ptp.requireSuccess(operation,code);}
     }
     private synchronized Result exchange(int op,byte[] send,int limit,int... params) throws IOException {
         if(closed) throw new IOException("USB 已断开");
@@ -141,7 +142,7 @@ public final class UsbS5 implements AutoCloseable {
                 byte[] payload=read(length-12,deadline);
                 if(id!=tx) throw new IOException("PTP 事务编号不匹配；请断开重连");
                 if(type==2 && code==op) {data=payload;continue;}
-                if(type==3) return new Result(code,data);
+                if(type==3) return new Result(op,code,data);
                 throw new IOException("PTP 容器类型异常 "+type);
             }
             throw new IOException("PTP 未收到结束响应");

@@ -12,6 +12,17 @@ public final class CoreChecks {
     private static int checks;
     private static void check(boolean value,String message) {checks++;if(!value)throw new AssertionError(message);}
     public static void main(String[] args) throws Exception {
+        Ptp.requireSuccess(0x1002,0x2001);checks++;
+        Ptp.requireSuccess(0x1002,0x201e);checks++; // Regression: reconnect must reach Panasonic session setup.
+        Ptp.requireSuccess(0x9404,0x2001);checks++;
+        for(int op:new int[]{0x9404,0x9102,0x9412}) {
+            try {Ptp.requireSuccess(op,0x201e);throw new AssertionError("201E accepted outside standard OpenSession");}
+            catch(IOException expected) {
+                check(expected.getMessage().contains(String.format("0x%04X",op)) && expected.getMessage().contains("0x201E"),"error identifies failed operation");
+            }
+        }
+        try {Ptp.requireSuccess(0x1002,0x2019);throw new AssertionError("busy session accepted");}
+        catch(IOException expected) {check(expected.getMessage().contains("机身忙"),"other session errors are preserved");}
         byte[] command=Ptp.command(0x9404,17,0x03000011);
         check(Arrays.equals(command,new byte[]{16,0,0,0,1,0,4,(byte)0x94,17,0,0,0,17,0,0,3}),"capture packet");
         try {new Ptp.Reader(new byte[]{(byte)255,(byte)255,(byte)255,127}).array(4);throw new AssertionError("array accepted");} catch(IOException expected){checks++;}

@@ -4,7 +4,9 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.1.0 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.1.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[下载 v0.1.1 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.1.1) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+
+v0.1.1 修正标准 PTP OpenSession 返回 `0x201E`（会话已打开）时连接被错误中止的问题；其他 PTP 错误会同时显示指令编号。可覆盖安装 v0.1.0，具体变更和验证见 [发布说明](.github/releases/v0.1.1.md)。
 
 <img src="evidence/03-demo-live.png" alt="使用合成演示素材的拍摄界面，非 S5 真机画面" width="260"> <img src="evidence/06-playing.png" alt="实况动态回放界面，使用合成演示素材" width="260">
 
@@ -25,7 +27,7 @@ Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 
 
 ## 在 OPPO 上使用
 
-1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentS5-0.1.0-debug.apk`。这是开发测试签名，不是商店发行包。
+1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentS5-0.1.1-debug.apk`。这是开发测试签名，不是商店发行包；与 v0.1.0 签名一致，可直接覆盖安装。
 2. 手机设置搜索“OTG”并开启。使用支持数据的 USB-C to USB-C 线接 S5。
 3. S5 选择 **PC(Tether)**、单张拍摄、JPEG 或 RAW+JPEG，确认 SD 卡可写。先用较短快门测试，例如 1/125s。
 4. App 点“连接相机”，允许 USB 访问，等取景和 1.5 秒缓存就绪。
