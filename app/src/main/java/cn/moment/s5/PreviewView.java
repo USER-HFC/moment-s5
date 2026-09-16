@@ -13,10 +13,8 @@ public final class PreviewView extends View {
     public void image(Bitmap next) {Bitmap old=bitmap;bitmap=next;invalidate();if(old!=null && old!=next) old.recycle();}
     public void grid(boolean on) {grid=on;invalidate();}
     @Override protected void onMeasure(int w,int h) {
-        int width=MeasureSpec.getSize(w),height=Math.round(width*2f/3);
-        if(getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE)
-            height=Math.min(height,Math.round(getResources().getDisplayMetrics().heightPixels*.45f));
-        setMeasuredDimension(width,height);
+        int width=MeasureSpec.getSize(w);
+        setMeasuredDimension(width,resolveSize(Math.round(width*2f/3),h));
     }
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);int w=getWidth(),h=getHeight();c.drawColor(0xff181d18);

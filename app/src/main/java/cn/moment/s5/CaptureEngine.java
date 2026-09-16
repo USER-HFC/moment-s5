@@ -43,6 +43,25 @@ public final class CaptureEngine {
     public synchronized void stopAudio() {if(microphone!=null){microphone.close();microphone=null;}}
     public boolean canFocus() {return active && !demo && !busy && camera!=null;}
     public boolean active() {return active;}
+    public boolean demoMode() {return demo;}
+    public boolean canRemoteCapture() {return active && !busy && !shuttingDown;}
+    /** Single shot saved by the camera; no download and never an automatic retry. */
+    public void remoteShutter() {
+        if(!canRemoteCapture()) {listener.status("相机未连接或正在处理拍摄",false);return;}
+        busy=true;
+        worker.execute(()-> {
+            try {
+                if(!active) throw new IOException("相机已断开，未触发快门");
+                if(!demo) {
+                    if(camera==null) throw new IOException("相机已断开，未触发快门");
+                    camera.shutter();
+                }
+                String result=demo?"演示：遥控快门已触发（未连接机身）":"遥控指令已完成 · 请在机身确认照片";
+                log(result);listener.status(result,false);
+            } catch(Exception e) {fail(e);}
+            finally {ring.clear();busy=false;}
+        });
+    }
     public void connect(UsbManager manager,UsbDevice device) {
         worker.execute(()-> {
             disconnectNow();listener.status("正在打开 S5 USB 会话…",false);

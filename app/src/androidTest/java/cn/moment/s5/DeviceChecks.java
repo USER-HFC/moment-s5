@@ -10,9 +10,11 @@ import java.util.concurrent.*;
 import org.json.JSONObject;
 
 /** Actual Android encoder + capture workflow + MediaStore; no USB hardware simulation claim. */
-public final class DeviceChecks extends Instrumentation {
-    @Override public void onCreate(Bundle args) {super.onCreate(args);start();}
+public final class DeviceChecks extends LayoutChecks {
+    private boolean layout;
+    @Override public void onCreate(Bundle args) {super.onCreate(args);layout=args!=null && "layout".equals(args.getString("suite"));start();}
     @Override public void onStart() {
+        if(layout){super.onStart();return;}
         Bundle result=new Bundle();CaptureEngine engine=null;
         try {
             Context c=getTargetContext();CountDownLatch ready=new CountDownLatch(1),saved=new CountDownLatch(1);

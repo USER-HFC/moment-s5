@@ -26,13 +26,18 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
     private UsbManager usb;
     private LinearLayout root,body;
     private PreviewView preview;
-    private TextView status,bufferText,exposure;
+    private TextView status,bufferText,exposure,connectionState,timerText;
     private ProgressBar progress;
     private Button shutter;
+    private Button timerButton;
+    private Spinner timerDelay;
     private final List<Button> focusButtons=new ArrayList<>();
     private VideoView video;
     private File detail;
-    private String page="camera",statusValue="接上 S5，让照片多留住三秒。",exposureValue="USB-C 直连 · PC(Tether)";
+    private String page="home",statusValue="连接 S5，开始拍摄。",exposureValue="USB-C 直连 · PC(Tether)";
+    private long timerDeadline;
+    private int delaySeconds=10;
+    private boolean showGrid=true;
     private boolean destroyed,foreground,playing;
     private final Handler main=new Handler(Looper.getMainLooper());
     private final ExecutorService io=Executors.newSingleThreadExecutor();
@@ -44,7 +49,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
                 if(!foreground) return;
                 if(device!=null && intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false)) engine.connect(usb,device);
                 else status("USB 访问未授权。可以重新点“连接相机”。",false);
-            } else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction()) && device!=null && UsbS5.candidate(device)) engine.detach();
+            } else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction()) && device!=null && UsbS5.candidate(device)) {cancelTimer();engine.detach();}
         }
     };
     @Override public void onCreate(Bundle state) {
@@ -52,69 +57,128 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         IntentFilter f=new IntentFilter(USB_PERMISSION);f.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         registerReceiver(receiver,f,Context.RECEIVER_NOT_EXPORTED);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if(state!=null) page=state.getString("page","camera");render();
+        if(state!=null) page=state.getString("page","home");render();
     }
     @Override protected void onStart() {super.onStart();foreground=true;if(detail!=null && video==null)render();else if(status!=null)status.setText(statusValue);main.post(tick);}
     private final Runnable tick=new Runnable(){@Override public void run(){if(destroyed || !foreground)return;
         if(shutter!=null){boolean ready=engine.ready();shutter.setEnabled(ready);shutter.setAlpha(ready?1:.45f);}
         for(Button b:focusButtons){b.setEnabled(engine.canFocus());b.setAlpha(engine.canFocus()?1:.45f);}
+        if(connectionState!=null)connectionState.setText(engine.active()?(engine.demoMode()?"演示模式":"S5 已连接"):"未连接");
+        if(timerDeadline!=0 && !engine.active())cancelTimer();
+        updateTimerControls();
         main.postDelayed(this,400);
     }};
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {
         super.onRequestPermissionsResult(request,permissions,results);
         if(request==9){boolean allowed=results.length>0 && results[0]==android.content.pm.PackageManager.PERMISSION_GRANTED;engine.audio(allowed);toast(allowed?"环境声已开启":"继续使用无声实况");render();}
     }
-    @Override protected void onStop() {foreground=false;main.removeCallbacks(tick);stopPlayback();io.execute(engine::stopAudio);engine.disconnect();statusValue="已暂停连接 · 回到拍摄页可重新连接";super.onStop();}
+    @Override protected void onStop() {foreground=false;cancelTimer();main.removeCallbacks(tick);stopPlayback();io.execute(engine::stopAudio);engine.disconnect();statusValue="已暂停连接 · 请重新连接相机";super.onStop();}
     @Override protected void onDestroy() {destroyed=true;unregisterReceiver(receiver);engine.shutdown();io.shutdown();super.onDestroy();}
     @Override public void onConfigurationChanged(Configuration c) {super.onConfigurationChanged(c);render();}
     @Override public void onSaveInstanceState(Bundle out) {out.putString("page",page);super.onSaveInstanceState(out);}
-    @Override public void onBackPressed() {if(detail!=null) {detail=null;page="library";render();} else if(!page.equals("camera")){page="camera";render();} else super.onBackPressed();}
+    @Override public void onBackPressed() {if(detail!=null)navigate("library");else if(!page.equals("home"))navigate("home");else super.onBackPressed();}
+    private void navigate(String next) {cancelTimer();detail=null;page=next;render();}
+    private String pageTitle() {return switch(page){case "monitor"->"监看";case "timer"->"定时遥控";case "camera"->"动态照片";case "library"->"相册";case "connect"->"连接设置";default->"瞬间 S5";};}
     private void render() {
-        stopPlayback();preview=null;status=null;bufferText=null;exposure=null;progress=null;shutter=null;focusButtons.clear();
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);root.setPadding(dp(20),dp(12),dp(20),0);
+        stopPlayback();preview=null;status=null;bufferText=null;exposure=null;progress=null;shutter=null;timerText=null;timerButton=null;timerDelay=null;focusButtons.clear();
+        root=column();root.setBackgroundColor(BG);root.setPadding(dp(16),dp(8),dp(16),dp(8));
         root.setOnApplyWindowInsetsListener((v,insets)-> {
-            android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());int top=i.top,bottom=i.bottom;
-            root.setPadding(dp(20),top+dp(12),dp(20),bottom);return insets;
+            android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());
+            root.setPadding(i.left+dp(16),i.top+dp(8),i.right+dp(16),i.bottom+dp(8));return insets;
         });
-        LinearLayout header=row();TextView title=text("瞬间",27,TEXT);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        TextView wordmark=text("S5 / MOMENT",12,ACCENT);wordmark.setTypeface(Typeface.MONOSPACE);header.addView(wordmark);root.addView(header);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);scroll.setClipToPadding(false);scroll.setPadding(0,dp(16),0,dp(12));
-        body=column();scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        if(detail!=null) detailPage();else switch(page) {case "library" -> libraryPage();case "connect" -> connectionPage();default -> cameraPage();}
-        LinearLayout nav=row();for(String[] item:new String[][]{{"camera","拍摄"},{"library","片刻"},{"connect","连接"}}) {
-            Button b=button(item[1],item[0].equals(page),()-> {detail=null;page=item[0];render();});nav.addView(b,weighted(dp(56)));
+        LinearLayout header=row();
+        if(!page.equals("home")){Button back=button("首页",false,()->navigate("home"));header.addView(back,new LinearLayout.LayoutParams(dp(76),-2));}
+        TextView title=text(pageTitle(),23,TEXT);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));title.setPadding(dp(12),0,0,0);title.setAccessibilityHeading(true);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        connectionState=text(engine.active()?(engine.demoMode()?"演示模式":"S5 已连接"):"未连接",12,MUTED);connectionState.setPadding(dp(8),0,dp(8),0);header.addView(connectionState);
+        Button connect=button("连接",false,()->navigate("connect"));header.addView(connect,new LinearLayout.LayoutParams(dp(80),-2));root.addView(header);
+        if(detail!=null)detailPage();
+        else if(page.equals("camera") || page.equals("monitor") || page.equals("timer")) cameraPage();
+        else {
+            ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setPadding(0,dp(8),0,0);
+            body=column();scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+            switch(page) {case "library" -> libraryPage();case "connect" -> connectionPage();default -> homePage();}
         }
-        root.addView(nav);setContentView(root);root.requestApplyInsets();
+        setContentView(root);root.requestApplyInsets();updateTimerControls();
+    }
+    private void homePage() {
+        body.addView(text("一台相机，四种工作方式。",14,MUTED));space(8);
+        String[][] menus={{"monitor","监看","实时取景 / 对焦与构图"},{"timer","定时遥控","倒计时单拍 / 保存到机身"},{"camera","动态照片","快门前 3 秒 / 留住这一刻"},{"library","相册","本机片刻 / 回放与导出"}};
+        for(int r=0;r<2;r++) {
+            LinearLayout line=row();
+            for(int i=r*2;i<r*2+2;i++) {
+                String[] item=menus[i];Button menu=button(item[1]+"\n"+item[2],item[0].equals("camera"),()->navigate(item[0]));
+                android.text.SpannableString label=new android.text.SpannableString(item[1]+"\n"+item[2]);
+                label.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),0,item[1].length(),0);
+                label.setSpan(new android.text.style.RelativeSizeSpan(.7f),item[1].length()+1,label.length(),0);
+                label.setSpan(new android.text.style.ForegroundColorSpan(item[0].equals("camera")?BG:MUTED),item[1].length()+1,label.length(),0);
+                menu.setText(label);menu.setContentDescription(item[1]);menu.setTextSize(20);menu.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);menu.setPadding(dp(24),dp(20),dp(24),dp(20));menu.setMinHeight(dp(116));
+                line.addView(menu,weighted(-2));
+            }
+            body.addView(line,new LinearLayout.LayoutParams(-1,-2));space(4);
+        }
     }
     private void cameraPage() {
-        LinearLayout tag=row();tag.addView(text("LIVE PHOTO",12,ACCENT),new LinearLayout.LayoutParams(0,-2,1));tag.addView(text("快门前 3s",12,MUTED));body.addView(tag);space(12);
-        preview=new PreviewView(this);body.addView(preview,new LinearLayout.LayoutParams(-1,-2));space(12);
-        exposure=text(exposureValue,13,MUTED);exposure.setTypeface(Typeface.MONOSPACE);body.addView(exposure);
-        space(20);bufferText=text("快门前缓存  0.0 / 3.0 秒",14,TEXT);body.addView(bufferText);
-        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax((int)(FrameRing.PRE_CAPTURE_US/1000));progress.setProgressTintList(ColorStateList.valueOf(ACCENT));
-        body.addView(progress,new LinearLayout.LayoutParams(-1,dp(8)));space(8);
-        status=text(statusValue,14,MUTED);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);body.addView(status);space(16);
+        LinearLayout split=row();split.setGravity(Gravity.TOP);split.setPadding(0,dp(8),0,0);root.addView(split,new LinearLayout.LayoutParams(-1,0,1));
+        preview=new PreviewView(this);preview.grid(showGrid);split.addView(preview,new LinearLayout.LayoutParams(0,-1,1));
+        ScrollView controlsScroll=new ScrollView(this);controlsScroll.setFillViewport(false);
+        int panelWidth=Math.min(320,Math.max(240,getResources().getConfiguration().screenWidthDp/3));
+        LinearLayout.LayoutParams side=new LinearLayout.LayoutParams(dp(panelWidth),-1);side.setMargins(dp(16),0,0,0);split.addView(controlsScroll,side);
+        body=column();controlsScroll.addView(body);
+        exposure=text(exposureValue,13,MUTED);exposure.setTypeface(Typeface.MONOSPACE);body.addView(exposure);space(8);
+        if(page.equals("camera")) {
+            bufferText=text("快门前缓存  0.0 / 3.0 秒",14,TEXT);body.addView(bufferText);
+            progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax((int)(FrameRing.PRE_CAPTURE_US/1000));progress.setProgressTintList(ColorStateList.valueOf(ACCENT));
+            body.addView(progress,new LinearLayout.LayoutParams(-1,dp(8)));space(8);
+            shutter=button("拍摄动态照片",true,()->engine.capture());shutter.setContentDescription("拍摄实况照片，保留快门前三秒");shutter.setEnabled(engine.ready());body.addView(shutter);
+        } else if(page.equals("timer")) {
+            TextView label=text("快门延时",14,TEXT);body.addView(label);
+            timerDelay=new Spinner(this);timerDelay.setContentDescription("快门延时");timerDelay.setMinimumHeight(dp(48));
+            String[] delays={"2 秒","5 秒","10 秒","30 秒"};int[] seconds={2,5,10,30};
+            ArrayAdapter<String> choices=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,delays);timerDelay.setAdapter(choices);
+            for(int i=0;i<seconds.length;i++)if(seconds[i]==delaySeconds)timerDelay.setSelection(i);
+            timerDelay.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int pos,long id){delaySeconds=seconds[pos];}public void onNothingSelected(AdapterView<?> p){}});body.addView(timerDelay);
+            timerText=text("单张拍摄 · 仅保存到机身 SD 卡",14,MUTED);timerText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);body.addView(timerText);
+            timerButton=button("开始倒计时",true,()->{if(timerDeadline!=0)cancelTimer();else startTimer();});body.addView(timerButton);
+        } else {
+            body.addView(text("实时监看",20,TEXT));
+            Switch grid=new Switch(this);grid.setText("构图网格");grid.setTextColor(TEXT);grid.setMinHeight(dp(48));grid.setChecked(showGrid);grid.setOnCheckedChangeListener((b,on)->{showGrid=on;if(preview!=null)preview.grid(on);});body.addView(grid);
+        }
+        status=text(statusValue,13,MUTED);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);body.addView(status);space(8);
         LinearLayout controls=row();
         for(int i=-1;i<=1;i++){final int direction=i;Button b=button(i<0?"近焦":i>0?"远焦":"自动对焦",false,()->engine.focus(direction));
-            b.setEnabled(engine.canFocus());b.setAlpha(engine.canFocus()?1:.45f);focusButtons.add(b);controls.addView(b,weighted(dp(52)));}
-        body.addView(controls);space(16);
-        LinearLayout capture=row();capture.setGravity(Gravity.CENTER);
-        shutter=button("实况\n快门",true,()-> {engine.capture();shutter.setEnabled(false);shutter.setAlpha(.45f);});
-        shutter.setContentDescription("拍摄实况照片，保留快门前三秒");shutter.setTextSize(16);shutter.setBackground(ripple(ACCENT,dp(50)));shutter.setEnabled(engine.ready());shutter.setAlpha(engine.ready()?1:.45f);
-        capture.addView(shutter,new LinearLayout.LayoutParams(dp(100),dp(100)));body.addView(capture);space(16);
+            b.setEnabled(engine.canFocus());b.setAlpha(engine.canFocus()?1:.45f);focusButtons.add(b);controls.addView(b,weighted(-2));}
+        body.addView(controls);space(8);
         body.addView(button("连接相机",false,this::connect));
+        body.addView(button("相册",false,()->navigate("library")));
         body.addView(button("体验实况演示",false,()->new AlertDialog.Builder(this).setTitle("体验完整拍摄流程")
             .setMessage("演示使用程序生成的风景与移动光点，能够真实合成、回放和导出实况文件，但不代表 S5 已连接或通过兼容性测试。")
             .setPositiveButton("进入演示",(d,w)->engine.demo()).setNegativeButton("取消",null).show()));
-        space(8);body.addView(text("原片来自 S5，动态来自 USB 取景。\n可在连接页开启手机环境声。",12,MUTED));
+        space(8);body.addView(text(page.equals("timer")?"保持 App 在前台。离开本页或断开连接将取消计时；指令到达机身存在延迟。":"USB 取景 · 可在连接页开启手机环境声。",12,MUTED));
     }
+    private void startTimer() {
+        if(!foreground || !engine.canRemoteCapture())return;
+        timerDeadline=SystemClock.elapsedRealtime()+delaySeconds*1000L;main.post(countdown);updateTimerControls();
+    }
+    private void cancelTimer() {boolean pending=timerDeadline!=0;timerDeadline=0;main.removeCallbacks(countdown);if(pending){statusValue="倒计时已取消";if(status!=null)status.setText(statusValue);}updateTimerControls();}
+    private void updateTimerControls() {
+        if(timerButton==null)return;
+        boolean pending=timerDeadline!=0;timerButton.setText(pending?"取消倒计时":"开始倒计时");timerButton.setEnabled(pending || engine.canRemoteCapture());
+        timerButton.setAlpha(timerButton.isEnabled()?1:.45f);if(timerDelay!=null)timerDelay.setEnabled(!pending);
+        if(timerText!=null)timerText.setText(pending?"将在 "+Math.max(1,(timerDeadline-SystemClock.elapsedRealtime()+999)/1000)+" 秒后拍摄":"单张拍摄 · 仅保存到机身 SD 卡");
+    }
+    private final Runnable countdown=new Runnable(){@Override public void run(){
+        if(timerDeadline==0)return;
+        if(!foreground || !page.equals("timer") || !engine.active()){cancelTimer();return;}
+        if(SystemClock.elapsedRealtime()>=timerDeadline){timerDeadline=0;engine.remoteShutter();updateTimerControls();return;}
+        updateTimerControls();main.postDelayed(this,100);
+    }};
     private void connectionPage() {
         body.addView(text("一根线，留住瞬间。",24,TEXT));space(12);
         body.addView(text("OPPO Find X8  →  USB-C 数据线  →  LUMIX S5",14,ACCENT));space(20);
         card("01  手机","在设置中搜索并打开 OTG。数据线需要支持文件传输，不只是充电。");
         card("02  相机","USB 模式选择 PC(Tether)，使用单张拍摄，画质设为 JPEG 或 RAW+JPEG，确认 SD 卡可写。");
         card("03  连接","点击下方按钮并允许 USB 访问。等待预缓存填满，再按 App 的实况快门。");
-        body.addView(button("连接相机",true,this::connect));body.addView(button("断开连接",false,()-> {engine.disconnect();status("已断开连接",false);}));
+        body.addView(button("连接相机",true,this::connect));body.addView(button("断开连接",false,()-> {cancelTimer();engine.disconnect();status("已断开连接",false);}));
         body.addView(button("刷新曝光参数",false,engine::refreshExposure));space(16);
         Switch microphone=new Switch(this);microphone.setText("录制手机环境声");microphone.setTextColor(TEXT);microphone.setTextSize(16);microphone.setMinHeight(dp(52));microphone.setChecked(engine.audioEnabled());
         microphone.setOnCheckedChangeListener((view,on)->{
@@ -140,9 +204,9 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         List<UsbDevice> devices=new ArrayList<>();for(UsbDevice d:usb.getDeviceList().values()) if(UsbS5.candidate(d)) devices.add(d);
         if(devices.isEmpty()) {statusValue="未发现 S5 · 检查 OTG、数据线和 PC(Tether)";new AlertDialog.Builder(this).setTitle("尚未发现 S5")
             .setMessage("确认 OPPO 已开启 OTG，使用数据线直连相机，并在 S5 选择 PC(Tether)。不需要采集卡。")
-            .setPositiveButton("查看连接步骤",(a,b)->{page="connect";detail=null;render();}).setNegativeButton("关闭",null).show();return;}
+            .setPositiveButton("查看连接步骤",(a,b)->navigate("connect")).setNegativeButton("关闭",null).show();return;}
         if(devices.size()>1) {toast("请仅连接一台 S5");return;}
-        UsbDevice d=devices.get(0);page="camera";detail=null;render();
+        UsbDevice d=devices.get(0);cancelTimer();if(page.equals("connect") || page.equals("home"))page="monitor";detail=null;render();
         if(usb.hasPermission(d)) engine.connect(usb,d);
         else {
             Intent intent=new Intent(USB_PERMISSION).setPackage(getPackageName());
@@ -151,8 +215,8 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
         }
     }
     private void libraryPage() {
-        List<File> moments=store.list();body.addView(text("留下的片刻",25,TEXT));space(8);body.addView(text(moments.size()+" 个瞬间 · 全部保存在本机",14,MUTED));space(20);
-        if(moments.isEmpty()) {card("还没有实况照片","连接 S5 拍下第一张，或在拍摄页体验演示。演示作品会始终带有明确标记。");return;}
+        List<File> moments=store.list();body.addView(text("留下的片刻",25,TEXT));space(8);body.addView(text(moments.size()+" 个瞬间 · 全部保存在本机；定时遥控原片请在机身查看",14,MUTED));space(16);
+        if(moments.isEmpty()) {card("还没有动态照片","连接 S5 拍下第一张，或从首页进入动态照片体验演示。演示作品会始终带有明确标记。");return;}
         for(File d:moments) {
             try {
                 JSONObject m=MomentStore.metadata(d);String date=new SimpleDateFormat("MM月dd日  HH:mm:ss",Locale.CHINA).format(new Date(m.optLong("createdAt",d.lastModified())));
@@ -164,16 +228,18 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
     private void detailPage() {
         File d=detail;
         try {
-            JSONObject m=MomentStore.metadata(d);body.addView(button("返回片刻",false,()->{detail=null;page="library";render();}));space(12);
-            body.addView(text(m.optBoolean("demo")?"演示 · 一瞬之间":"一瞬之间",25,TEXT));space(12);
-            FrameLayout frame=new FrameLayout(this);int height=Math.round((getResources().getDisplayMetrics().widthPixels-dp(40))*2f/3);
-            if(getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE)height=Math.min(height,Math.round(getResources().getDisplayMetrics().heightPixels*.45f));
+            JSONObject m=MomentStore.metadata(d);
+            LinearLayout split=row();split.setGravity(Gravity.TOP);split.setPadding(0,dp(8),0,0);root.addView(split,new LinearLayout.LayoutParams(-1,0,1));
+            FrameLayout frame=new FrameLayout(this);split.addView(frame,new LinearLayout.LayoutParams(0,-1,1));
+            ScrollView side=new ScrollView(this);LinearLayout.LayoutParams sideParams=new LinearLayout.LayoutParams(dp(Math.min(320,Math.max(240,getResources().getConfiguration().screenWidthDp/3))),-1);sideParams.setMargins(dp(16),0,0,0);split.addView(side,sideParams);
+            body=column();side.addView(body);body.addView(button("返回相册",false,()->navigate("library")));space(8);
+            body.addView(text(m.optBoolean("demo")?"演示 · 一瞬之间":"一瞬之间",22,TEXT));space(8);
             HoldPhotoView photo=new HoldPhotoView(this);photo.setScaleType(ImageView.ScaleType.FIT_CENTER);photo.setContentDescription("实况静态照片，长按播放动态");
             BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;BitmapFactory.decodeFile(new File(d,"original.jpg").getPath(),o);
             o.inSampleSize=1;while(o.outWidth/o.inSampleSize>1600) o.inSampleSize*=2;o.inJustDecodeBounds=false;
             photo.setImageBitmap(BitmapFactory.decodeFile(new File(d,"original.jpg").getPath(),o));
             video=new VideoView(this);video.setVisibility(View.INVISIBLE);video.setVideoPath(new File(d,"motion.mp4").getPath());
-            frame.addView(video,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));frame.addView(photo,new FrameLayout.LayoutParams(-1,-1));body.addView(frame,new LinearLayout.LayoutParams(-1,height));
+            frame.addView(video,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));frame.addView(photo,new FrameLayout.LayoutParams(-1,-1));
             Runnable play=()-> {if(!m.optBoolean("complete") || video==null)return;playing=true;photo.setAlpha(1f);video.setVisibility(View.VISIBLE);video.seekTo(0);video.start();};
             Runnable stop=()-> {if(video!=null){video.pause();video.seekTo(0);video.setVisibility(View.INVISIBLE);}photo.setAlpha(1f);playing=false;};
             photo.hold(play,stop);
@@ -191,7 +257,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
             body.addView(button("分享原片 JPEG",false,()->share(new File(d,"original.jpg"))));
             body.addView(button("分享动态视频",false,()->share(new File(d,"motion.mp4"))));space(12);
             body.addView(text("导出使用 Android Motion Photo 格式。发送渠道可能只保留静态图；传入 iPhone 不会自动变成 Apple Live Photo。",12,MUTED));
-        } catch(Exception e) {body.addView(text("无法读取："+e.getMessage(),14,TEXT));}
+        } catch(Exception e) {root.addView(text("无法读取："+e.getMessage(),14,TEXT));}
     }
     private void share(File file) {
         if(!file.isFile()) {toast("文件尚未生成");return;}
@@ -211,7 +277,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
             if(shutter!=null){boolean r=engine.ready();shutter.setEnabled(r);shutter.setAlpha(r?1:.45f);}
         });
     }
-    @Override public void saved(File directory) {main.post(()-> {if(!destroyed && foreground){toast("实况已保存，可以到“片刻”长按回放");if(page.equals("library"))render();}});}
+    @Override public void saved(File directory) {main.post(()-> {if(!destroyed && foreground){toast("实况已保存，可以到“相册”长按回放");if(page.equals("library"))render();}});}
     @Override public void log(String message) {android.util.Log.i("MomentS5",message);}
     @Override public void exposure(String value) {main.post(()-> {exposureValue=value;if(exposure!=null)exposure.setText(value);});}
     private void error(Exception e) {new AlertDialog.Builder(this).setTitle("暂未完成").setMessage(e.getMessage()).setPositiveButton("知道了",null).show();}
