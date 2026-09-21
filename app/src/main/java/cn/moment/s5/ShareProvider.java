@@ -20,7 +20,7 @@ public final class ShareProvider extends ContentProvider {
         try {
             List<String> p=uri.getPathSegments();if(p.size()!=2) throw new IOException("Invalid path");
             String name=p.get(1);
-            if(!List.of("original.jpg","motion.mp4","MOMENT_MP.jpg","moment.json","diagnostics.txt").contains(name)) throw new IOException("Invalid filename");
+            if(!List.of("original.jpg","rendered.jpg","motion.mp4","MOMENT_MP.jpg","moment.json","diagnostics.txt").contains(name)) throw new IOException("Invalid filename");
             File root=new File(getContext().getFilesDir(),"moments").getCanonicalFile();File f=new File(new File(root,p.get(0)),name).getCanonicalFile();
             if(!f.toPath().startsWith(root.toPath()) || !f.isFile()) throw new IOException("Not found");return f;
         } catch(IOException e) {throw new FileNotFoundException(e.getMessage());}

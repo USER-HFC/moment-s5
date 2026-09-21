@@ -28,6 +28,7 @@ public final class CaptureEngine {
     private volatile boolean audioEnabled;
     private volatile boolean demo,busy,shuttingDown;
     private volatile boolean active;
+    private volatile LutEngine lut;
     private ScheduledFuture<?> polling;
     private final List<String> logs=Collections.synchronizedList(new ArrayList<>());
     public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;}
@@ -43,6 +44,8 @@ public final class CaptureEngine {
     public synchronized void stopAudio() {if(microphone!=null){microphone.close();microphone=null;}}
     public boolean canFocus() {return active && !demo && !busy && camera!=null;}
     public boolean active() {return active;}
+    public synchronized void setLut(LutEngine value) {lut=value;ring.clear();log(value==null?"LUT 已关闭，正在重建预缓存":"LUT 已启用："+value.title+"，正在重建预缓存");}
+    public String lutTitle() {LutEngine value=lut;return value==null?null:value.title;}
     public boolean demoMode() {return demo;}
     public boolean canRemoteCapture() {return active && !busy && !shuttingDown;}
     /** Single shot saved by the camera; no download and never an automatic retry. */
@@ -83,7 +86,7 @@ public final class CaptureEngine {
     }
     private void grab() throws Exception {
         byte[] bytes=demo?demoFrame(now(),960,640):(camera==null?null:camera.preview());
-        if(bytes!=null) {long t=now();ring.add(t,bytes);listener.frame(bytes,ring.durationUs(),demo);}
+        if(bytes!=null) {LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}long t=now();ring.add(t,bytes);listener.frame(bytes,ring.durationUs(),demo);}
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
     public void capture() {
@@ -133,17 +136,26 @@ public final class CaptureEngine {
                     still=camera.object(handle);
                     if(still.length!=info.size && info.size!=0) throw new IOException("原片长度不符，未生成实况文件");
                 }
+                LutEngine filter=lut;
+                // Keep the camera bytes immutable; rendered.jpg is an explicit derivative.
                 Files.write(new File(dir,"original.jpg").toPath(),still);
+                if(filter!=null) Files.write(new File(dir,"original-camera.jpg").toPath(),still);
+                boolean lutApplied=false;
+                if(filter!=null){
+                    try { Files.write(new File(dir,"rendered.jpg").toPath(),filter.applyJpeg(still)); lutApplied=true; }
+                    catch(IOException e) { log("LUT 原片套用失败，保留相机原片："+e.getMessage()); }
+                }
                 JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demo);meta.put("source",filename);
                 meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000);
                 meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","pre-shutter buffer snapshot; exposure time is approximate");
+                meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
                 meta.put("stillUs",stillUs);meta.put("shutterOffsetUs",shutterUs-from);meta.put("durationUs",to-from);
                 meta.put("motionQuality","USB preview, not camera-recorded video");
                 meta.put("complete",false);meta.put("error","合成尚未完成，已接收的原片可以分享");
                 MomentStore.metadata(dir,meta);
-                File finalDir=dir;
+                File finalDir=dir; final boolean rendered=lutApplied;
                 listener.status("原片已接收 · 正在合成实况",false);
                 exporter.execute(()-> {
                     try {
@@ -153,7 +165,7 @@ public final class CaptureEngine {
                             AudioMux.add(audioSamples,new File(finalDir,"motion.mp4"),withAudio);
                             Files.move(withAudio.toPath(),new File(finalDir,"motion.mp4").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                         }
-                        MotionPhoto.write(new File(finalDir,"original.jpg"),new File(finalDir,"motion.mp4"),new File(finalDir,"MOMENT_MP.jpg"),stillUs);
+                        MotionPhoto.write(new File(finalDir,rendered?"rendered.jpg":"original.jpg"),new File(finalDir,"motion.mp4"),new File(finalDir,"MOMENT_MP.jpg"),stillUs);
                         meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);listener.saved(finalDir);
                         log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");
                         listener.status("实况已保存",false);

@@ -1,28 +1,29 @@
 # 瞬间 S5 / Moment
 
-为 **OPPO Find X8 + 初代 Panasonic LUMIX S5** 开发的原生 Android 实况照片应用。USB-C 数据线直连，不需要视频采集卡、不依赖云端、不刷机。
+为 **OPPO Find X8 + 初代 Panasonic LUMIX S5** 开发的 React Native 实况照片应用。USB-C 数据线直连，不需要视频采集卡、不依赖云端、不刷机；页面和数据契约为后续 iPhone / iPad 适配保留。
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
 [下载 v0.2.0 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.2.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
-v0.2.0 改为横屏应用，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。定时遥控支持 2 / 5 / 10 / 30 秒倒计时单拍与取消；动态照片继续保留快门前 3 秒画面。可覆盖安装旧版，具体变更和验证见 [发布说明](.github/releases/v0.2.0.md)。
+当前开发版改为横屏 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。
 
 <img src="evidence/v0.2.0/01-home.png" alt="横屏首页：监看、定时遥控、动态照片、相册" width="720">
 
 ## 当前交付
 
-- 原生 Android APK，最低 Android 13（API 33）；双向横屏，左侧画面、右侧滚动操作区。
+- React Native Android APK，最低 Android 13（API 33）；双向横屏，左侧画面、右侧滚动操作区。`mobile/` 是 RN 工程。
 - 监看：实时取景、构图网格开关、对焦控制；定时遥控：前台倒计时单张快门，仅保存到机身 SD 卡，不自动下载。
 - Panasonic PTP USB 会话、实时 JPEG 取景、AF、近/远焦步进、曝光参数读取。
 - 手机缓存快门前约 3 秒取景，App 快门触发 S5 拍照，再接收本次原尺寸 JPEG；不采集快门后画面。
 - 原照片 + H.264 视频打包为 Android Motion Photo；保留原始 EXIF 与 JPEG 数据。
 - 可选手机麦克风收音，AAC 音轨与视频合并。默认关闭，需要明确授予录音权限。
+- LUT 仓库：导入 LUMIX Lab 33-grid `.cube` 或 `.zip`，启用后同时作用于监看帧和手机端渲染照片；`original.jpg` 永远保留相机原始 JPEG，`rendered.jpg` 是派生文件。LUT 必须匹配输入色彩空间，App 不会把普通 JPEG 自动变成 V-Log。
 - 本地片刻列表、长按播放、独立播放按钮、系统相册导出、分享原片/视频/实况文件。
 - 可运行的合成演示，用于无相机测试。演示拍摄、界面及元数据都明确标记，不伪装成机身输出。
 - 连接诊断可分享，不记录机身序列号，不上传日志。
 
-**状态：应用构建、Android 模拟器媒体链路及本地验证可执行；尚未在真实 S5/Find X8 上验证 USB 会话、镜头控制、取景连续性和 ColorOS 相册识别。** 本仓库没有 iPhone 原生客户端；Android Motion Photo 不能直接当作 Apple Live Photo。
+**状态：RN Release 可构建并在 Android 模拟器启动；尚未在真实 S5/Find X8 上验证 USB 会话、镜头控制、取景连续性和 ColorOS 相册识别。** iOS 页面工程已由 RN 生成，但 ImageCaptureCore/PTP 原生桥尚未接入，因此不能宣称 iPhone/iPad 已支持。Android Motion Photo 不能直接当作 Apple Live Photo。
 
 详细验证范围与结果见 [TEST_REPORT.md](TEST_REPORT.md)，交互与视觉取舍见 [DESIGN.md](DESIGN.md)。
 
@@ -55,13 +56,14 @@ v0.2.0 改为横屏应用，首页提供 **监看、定时遥控、动态照片�
 
 ## 构建
 
-环境：JDK 17、Android SDK Platform 35、Build Tools 34.0.0、Gradle 8.9 / Android Gradle Plugin 8.7.3。应用本身无第三方运行时依赖。
+环境：Node 18+、JDK 17、Android SDK Platform 35、Gradle 8.10.2。Paper、safe-area-context 和 document-picker 依赖由 `mobile/package-lock.json` 锁定。
 
 安装 JDK 17 并配置 Android SDK（Android Studio 可代为安装），设置 `ANDROID_HOME` 或在不提交的 `local.properties` 中配置 `sdk.dir`。Windows 可执行：
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:lintDebug
-.\tools\check-core.ps1
+cd mobile; npm ci; cd android
+.\gradlew.bat :app:assembleRelease :app:assembleAndroidTest
+cd ..; npm test -- --runInBand
 ```
 
 新机器可运行 `tools/bootstrap.ps1` 下载所需 Android 命令行工具。脚本只使用自己的工具目录，不改系统 PATH 或 JAVA_HOME；JDK 17 需已安装。完成后按输出指令接受 Android SDK 许可并构建。
@@ -89,10 +91,12 @@ adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.s5.test/cn
 | `VideoEncoder.java` | JPEG 时间序列转 H.264，实际时间上的缺帧保持 |
 | `AudioRing.java` / `AudioMux.java` | 可选 PCM 缓存、AAC 编码与复用 |
 | `MotionPhoto.java` / `MomentStore.java` | 标准格式、本地存储、MediaStore 导出 |
-| `MainActivity.java` / `PreviewView.java` / `HoldPhotoView.java` | 原生相机界面与回放 |
+| `mobile/App.tsx` / `mobile/src/native.ts` | React Native Paper 横屏界面与跨平台数据契约 |
+| `mobile/android/.../MomentS5Module.java` | RN Android 原生桥、LUT 仓库和相册 URI |
+| `MainActivity.java` / `PreviewView.java` / `HoldPhotoView.java` | 旧版 Android 界面，仅作迁移参考 |
 | `ShareProvider.java` | 限定输出路径的只读分享 |
 
-每次成功拍摄动态照片包含 `original.jpg`、`motion.mp4`、`MOMENT_MP.jpg`、`moment.json`。静态原片与视频可独立分享，也保留后续转换到 Apple Live Photo 的素材基础；本版未提供该转换器。定时遥控不创建本机媒体文件。
+每次成功拍摄动态照片包含 `original.jpg`、`motion.mp4`、`MOMENT_MP.jpg`、`moment.json`；启用 LUT 时另有 `rendered.jpg`。静态原片与视频可独立分享，也保留后续转换到 Apple Live Photo 的素材基础；本版未提供该转换器。定时遥控不创建本机媒体文件。
 
 ## 开源来源
 
