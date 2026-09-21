@@ -7,7 +7,7 @@
 
     <application
       android:name=".MainApplication"
-      android:label="瞬间 S5"
+      android:label="瞬间 Lumix"
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
@@ -15,7 +15,7 @@
       android:supportsRtl="true">
       <activity
         android:name=".MainActivity"
-        android:label="瞬间 S5"
+        android:label="瞬间 Lumix"
         android:screenOrientation="sensorLandscape"
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:launchMode="singleTask"

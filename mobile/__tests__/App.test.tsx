@@ -14,6 +14,8 @@ it('renders the four cross-platform workspace entries', async () => {
   const PaperText = require('react-native-paper').Text;
   const text = tree!.root.findAllByType(PaperText).map((node: any) => node.props.children).flat().join(' ');
   expect(text).toContain('监看');
+  expect(text).toContain('瞬间 Lumix');
+  expect(text).not.toContain('瞬间 S5');
   expect(text).toContain('动态照片');
   act(() => tree!.unmount());
   jest.clearAllTimers();

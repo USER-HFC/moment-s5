@@ -1,18 +1,20 @@
-# 瞬间 S5 / Moment
+# 瞬间 Lumix / Moment
 
-为 **OPPO Find X8 + 初代 Panasonic LUMIX S5** 开发的 React Native 实况照片应用。USB-C 数据线直连，不需要视频采集卡、不依赖云端、不刷机；页面和数据契约为后续 iPhone / iPad 适配保留。
+为 Panasonic LUMIX 系列相机打造的 React Native 实况照片应用。当前优先适配初代 S5 + OPPO Find X8；USB-C 数据线直连，不需要视频采集卡、不依赖云端、不刷机，后续可扩展其他机型。
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.2.0 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.2.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[下载 v0.3.1 预览版 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.3.1) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
-当前开发版改为横屏 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。
+当前开发版是横屏 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。
+
+v0.3.1 将产品名称统一为“瞬间 Lumix”，为后续其他机型适配使用统一品牌；**当前驱动仍限定初代 S5，改名不代表新增机型支持**。保留应用包名 `cn.moment.s5`、签名和存储路径，旧版无需卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
 
 <img src="evidence/v0.2.0/01-home.png" alt="横屏首页：监看、定时遥控、动态照片、相册" width="720">
 
 ## 当前交付
 
-- React Native Android APK，最低 Android 13（API 33）；双向横屏，左侧画面、右侧滚动操作区。`mobile/` 是 RN 工程。
+- React Native Android APK，最低 Android 13（API 33）；双向横屏，左侧画面、右侧滚动操作区。`mobile/` 是 RN 工程，产品名为“瞬间 Lumix”。
 - 监看：实时取景、构图网格开关、对焦控制；定时遥控：前台倒计时单张快门，仅保存到机身 SD 卡，不自动下载。
 - Panasonic PTP USB 会话、实时 JPEG 取景、AF、近/远焦步进、曝光参数读取。
 - 手机缓存快门前约 3 秒取景，App 快门触发 S5 拍照，再接收本次原尺寸 JPEG；不采集快门后画面。
@@ -29,7 +31,7 @@ Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 
 
 ## 在 OPPO 上使用
 
-1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentS5-0.2.0-debug.apk`。这是开发测试签名，不是商店发行包；与旧版签名一致，可直接覆盖安装。
+1. 从 [Releases](https://github.com/USER-HFC/moment-s5/releases) 下载并安装 `MomentLumix-0.3.1-rn-debug.apk`。这是开发测试签名，不是商店发行包；与旧版签名一致，可直接覆盖安装。
 2. 手机设置搜索“OTG”并开启。使用支持数据的 USB-C to USB-C 线接 S5。
 3. S5 选择 **PC(Tether)**、单张拍摄、JPEG 或 RAW+JPEG，确认 SD 卡可写。先用较短快门测试，例如 1/125s。
 4. 横屏打开 App，从首页选择功能，通过“连接”设置或页面内“连接相机”允许 USB 访问。

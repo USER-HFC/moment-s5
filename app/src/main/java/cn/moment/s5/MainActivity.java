@@ -78,7 +78,7 @@ public final class MainActivity extends Activity implements CaptureEngine.Listen
     @Override public void onSaveInstanceState(Bundle out) {out.putString("page",page);super.onSaveInstanceState(out);}
     @Override public void onBackPressed() {if(detail!=null)navigate("library");else if(!page.equals("home"))navigate("home");else super.onBackPressed();}
     private void navigate(String next) {cancelTimer();detail=null;page=next;render();}
-    private String pageTitle() {return switch(page){case "monitor"->"监看";case "timer"->"定时遥控";case "camera"->"动态照片";case "library"->"相册";case "connect"->"连接设置";default->"瞬间 S5";};}
+    private String pageTitle() {return switch(page){case "monitor"->"监看";case "timer"->"定时遥控";case "camera"->"动态照片";case "library"->"相册";case "connect"->"连接设置";default->"瞬间 Lumix";};}
     private void render() {
         stopPlayback();preview=null;status=null;bufferText=null;exposure=null;progress=null;shutter=null;timerText=null;timerButton=null;timerDelay=null;focusButtons.clear();
         root=column();root.setBackgroundColor(BG);root.setPadding(dp(16),dp(8),dp(16),dp(8));

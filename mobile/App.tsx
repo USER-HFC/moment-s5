@@ -43,7 +43,7 @@ export default function App() {
     catch (e) { if (!DocumentPicker.isCancel(e)) setSnack(errorText(e)); }
   };
   return <SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
-    <View style={styles.header}><View><Text variant="headlineMedium">瞬间 S5</Text><Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text></View><View style={styles.headerRight}><Text variant="labelLarge">{status}</Text><Button mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>
+    <View style={styles.header}><View><Text variant="headlineMedium">瞬间 Lumix</Text><Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text></View><View style={styles.headerRight}><Text variant="labelLarge">{status}</Text><Button mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>
     {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <Album moments={moments} onBack={() => setPage('home')}/> : <CameraPage page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh}/>} 
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={3500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider>;
@@ -51,7 +51,7 @@ export default function App() {
 
 function Home({go, connected}: {go: (page: Page) => void; connected: boolean}) {
   const items: [Page, string, string][] = [['monitor', '监看', '实时取景 / 对焦与构图'], ['timer', '定时遥控', '2 / 5 / 10 / 30 秒倒计时'], ['motion', '动态照片', '快门前 3 秒 · 手机同步 · LUT'], ['album', '相册', '片刻回放 / 原片与渲染图']];
-  return <ScrollView contentContainerStyle={styles.home}><View style={styles.homeIntro}><Text variant="titleLarge">相机工作台</Text><Text style={styles.muted}>{connected ? 'S5 已连接 · 横屏操作' : '连接 S5 或进入演示模式开始'}</Text></View><View style={styles.menuGrid}>{items.map(([key, title, copy]) => <Card key={key} mode={key === 'motion' ? 'elevated' : 'contained'} onPress={() => go(key)} style={styles.menuCard} accessibilityRole="button" accessibilityLabel={title}><Card.Content><Text variant="titleLarge">{title}</Text><Text style={styles.muted}>{copy}</Text></Card.Content></Card>)}</View></ScrollView>;
+  return <ScrollView contentContainerStyle={styles.home}><View style={styles.homeIntro}><Text variant="titleLarge">相机工作台</Text><Text style={styles.muted}>{connected ? 'LUMIX 已连接 · 横屏操作' : '连接 LUMIX 或进入演示模式开始'}</Text></View><View style={styles.menuGrid}>{items.map(([key, title, copy]) => <Card key={key} mode={key === 'motion' ? 'elevated' : 'contained'} onPress={() => go(key)} style={styles.menuCard} accessibilityRole="button" accessibilityLabel={title}><Card.Content><Text variant="titleLarge">{title}</Text><Text style={styles.muted}>{copy}</Text></Card.Content></Card>)}</View></ScrollView>;
 }
 
 function CameraPage({page, go, state, preview, buffered, luts, onLut, onImportLut, onRefresh}: {page: Exclude<Page, 'home'|'album'>; go: (p: Page) => void; state: CameraState; preview?: string; buffered: number; luts: LutItem[]; onLut: (id: string) => void; onImportLut: () => void; onRefresh: () => void}) {
