@@ -11,7 +11,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
-import cn.moment.s5.MomentS5Package
+import cn.moment.lumix.MomentS5Package
 
 class MainApplication : Application(), ReactApplication {
 

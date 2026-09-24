@@ -1,14 +1,14 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'cn.moment.s5'
+    namespace 'cn.moment.lumix'
     compileSdk 35
     defaultConfig {
-        applicationId 'cn.moment.s5'
+        applicationId 'cn.moment.lumix'
         minSdk 33
         targetSdk 35
-        versionCode 5
-        versionName '0.2.0'
-        testInstrumentationRunner 'cn.moment.s5.DeviceChecks'
+        versionCode 8
+        versionName '0.4.0'
+        testInstrumentationRunner 'cn.moment.lumix.DeviceChecks'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     buildTypes { release { minifyEnabled false } }

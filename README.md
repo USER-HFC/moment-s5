@@ -8,7 +8,7 @@ Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 
 
 当前开发版是横屏 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。
 
-v0.3.1 将产品名称统一为“瞬间 Lumix”，为后续其他机型适配使用统一品牌；**当前驱动仍限定初代 S5，改名不代表新增机型支持**。保留应用包名 `cn.moment.s5`、签名和存储路径，旧版无需卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
+v0.4.0 完成产品包名迁移到 `cn.moment.lumix`，为后续其他机型适配留出稳定入口；**当前驱动仍限定初代 S5，改名不代表新增机型支持**。这是全新安装包，不兼容旧包 `cn.moment.s5` 的升级关系；如需清理旧版请手动卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
 
 <img src="evidence/v0.2.0/01-home.png" alt="横屏首页：监看、定时遥控、动态照片、相册" width="720">
 
@@ -76,8 +76,8 @@ cd ..; npm test -- --runInBand
 .\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest
 adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb -s emulator-5554 shell am instrument -w cn.moment.s5.test/cn.moment.s5.DeviceChecks
-adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.s5.test/cn.moment.s5.DeviceChecks
+adb -s emulator-5554 shell am instrument -w cn.moment.lumix.test/cn.moment.lumix.DeviceChecks
+adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.lumix.test/cn.moment.lumix.DeviceChecks
 ```
 
 检查会创建明确标记的演示照片并导出一份到模拟器相册，覆盖 2.2 秒准备卡顿后的自动补帧、仅快门前 3 秒且不进行快门后取景、末帧时间标记、完整 CaptureEngine、原片尺寸、AVC 样本时间、视频解码、XMP 视频长度、AAC 合并与相册字节一致性。它不测试真实 USB。

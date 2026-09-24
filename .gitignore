@@ -10,3 +10,4 @@ local.properties
 .tools/
 evidence/initial.png
 evidence/detail.png
+outputs/*.apk

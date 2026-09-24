@@ -1,4 +1,4 @@
-package cn.moment.s5;
+package cn.moment.lumix;
 
 import android.app.*;
 import android.content.*;
@@ -20,7 +20,7 @@ import java.util.concurrent.*;
 
 public final class MainActivity extends Activity implements CaptureEngine.Listener {
     private static final int BG=0xff101210,SURFACE=0xff1b201b,TEXT=0xffedf0e7,MUTED=0xffb0b9ab,ACCENT=0xffd6f58b;
-    private static final String USB_PERMISSION="cn.moment.s5.USB_PERMISSION";
+    private static final String USB_PERMISSION="cn.moment.lumix.USB_PERMISSION";
     private CaptureEngine engine;
     private MomentStore store;
     private UsbManager usb;

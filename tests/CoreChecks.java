@@ -1,4 +1,4 @@
-package cn.moment.s5;
+package cn.moment.lumix;
 
 import java.io.*;
 import java.nio.*;

@@ -26,6 +26,6 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
-      <provider android:name="cn.moment.s5.ShareProvider" android:authorities="cn.moment.s5.files" android:exported="false" android:grantUriPermissions="true" />
+      <provider android:name="cn.moment.lumix.ShareProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true" />
     </application>
 </manifest>

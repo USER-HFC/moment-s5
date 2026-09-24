@@ -1,4 +1,4 @@
-package cn.moment.s5;
+package cn.moment.lumix;
 
 import android.content.Context;
 import android.graphics.*;

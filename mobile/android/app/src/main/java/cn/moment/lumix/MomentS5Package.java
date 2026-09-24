@@ -1,4 +1,4 @@
-package cn.moment.s5;
+package cn.moment.lumix;
 
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.NativeModule;

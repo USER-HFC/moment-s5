@@ -34,8 +34,8 @@ function Shot([string]$Name){
     Device @('shell','screencap','-p',"/sdcard/$Name.png") | Out-Null
     Device @('pull',"/sdcard/$Name.png",(Join-Path $evidence "$Name.png")) | Out-Null
 }
-Device @('shell','am','force-stop','cn.moment.s5') | Out-Null
-Device @('shell','am','start','-W','-n','cn.moment.s5/.MainActivity') | Out-Null
+Device @('shell','am','force-stop','cn.moment.lumix') | Out-Null
+Device @('shell','am','start','-W','-n','com.moments5rn/.MainActivity') | Out-Null
 foreach($label in @('监看','定时遥控','动态照片','相册')){if(!(FindText $label)){throw "Home entry missing: $label"}}
 Shot '01-home'
 Tap '监看';Shot '02-monitor'

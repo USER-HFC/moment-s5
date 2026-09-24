@@ -1,4 +1,4 @@
-package cn.moment.s5;
+package cn.moment.lumix;
 
 import android.app.PendingIntent;
 import android.content.*;
@@ -16,7 +16,7 @@ import java.util.zip.ZipInputStream;
 
 /** Shared JS contract; Android owns USB/PTP and LUT pixels, iOS can implement the same methods later. */
 public final class MomentS5Module extends ReactContextBaseJavaModule {
-    private static final String USB_PERMISSION="cn.moment.s5.RN_USB_PERMISSION";
+    private static final String USB_PERMISSION="cn.moment.lumix.RN_USB_PERMISSION";
     private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private CaptureEngine engine;private BroadcastReceiver receiver;
     public MomentS5Module(ReactApplicationContext context){super(context);this.context=context;usb=(UsbManager)context.getSystemService(Context.USB_SERVICE);lutDir=new File(context.getFilesDir(),"luts");if(!lutDir.isDirectory())lutDir.mkdirs();
         engine=new CaptureEngine(context,new CaptureEngine.Listener(){
@@ -29,7 +29,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){if(USB_PERMISSION.equals(intent.getAction())){UsbDevice d=intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(d!=null&&intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false))connectDevice(d);else status("USB 访问未授权");}}};
         IntentFilter filter=new IntentFilter(USB_PERMISSION);if(Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);else context.registerReceiver(receiver,filter);
     }
-    @Override public String getName(){return "MomentS5";}
+    @Override public String getName(){return "MomentLumix";}
     @ReactMethod public void connect(Promise promise){List<UsbDevice> devices=new ArrayList<>();for(UsbDevice d:usb.getDeviceList().values())if(UsbS5.candidate(d))devices.add(d);if(devices.isEmpty()){promise.reject("NO_S5","未发现 Panasonic S5，请确认 OTG、数据线和 PC(Tether)");return;}if(devices.size()>1){promise.reject("MULTIPLE_S5","检测到多台 Panasonic 相机");return;}UsbDevice d=devices.get(0);if(usb.hasPermission(d))connectDevice(d);else{PendingIntent p=PendingIntent.getBroadcast(context,0,new Intent(USB_PERMISSION).setPackage(context.getPackageName()),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE);usb.requestPermission(d,p);}promise.resolve(null);}
     private void connectDevice(UsbDevice d){engine.connect(usb,d);}
     @ReactMethod public void demo(){engine.demo();}
