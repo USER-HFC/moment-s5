@@ -49,7 +49,7 @@ export default function App() {
   };
   return <SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <View style={[styles.header, compactHeader && styles.headerCompact]}><View style={styles.headerLeft}>{page !== 'home' && <Button mode="text" compact onPress={() => setPage('home')} accessibilityLabel="返回首页">返回</Button>}<View><Text variant={compactHeader ? 'titleLarge' : 'headlineMedium'}>瞬间 Lumix</Text>{!compactHeader && <Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text>}</View></View><View style={[styles.headerRight, compactHeader && styles.headerRightCompact]}><Text variant="labelLarge" numberOfLines={1} style={compactHeader ? styles.statusCompact : undefined}>{status}</Text><Button compact={compactHeader} mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>
-    {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <Album moments={moments} onBack={() => setPage('home')}/> : <CameraWorkspace page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh}/>} 
+    {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <Album moments={moments} onBack={() => setPage('home')}/> : <CameraWorkspace page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh}/>}
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={3500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider>;
 }
