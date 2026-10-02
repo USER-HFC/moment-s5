@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AppState, BackHandler, Image, Linking, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {AppState, BackHandler, Image, Linking, ScrollView, StatusBar, StyleSheet, useWindowDimensions, View} from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {Button, Card, Provider as PaperProvider, Snackbar, Text} from 'react-native-paper';
@@ -31,8 +31,8 @@ export default function App() {
     refresh();
     if (!cameraEvents) { setStatus('iOS 原生桥待接入 · 页面和 LUT 数据契约已就绪'); return; }
     const subs = [
-      cameraEvents.addListener('cameraStatus', (e) => { setStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); }),
-      cameraEvents.addListener('cameraFrame', (e) => { const now = Date.now(); if (now - lastPreviewAt.current >= 66) { lastPreviewAt.current = now; setPreview(`data:image/jpeg;base64,${e.jpegBase64}`); } setBuffered(e.bufferedUs / 1_000_000); setState((s) => ({...s, ready: e.bufferedUs >= 3_000_000})); }),
+      cameraEvents.addListener('cameraStatus', (e) => { setStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
+      cameraEvents.addListener('cameraFrame', (e) => { const now = Date.now(); if (now - lastPreviewAt.current >= 66) { lastPreviewAt.current = now; setPreview(`data:image/jpeg;base64,${e.jpegBase64}`); } setBuffered(e.bufferedUs / 1_000_000); setState((s) => ({...s, demo: !!e.demo, ready: e.bufferedUs >= 3_000_000})); }),
       cameraEvents.addListener('cameraSaved', () => { setSnack('动态照片已保存，原片与 LUT 渲染图已同步'); refresh(); }),
       cameraEvents.addListener('cameraLog', (e) => setStatus(e.message)),
     ];
@@ -48,6 +48,7 @@ export default function App() {
     catch (e) { if (!DocumentPicker.isCancel(e)) setSnack(errorText(e)); }
   };
   return <SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
+    <StatusBar hidden={page !== 'home' && page !== 'album'} barStyle="light-content" backgroundColor="#080909" />
     {(page === 'home' || page === 'album') && <View style={[styles.header, compactHeader && styles.headerCompact]}><View style={styles.headerLeft}>{page !== 'home' && <Button mode="text" compact onPress={() => setPage('home')} accessibilityLabel="返回首页">返回</Button>}<View><Text variant={compactHeader ? 'titleLarge' : 'headlineMedium'}>瞬间 Lumix</Text>{!compactHeader && <Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text>}</View></View><View style={[styles.headerRight, compactHeader && styles.headerRightCompact]}><Text variant="labelLarge" numberOfLines={1} style={compactHeader ? styles.statusCompact : undefined}>{status}</Text><Button compact={compactHeader} mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>}
     {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <Album moments={moments} onBack={() => setPage('home')}/> : <CameraWorkspace page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={connect}/>}
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={3500}>{snack}</Snackbar>

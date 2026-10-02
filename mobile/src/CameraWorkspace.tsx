@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {Button, Surface, Text} from 'react-native-paper';
 import {camera, CameraState, LutItem} from './native';
 import {theme} from './theme';
@@ -46,7 +46,6 @@ function ToolButton({label, icon, active = false, onPress, switchValue, rotateIc
 
 export default function CameraWorkspace({page, go, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect}: Props) {
   const {width, height} = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const landscape = width > height;
   const [panel, setPanel] = useState<Panel>(null);
   const [grid, setGrid] = useState(true);
@@ -60,12 +59,14 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
   const [seconds, setSeconds] = useState(0);
   const [lutPage, setLutPage] = useState(0);
   const [working, setWorking] = useState(false);
+  const [captureMark, setCaptureMark] = useState(false);
   const [finderSize, setFinderSize] = useState({width: 0, height: 0});
   const [previewSlots, setPreviewSlots] = useState<PreviewSlots>([undefined, undefined]);
   const [activeSlot, setActiveSlot] = useState(0);
   const activeSlotRef = useRef(0);
   const pendingSlotRef = useRef<number | null>(null);
   const slotUrisRef = useRef<PreviewSlots>([undefined, undefined]);
+  const captureMarkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = Math.max(1, Math.min(4, Math.floor((height - 250) / 56)));
   const pages = Math.max(1, Math.ceil(luts.length / pageSize));
   const currentPage = Math.min(lutPage, pages - 1);
@@ -95,6 +96,7 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
     const sub = AppState.addEventListener('change', next => { if (next !== 'active') setDeadline(null); });
     return () => sub.remove();
   }, []);
+  useEffect(() => () => { if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current); }, []);
   useEffect(() => {
     if (deadline === null) return;
     const tick = () => {
@@ -118,6 +120,9 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
   }, [preview]);
 
   function captureNow() {
+    setCaptureMark(true);
+    if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current);
+    captureMarkTimer.current = setTimeout(() => setCaptureMark(false), 700);
     if (motionEnabled) { if (state.ready) camera?.capture(); }
     else camera?.remoteShutter();
   }
@@ -140,7 +145,7 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
   };
 
   return <View style={styles.root} testID="camera-workspace">
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape, landscape && {left: insets.left, right: 96 + insets.right}]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape, {paddingLeft: Math.max(4, insets.left), paddingRight: Math.max(4, insets.right)}]} testID="camera-tools">
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape]} testID="camera-tools">
       <Pressable accessibilityRole="button" accessibilityLabel="返回首页" onPress={() => go('home')} style={styles.toolButton}><View style={[styles.iconVisual, !landscape && styles.iconVisualPortrait]}><CameraIcon name="back"/></View></Pressable>
       <ToolButton label="构图网格" icon="grid" rotateIcon={!landscape} active={grid} onPress={() => setGrid(value => !value)} />
       <ToolButton label="LUT 风格" icon="lut" rotateIcon={!landscape} active={!!state.lut} onPress={() => {setLutPage(0); setPanel('lut');}} />
@@ -150,26 +155,27 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
       <ToolButton label="远对焦" icon="far" rotateIcon={!landscape} active={focusMode === 'far'} onPress={() => chooseFocus('far', -1)} />
       <ToolButton label="近对焦" icon="near" rotateIcon={!landscape} active={focusMode === 'near'} onPress={() => chooseFocus('near', 1)} />
     </ScrollView>
-    <Pressable accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? [styles.usbPinnedLandscape, {right: 100 + insets.right}] : styles.usbPinnedPortrait]}><View style={[styles.iconVisual, !landscape && styles.iconVisualPortrait]}><CameraIcon name="usb" active={state.active}/></View></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? styles.usbPinnedLandscape : styles.usbPinnedPortrait]}><View style={[styles.iconVisual, !landscape && styles.iconVisualPortrait]}><CameraIcon name="usb" active={state.active}/></View></Pressable>
     <View testID="camera-body" style={[styles.body, landscape && styles.bodyLandscape]}>
       <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
-        <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback]}>
+        <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback, !previewFrame && styles.previewPending]}>
           {previewSlots.map((uri, slot) => uri && <Image key={slot} accessibilityLabel="相机实时取景" source={{uri}} style={[previewImageStyle, {opacity: activeSlot === slot ? 1 : 0}]} resizeMode="cover" fadeDuration={0} onLoad={() => commitPreview(slot as 0 | 1, uri)} />)}
           {grid && <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
             <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
             <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
           </View>}
-          <View pointerEvents="none" style={styles.focusTarget}><View style={[styles.focusCorner, styles.focusCornerTL]}/><View style={[styles.focusCorner, styles.focusCornerTR]}/><View style={[styles.focusCorner, styles.focusCornerBL]}/><View style={[styles.focusCorner, styles.focusCornerBR]}/><View style={styles.focusDot}/></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" hitSlop={8} onPress={() => chooseFocus('auto', 0)} style={styles.focusTarget}><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/><View pointerEvents="none" style={styles.focusDot}/></Pressable>
           {!preview && <View style={styles.empty}><Text variant="titleMedium">等待相机取景</Text><Text style={styles.muted}>USB 连接后开始监看</Text><Button contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button></View>}
           <View pointerEvents="none" style={styles.hudTopLeft}>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text style={[styles.hud, styles.hudAccent]}>{state.lut}</Text>}</View>
           <View pointerEvents="none" style={[styles.hudTopRight, landscape && styles.hudTopRightLandscape]}><Text style={styles.hud}>CAM 82%</Text><Text style={styles.hud}>PHONE 96%</Text></View>
           <View pointerEvents="none" style={styles.hudBottomLeft}><Text style={styles.hud}>{focusLabel}</Text></View>
           <View pointerEvents="none" style={styles.hudBottomRight}><Text style={styles.hud}>F2.8</Text><Text style={styles.hud}>1/125</Text><Text style={styles.hud}>ISO 400</Text></View>
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
+          {captureMark && <View pointerEvents="none" style={styles.captureMark}><View style={styles.captureMarkCircle}><Text style={styles.captureMarkText}>✓</Text></View></View>}
           {motionEnabled && <View pointerEvents="none" style={styles.bufferBadge}><Text style={styles.hud}>{buffered.toFixed(1)}s</Text></View>}
         </View>
       </View>
-      <ScrollView horizontal={!landscape} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} style={[styles.dockViewport, landscape && styles.dockViewportLandscape]} contentContainerStyle={[styles.dock, landscape && styles.dockLandscape, {paddingBottom: Math.max(8, insets.bottom)}]} testID="camera-dock">
+      <ScrollView horizontal={!landscape} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} style={[styles.dockViewport, landscape && styles.dockViewportLandscape]} contentContainerStyle={[styles.dock, landscape && styles.dockLandscape]} testID="camera-dock">
         <ToolButton label="环境声" icon="mic" active={audio} onPress={() => {setAudio(value => {camera?.setAudio(!value); return !value;});}} />
         <Pressable accessibilityRole="button" accessibilityLabel={`画幅 ${ratioMode}`} onPress={() => setRatioMode(value => value === '3:2' ? '16:9' : '3:2')} style={styles.dockIconButton}><CameraIcon name="ratio" label={ratioMode}/></Pressable>
         {timerEnabled && <Pressable accessibilityRole="button" accessibilityLabel={`延时 ${delay} 秒`} onPress={() => setPanel('delay')} style={styles.dockIconButton}><CameraIcon name="delay"/><Text style={styles.dockTiny}>{delay}</Text></Pressable>}
@@ -200,8 +206,8 @@ const styles = StyleSheet.create({
   root: {flex: 1, minHeight: 0, backgroundColor: '#080909'},
   toolsViewport: {flexGrow: 0, backgroundColor: '#080909'}, toolsViewportLandscape: {position: 'absolute', zIndex: 5, top: 0, left: 0, right: 96, height: 64},
   tools: {flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, paddingVertical: 8, backgroundColor: '#080909'}, toolsLandscape: {minWidth: 360},
-  toolButton: {width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#080909'}, iconVisual: {alignItems: 'center', justifyContent: 'center'}, iconVisualPortrait: {transform: [{rotate: '90deg'}]}, usbPinned: {position: 'absolute', zIndex: 8, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#080909'}, usbPinnedPortrait: {right: 4, top: 64}, usbPinnedLandscape: {top: 8},
-  toolButtonActive: {}, toolButtonPressed: {backgroundColor: '#202321'},
+  toolButton: {width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: 'transparent', backgroundColor: '#080909'}, iconVisual: {alignItems: 'center', justifyContent: 'center'}, iconVisualPortrait: {transform: [{rotate: '-90deg'}]}, usbPinned: {position: 'absolute', zIndex: 8, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#080909'}, usbPinnedPortrait: {right: 4, top: 64}, usbPinnedLandscape: {top: 8, right: 100},
+  toolButtonActive: {borderColor: '#46563D', backgroundColor: '#101610'}, toolButtonPressed: {backgroundColor: '#202321'},
   typeIcon: {fontSize: 10, fontWeight: '700', letterSpacing: .5, borderWidth: 1.5, borderRadius: 4, paddingHorizontal: 2, paddingVertical: 3}, backIcon: {width: 22, height: 22, alignItems: 'center', justifyContent: 'center'}, backStem: {width: 16, height: 1.5, marginLeft: 5}, backHead: {position: 'absolute', left: 1, top: 7, width: 8, height: 8, borderLeftWidth: 1.5, borderBottomWidth: 1.5, transform: [{rotate: '45deg'}]},
   iconBox: {width: 22, height: 22, borderWidth: 1.5, borderRadius: 3, position: 'relative'}, iconLineV: {position: 'absolute', top: 0, bottom: 0, width: 1}, iconLineH: {position: 'absolute', left: 0, right: 0, height: 1},
   motionIcon: {width: 22, height: 16, borderWidth: 1.5, borderRadius: 3, position: 'relative'}, playTriangle: {position: 'absolute', right: -6, top: 3, width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderLeftWidth: 6, borderTopColor: 'transparent', borderBottomColor: 'transparent'}, motionTick: {position: 'absolute', top: -5, width: 1.5, height: 4},
@@ -211,12 +217,12 @@ const styles = StyleSheet.create({
   touch: {minHeight: 48},
   body: {flex: 1, minHeight: 0}, bodyLandscape: {flexDirection: 'row'},
   finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#080909', overflow: 'hidden'},
-  previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: '#181D18'}, previewFallback: {width: '100%', height: '100%'},
+  previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: '#181D18'}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
   empty: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 8}, muted: {color: theme.colors.onSurfaceVariant},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC8'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC8'},
   hud: {paddingHorizontal: 7, paddingVertical: 5, backgroundColor: '#131714', color: '#EEEEEA', fontSize: 10, fontVariant: ['tabular-nums']},
-  hudTopLeft: {position: 'absolute', top: 12, left: 12, flexDirection: 'row', gap: 6}, hudTopRight: {position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 6}, hudTopRightLandscape: {}, hudAccent: {color: theme.colors.primary}, hudBottomLeft: {position: 'absolute', left: 12, bottom: 10}, hudBottomRight: {position: 'absolute', right: 12, bottom: 10, flexDirection: 'row', gap: 5}, bufferBadge: {position: 'absolute', left: 12, bottom: 10},
-  focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: theme.colors.primary}, focusCornerTL: {left: 0, top: 0, borderLeftWidth: 1.5, borderTopWidth: 1.5}, focusCornerTR: {right: 0, top: 0, borderRightWidth: 1.5, borderTopWidth: 1.5}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: 1.5, borderBottomWidth: 1.5}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: 1.5, borderBottomWidth: 1.5}, focusDot: {position: 'absolute', left: 29, top: 29, width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.primary}, countdown: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center'},
+  hudTopLeft: {position: 'absolute', top: 12, left: 12, flexDirection: 'row', gap: 6}, hudTopRight: {position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 6}, hudTopRightLandscape: {top: 76}, hudAccent: {color: theme.colors.primary}, hudBottomLeft: {position: 'absolute', left: 12, bottom: 10}, hudBottomRight: {position: 'absolute', right: 12, bottom: 10, flexDirection: 'row', gap: 5}, bufferBadge: {position: 'absolute', left: 12, bottom: 10},
+  focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: theme.colors.primary}, focusCornerTL: {left: 0, top: 0, borderLeftWidth: 1.5, borderTopWidth: 1.5}, focusCornerTR: {right: 0, top: 0, borderRightWidth: 1.5, borderTopWidth: 1.5}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: 1.5, borderBottomWidth: 1.5}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: 1.5, borderBottomWidth: 1.5}, focusDot: {position: 'absolute', left: 29, top: 29, width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.primary}, countdown: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center'}, captureMark: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center'}, captureMarkCircle: {width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#131714'}, captureMarkText: {fontSize: 32, color: theme.colors.primary},
   dockViewport: {height: 96, flexGrow: 0, backgroundColor: '#080909'}, dockViewportLandscape: {width: 96, height: '100%', flexGrow: 0, flexShrink: 0},
   dock: {height: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', minWidth: '100%', padding: 8, gap: 6, backgroundColor: '#080909'}, dockLandscape: {height: '100%', flexDirection: 'column', minWidth: 0, width: 96, paddingHorizontal: 6, justifyContent: 'space-between'},
   dockIconButton: {width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 12}, dockAlbumPortrait: {marginLeft: 'auto'}, dockAlbumLandscape: {marginTop: 'auto'}, dockTiny: {position: 'absolute', right: 7, bottom: 5, fontSize: 9, color: theme.colors.primary},
