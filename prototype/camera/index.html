@@ -27,12 +27,14 @@
       <div class="device-shell" id="device-shell">
         <div class="camera" id="camera" aria-label="瞬间 Lumix 相机">
           <aside class="utility-rail" aria-label="拍摄工具">
-            <button class="icon-button" id="home" aria-label="功能菜单"><span class="upright"><i data-icon="back"></i></span></button>
             <div class="tools">
               <button class="icon-button active" id="grid-toggle" aria-label="构图网格" aria-pressed="true"><span class="upright"><i data-icon="grid"></i></span></button>
               <button class="icon-button" id="lut-open" aria-label="LUT 风格"><span class="upright"><span class="type-icon">LUT</span></span></button>
-              <button class="icon-button" id="focus-open" aria-label="对焦控制"><span class="upright"><i data-icon="focus"></i></span></button>
-              <button class="icon-button" id="audio-toggle" aria-label="环境声" aria-pressed="false"><span class="upright"><i data-icon="mic"></i></span></button>
+              <button class="feature-switch" id="motion-toggle" role="switch" aria-checked="false" aria-label="动态照片"><i data-icon="motion"></i><span>动态照片</span></button>
+              <button class="feature-switch" id="timer-toggle" role="switch" aria-checked="false" aria-label="定时"><i data-icon="timer"></i><span>定时</span></button>
+              <button class="icon-button focus-control active" id="focus-auto" aria-label="自动对焦" aria-pressed="true"><i data-icon="focus-auto"></i></button>
+              <button class="icon-button focus-control" id="focus-far" aria-label="远对焦" aria-pressed="false"><i data-icon="focus-far"></i></button>
+              <button class="icon-button focus-control" id="focus-near" aria-label="近对焦" aria-pressed="false"><i data-icon="focus-near"></i></button>
             </div>
             <button class="icon-button" id="connection-open" aria-label="相机连接"><span class="upright"><i data-icon="usb"></i><span class="status-dot"></span></span></button>
           </aside>
@@ -42,21 +44,16 @@
               <div class="composition-grid" id="composition-grid" aria-hidden="true"><b></b><b></b><b></b><b></b></div>
               <button id="focus-target" aria-label="预览画面自动对焦" class="focus-target"><i data-icon="focus"></i></button>
               <div class="image-top">
-                <span class="image-badge">DEMO</span>
-                <span id="lut-badge" class="image-badge" hidden></span>
-                <span class="image-badge" id="mode-badge">MONITOR</span>
+                <div class="image-top-left"><span class="image-badge">DEMO</span><span id="lut-badge" class="image-badge" hidden></span><span id="buffer-info" class="image-badge" hidden>● 快门前 3.0s 就绪</span></div>
+                <div class="battery-info" aria-label="电量"><span>CAM&nbsp;82%</span><span>PHONE&nbsp;96%</span></div>
               </div>
-              <div class="image-bottom"><span id="frame-info">S5 · 3:2</span><span id="buffer-info" hidden>● 快门前 3.0s 就绪</span><span id="focus-info">AF</span></div>
+              <div class="image-bottom"><span id="focus-info">AFS</span><div class="exposure-info"><span id="aperture-info">F2.8</span><span id="shutter-info">1/125</span><span id="iso-info">ISO 400</span></div></div>
               <div id="countdown" class="countdown" aria-live="polite" hidden></div>
               <div id="capture-mark" class="capture-mark" hidden><i data-icon="check"></i></div>
             </div>
           </div>
-          <nav class="mode-rail" aria-label="拍摄模式">
-            <button data-mode="monitor" class="mode active" aria-pressed="true"><span>监看</span></button>
-            <button data-mode="timer" class="mode" aria-pressed="false"><span>定时</span></button>
-            <button data-mode="motion" class="mode" aria-pressed="false"><span>动态照片</span></button>
-          </nav>
           <aside class="capture-rail" aria-label="快门操作">
+            <button class="icon-button" id="audio-toggle" aria-label="环境声" aria-pressed="false"><span class="upright"><i data-icon="mic"></i></span></button>
             <button id="ratio-toggle" class="icon-button" aria-label="切换画幅比例"><span class="upright"><span id="ratio-label">3:2</span></span></button>
             <button id="delay-open" class="icon-button" aria-label="快门延时" hidden><span class="upright"><i data-icon="timer"></i><small id="delay-label">10s</small></span></button>
             <button id="shutter" class="shutter" aria-label="拍摄演示照片"><span class="shutter-core"></span></button>
@@ -66,7 +63,7 @@
         </div>
         <div class="toast" id="toast" role="status" hidden></div>
         <dialog id="panel" aria-labelledby="panel-title">
-          <header class="panel-header"><div><span class="eyebrow" id="panel-kicker">CAMERA TOOLS</span><h2 id="panel-title"></h2></div><button id="panel-close" class="icon-button" aria-label="关闭面板"><i data-icon="close"></i></button></header>
+          <header class="panel-header"><div><span class="eyebrow" id="panel-kicker">LUMIX CONTROL</span><h2 id="panel-title"></h2></div><button id="panel-close" class="icon-button" aria-label="关闭面板"><i data-icon="close"></i></button></header>
           <div id="panel-content"></div>
         </dialog>
       </div>

@@ -4,3 +4,25 @@ dialog{position:absolute;inset:0;margin:auto;width:min(430px,calc(100% - 32px));
 @media(max-width:700px){body{background:#080909}body:not(.review) .review-header,body:not(.review) .review-toolbar,body:not(.review) .review-footer,body:not(.review) .scope-note{display:none}body:not(.review) main{padding:0}body:not(.review) .preview-desk{padding:0;border:0;border-radius:0;min-height:0;height:100dvh;background:#080909}body:not(.review) .device-shell{border:0;border-radius:0;box-shadow:none}.review-header{margin:0 20px}.study{display:none}.review-toolbar{flex-direction:column;align-items:start}.review-controls{flex-wrap:wrap}.preview-desk{padding:10px}.review-footer{flex-direction:column;gap:18px}}
 body.fullscreen .review-header,body.fullscreen .review-toolbar,body.fullscreen .review-footer,body.fullscreen .scope-note{display:none}body.fullscreen main{padding:0;max-width:none}body.fullscreen .preview-desk{padding:0;border:0;border-radius:0;min-height:0;height:100dvh;background:#080909}body.fullscreen .device-shell{border:0;border-radius:0;box-shadow:none}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.camera{grid-template-columns:64px minmax(0,1fr) 96px}
+.feature-switch{min-width:104px;min-height:42px;display:flex;align-items:center;justify-content:center;gap:7px;padding:7px 10px;border:1px solid #303333;border-radius:6px;background:#131714;color:#d9ddd5;font-size:11px;white-space:nowrap}
+.feature-switch svg{width:18px;height:18px}.feature-switch.active{background:var(--accent);border-color:var(--accent);color:#151815;font-weight:600}
+.image-top{justify-content:space-between}.image-top-left{display:flex;align-items:center;gap:6px}.battery-info{display:flex;gap:6px;align-items:center}.battery-info span{padding:5px 7px;background:#131714;color:#eeeeea;border-radius:3px;white-space:nowrap}
+.image-bottom{align-items:end}.exposure-info{display:flex;gap:5px;align-items:center}.exposure-info span{padding:5px 7px;background:#131714;color:#eeeeea;border-radius:3px;white-space:nowrap}
+dialog{border-radius:10px;border-color:#3d403d;background:#101111;box-shadow:0 16px 32px #050606;padding:18px}dialog::backdrop{background:#0008}.panel-header{padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:16px}.panel-header h2{letter-spacing:.2px}dialog .icon-button{width:40px;height:40px;border-radius:6px;background:#202321}.panel-copy{color:#c3c8c0}.choice,.lut-card,.menu-list button{border-radius:6px;background:#171a19;border:1px solid #343936}.choice.selected{background:var(--accent);border-color:var(--accent)}.lut-card.selected{border-color:var(--accent);background:#20251e}.panel-actions>button{border-radius:6px;background:var(--accent);color:#151815;font-weight:600}.connection-row{border-color:#343936;background:#171a19}.note{color:#aeb5aa}
+.camera.portrait .utility-rail{grid-column:1;grid-row:1;flex-direction:row;padding:8px 10px}
+.camera.portrait .tools{flex-direction:row;gap:0}.camera.portrait .upright{transform:none}
+.camera.portrait .view-area{grid-column:1;grid-row:2}.camera.portrait .capture-rail{grid-column:1;grid-row:3;flex-direction:row;padding:16px 20px}
+.camera.portrait .capture-rail #delay-open{position:relative;top:auto}.camera.portrait .album-button{margin-top:0;margin-left:auto}.camera.portrait .shutter-note{top:calc(50% + 50px)}
+.camera{grid-template-columns:minmax(0,1fr) 96px;grid-template-rows:64px minmax(0,1fr)}
+.camera .utility-rail{grid-column:1 / -1;grid-row:1;flex-direction:row;align-items:center;padding:8px 12px;overflow:hidden}
+.camera .utility-rail .tools{flex:1;min-width:0;flex-direction:row;gap:4px;overflow-x:auto;scrollbar-width:none}.camera .utility-rail .tools::-webkit-scrollbar{display:none}
+.camera .utility-rail .tools>*{flex:0 0 auto}.camera .view-area{grid-column:1;grid-row:2}.camera .capture-rail{grid-column:2;grid-row:2}
+.camera.portrait{grid-template-columns:1fr;grid-template-rows:64px minmax(0,1fr) 148px}
+.camera.portrait .utility-rail{grid-column:1;grid-row:1;padding:8px 6px}.camera.portrait .utility-rail .tools{gap:0}.camera.portrait .feature-switch{width:44px;min-width:44px;padding:0}.camera.portrait .feature-switch span{display:none}
+.camera.portrait .view-area{grid-column:1;grid-row:2}.camera.portrait .capture-rail{grid-column:1;grid-row:3}
+.camera:not(.portrait){grid-template-rows:minmax(0,1fr)}
+.camera:not(.portrait) .utility-rail{position:absolute;z-index:5;top:0;left:0;right:96px;height:64px}
+.camera:not(.portrait) .view-area{grid-column:1;grid-row:1}.camera:not(.portrait) .capture-rail{grid-column:2;grid-row:1}
+.camera:not(.portrait) .image-top{top:76px}
+.camera.portrait .countdown{transform:none}
