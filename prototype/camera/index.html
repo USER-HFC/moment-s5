@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101111">
+  <title>瞬间 Lumix · 相机交互原型</title>
+  <link rel="stylesheet" href="camera.css">
+  <script defer src="camera.js"></script>
+</head>
+<body>
+  <header class="review-header">
+    <a class="wordmark" href="./"><span class="brand-mark">M</span>瞬间 <strong>Lumix</strong></a>
+    <span class="study">CAMERA STUDY <b>01</b></span>
+    <span class="prototype-label">H5 交互原型 · 非真机画面</span>
+  </header>
+  <main>
+    <section class="review-toolbar" aria-label="原型预览选项">
+      <div><span class="eyebrow">取景优先</span><h1>把画面，还给画面。</h1></div>
+      <div class="review-controls">
+        <label class="device-picker">屏幕尺寸<select id="device"><option value="852,393">手机 · 852 × 393</option><option value="812,375">小屏 · 812 × 375</option><option value="932,430">大屏 · 932 × 430</option><option value="1194,834">平板 · 1194 × 834</option></select></label>
+        <button id="rotate" class="review-button"><i data-icon="rotate"></i><span>转为竖屏</span></button>
+        <a class="review-button" href="?fullscreen=1" target="_blank">全屏体验<i data-icon="expand"></i></a>
+      </div>
+    </section>
+    <section class="preview-desk" aria-label="相机原型">
+      <div class="device-shell" id="device-shell">
+        <div class="camera" id="camera" aria-label="瞬间 Lumix 相机">
+          <aside class="utility-rail" aria-label="拍摄工具">
+            <button class="icon-button" id="home" aria-label="功能菜单"><span class="upright"><i data-icon="back"></i></span></button>
+            <div class="tools">
+              <button class="icon-button active" id="grid-toggle" aria-label="构图网格" aria-pressed="true"><span class="upright"><i data-icon="grid"></i></span></button>
+              <button class="icon-button" id="lut-open" aria-label="LUT 风格"><span class="upright"><span class="type-icon">LUT</span></span></button>
+              <button class="icon-button" id="focus-open" aria-label="对焦控制"><span class="upright"><i data-icon="focus"></i></span></button>
+              <button class="icon-button" id="audio-toggle" aria-label="环境声" aria-pressed="false"><span class="upright"><i data-icon="mic"></i></span></button>
+            </div>
+            <button class="icon-button" id="connection-open" aria-label="相机连接"><span class="upright"><i data-icon="usb"></i><span class="status-dot"></span></span></button>
+          </aside>
+          <div class="view-area" id="view-area">
+            <div class="image-frame" id="image-frame">
+              <img id="scene" src="scene.png" alt="演示静物：桌面上的相机和陶瓷杯" draggable="false">
+              <div class="composition-grid" id="composition-grid" aria-hidden="true"><b></b><b></b><b></b><b></b></div>
+              <button id="focus-target" aria-label="预览画面自动对焦" class="focus-target"><i data-icon="focus"></i></button>
+              <div class="image-top">
+                <span class="image-badge">DEMO</span>
+                <span id="lut-badge" class="image-badge" hidden></span>
+                <span class="image-badge" id="mode-badge">MONITOR</span>
+              </div>
+              <div class="image-bottom"><span id="frame-info">S5 · 3:2</span><span id="buffer-info" hidden>● 快门前 3.0s 就绪</span><span id="focus-info">AF</span></div>
+              <div id="countdown" class="countdown" aria-live="polite" hidden></div>
+              <div id="capture-mark" class="capture-mark" hidden><i data-icon="check"></i></div>
+            </div>
+          </div>
+          <nav class="mode-rail" aria-label="拍摄模式">
+            <button data-mode="monitor" class="mode active" aria-pressed="true"><span>监看</span></button>
+            <button data-mode="timer" class="mode" aria-pressed="false"><span>定时</span></button>
+            <button data-mode="motion" class="mode" aria-pressed="false"><span>动态照片</span></button>
+          </nav>
+          <aside class="capture-rail" aria-label="快门操作">
+            <button id="ratio-toggle" class="icon-button" aria-label="切换画幅比例"><span class="upright"><span id="ratio-label">3:2</span></span></button>
+            <button id="delay-open" class="icon-button" aria-label="快门延时" hidden><span class="upright"><i data-icon="timer"></i><small id="delay-label">10s</small></span></button>
+            <button id="shutter" class="shutter" aria-label="拍摄演示照片"><span class="shutter-core"></span></button>
+            <span id="shutter-note" class="shutter-note">机身照片</span>
+            <button class="album-button" id="album-open" aria-label="打开相册"><span class="upright"><img src="scene.png" alt=""><small id="photo-count">0</small></span></button>
+          </aside>
+        </div>
+        <div class="toast" id="toast" role="status" hidden></div>
+        <dialog id="panel" aria-labelledby="panel-title">
+          <header class="panel-header"><div><span class="eyebrow" id="panel-kicker">CAMERA TOOLS</span><h2 id="panel-title"></h2></div><button id="panel-close" class="icon-button" aria-label="关闭面板"><i data-icon="close"></i></button></header>
+          <div id="panel-content"></div>
+        </dialog>
+      </div>
+    </section>
+    <footer class="review-footer">
+      <div><span class="index">01</span><p><strong>画幅内构图</strong><span>网格跟随实际影像边界，黑边不画线。</span></p></div>
+      <div><span class="index">02</span><p><strong>位置不跳动</strong><span>横竖屏沿用同一机位布局，图标转向。</span></p></div>
+      <div><span class="index">03</span><p><strong>操作一步直达</strong><span>常驻快门与模式，设置点按展开。</span></p></div>
+    </footer>
+    <p class="scope-note">布局评审用原型：样张、连接、对焦、缓存与快门均为演示。不会访问相机；未验证或修复 Android 预览闪屏。</p>
+  </main>
+</body>
+</html>
