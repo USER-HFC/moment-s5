@@ -24,3 +24,14 @@ dialog{border-radius:10px;border-color:#3d403d;background:#101111;box-shadow:0 1
 .camera:not(.portrait) .view-area{grid-column:1;grid-row:1}.camera:not(.portrait) .capture-rail{grid-column:2;grid-row:1}
 .camera:not(.portrait) .image-top{top:76px}
 .camera.portrait .countdown{transform:none}
+
+/* 横屏工具保持在左侧竖向 rail；仅旋转图标，触控按钮与文字保持正向。 */
+.camera:not(.portrait) .utility-rail{left:0;right:auto;top:0;bottom:0;width:72px;height:auto;flex-direction:column;align-items:center;padding:8px 6px;overflow:hidden}
+.camera:not(.portrait) .utility-rail .tools{width:60px;min-width:0;min-height:0;flex:1;flex-direction:column;align-items:center;gap:4px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.camera:not(.portrait) .utility-rail .tools::-webkit-scrollbar{display:none}
+.camera:not(.portrait) .utility-rail .tools>*{flex:0 0 auto}
+.camera:not(.portrait) .utility-rail .tools .icon-button>i,
+.camera:not(.portrait) .utility-rail .tools .icon-button>.upright,
+.camera:not(.portrait) .utility-rail>#connection-open>.upright{transform:rotate(-90deg)}
+.camera:not(.portrait) .view-area{margin-left:72px}
+.camera:not(.portrait) .image-top{top:12px}

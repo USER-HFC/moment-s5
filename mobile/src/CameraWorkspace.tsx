@@ -16,15 +16,17 @@ type Props = {
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
 };
 type PreviewSlots = [string | undefined, string | undefined];
-function ToolButton({label, icon, active = false, onPress, switchValue, rotateIcon = false}: {label: string; icon: CameraIconName; active?: boolean; onPress: () => void; switchValue?: boolean; rotateIcon?: boolean}) {
+type IconRotation = false | 'portrait' | 'landscape';
+
+function ToolButton({label, icon, active = false, onPress, switchValue, rotateIcon = false}: {label: string; icon: CameraIconName; active?: boolean; onPress: () => void; switchValue?: boolean; rotateIcon?: IconRotation}) {
   return <Pressable
     accessibilityRole={switchValue === undefined ? 'button' : 'switch'}
     accessibilityLabel={label}
     accessibilityState={switchValue === undefined ? {selected: active} : {checked: switchValue}}
     hitSlop={6}
     onPress={onPress}
-    style={({pressed}) => [styles.toolButton, active && styles.toolButtonActive, pressed && styles.toolButtonPressed]}>
-    <View style={styles.iconVisual}><View style={rotateIcon && styles.iconVisualPortrait}><CameraIcon name={icon} active={active} size={18}/></View><Text numberOfLines={1} style={[styles.toolLabel, active && styles.toolLabelActive]}>{label.replace('构图网格', '网格').replace('LUT 风格', 'LUT').replace('动态照片', '动态').replace('自动对焦', '自动').replace('相机连接', '连接').replace('环境声', '环境')}</Text></View>
+    style={({pressed}) => [styles.toolButton, rotateIcon === 'landscape' && styles.toolButtonLandscape, active && styles.toolButtonActive, pressed && styles.toolButtonPressed]}>
+    <View style={styles.iconVisual}><View style={rotateIcon === 'portrait' ? styles.iconVisualPortrait : rotateIcon === 'landscape' ? styles.iconVisualLandscape : undefined}><CameraIcon name={icon} active={active} size={18}/></View><Text numberOfLines={1} style={[styles.toolLabel, active && styles.toolLabelActive]}>{label.replace('构图网格', '网格').replace('LUT 风格', 'LUT').replace('动态照片', '动态').replace('自动对焦', '自动').replace('相机连接', '连接').replace('环境声', '环境')}</Text></View>
   </Pressable>;
 }
 
@@ -133,19 +135,21 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
   };
 
   return <View style={styles.root} testID="camera-workspace">
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape]} testID="camera-tools">
-      <Pressable accessibilityRole="button" accessibilityLabel="返回首页" onPress={() => go('home')} style={styles.toolButton}><View style={styles.iconVisual}><View style={!landscape && styles.iconVisualPortrait}><CameraIcon name="back" size={18}/></View><Text style={styles.toolLabel}>返回</Text></View></Pressable>
-      <ToolButton label="构图网格" icon="grid" rotateIcon={!landscape} active={grid} onPress={() => setGrid(value => !value)} />
-      <ToolButton label="LUT 风格" icon="lut" rotateIcon={!landscape} active={!!state.lut} onPress={() => {setLutPage(0); setPanel('lut');}} />
-      <ToolButton label="动态照片" icon="motion" rotateIcon={!landscape} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
-      <ToolButton label="定时" icon="timer" rotateIcon={!landscape} active={timerEnabled} switchValue={timerEnabled} onPress={toggleTimer} />
-      <ToolButton label="自动对焦" icon="focus" rotateIcon={!landscape} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />
-      <ToolButton label="远对焦" icon="far" rotateIcon={!landscape} active={focusMode === 'far'} onPress={() => chooseFocus('far', -1)} />
-      <ToolButton label="近对焦" icon="near" rotateIcon={!landscape} active={focusMode === 'near'} onPress={() => chooseFocus('near', 1)} />
-    </ScrollView>
-    <Pressable accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? styles.usbPinnedLandscape : styles.usbPinnedPortrait]}><View style={styles.iconVisual}><View style={!landscape && styles.iconVisualPortrait}><CameraIcon name="usb" active={state.active} size={18}/></View><Text style={styles.toolLabel}>连接</Text></View></Pressable>
+    <View style={[styles.toolsRail, landscape && styles.toolsRailLandscape]}>
+      <ScrollView horizontal={!landscape} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape]} testID="camera-tools">
+      <Pressable hitSlop={6} accessibilityRole="button" accessibilityLabel="返回首页" onPress={() => go('home')} style={[styles.toolButton, landscape && styles.toolButtonLandscape]}><View style={styles.iconVisual}><View style={landscape ? styles.iconVisualLandscape : styles.iconVisualPortrait}><CameraIcon name="back" size={18}/></View><Text style={styles.toolLabel}>返回</Text></View></Pressable>
+      <ToolButton label="构图网格" icon="grid" rotateIcon={landscape ? 'landscape' : 'portrait'} active={grid} onPress={() => setGrid(value => !value)} />
+      <ToolButton label="LUT 风格" icon="lut" rotateIcon={landscape ? 'landscape' : 'portrait'} active={!!state.lut} onPress={() => {setLutPage(0); setPanel('lut');}} />
+      <ToolButton label="动态照片" icon="motion" rotateIcon={landscape ? 'landscape' : 'portrait'} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
+      <ToolButton label="定时" icon="timer" rotateIcon={landscape ? 'landscape' : 'portrait'} active={timerEnabled} switchValue={timerEnabled} onPress={toggleTimer} />
+      <ToolButton label="自动对焦" icon="focus" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />
+      <ToolButton label="远对焦" icon="far" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'far'} onPress={() => chooseFocus('far', -1)} />
+      <ToolButton label="近对焦" icon="near" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'near'} onPress={() => chooseFocus('near', 1)} />
+      </ScrollView>
+      <Pressable hitSlop={6} accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? styles.usbPinnedLandscape : styles.usbPinnedPortrait]}><View style={styles.iconVisual}><View style={landscape ? styles.iconVisualLandscape : styles.iconVisualPortrait}><CameraIcon name="usb" active={state.active} size={18}/></View><Text style={styles.toolLabel}>连接</Text></View></Pressable>
+    </View>
     <View testID="camera-body" style={[styles.body, landscape && styles.bodyLandscape]}>
-      <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
+      <View testID="viewfinder" style={[styles.finder, landscape && styles.finderLandscape]} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
         <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback, !previewFrame && styles.previewPending]}>
           {previewSlots.map((uri, slot) => uri && <Image key={slot} accessibilityLabel="相机实时取景" source={{uri}} style={[previewImageStyle, {opacity: activeSlot === slot ? 1 : 0}]} resizeMode="cover" fadeDuration={0} onLoad={() => commitPreview(slot as 0 | 1, uri)} />)}
           {grid && <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
@@ -196,9 +200,10 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
 
 const styles = StyleSheet.create({
   root: {flex: 1, minHeight: 0, backgroundColor: '#080909'},
-  toolsViewport: {flexGrow: 0, backgroundColor: '#080909'}, toolsViewportLandscape: {position: 'absolute', zIndex: 5, top: 0, left: 0, right: 96, height: 72},
-  tools: {flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, paddingVertical: 6, backgroundColor: '#080909'}, toolsLandscape: {minWidth: 420},
-  toolButton: {width: 52, height: 60, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: 'transparent', backgroundColor: '#080909'}, iconVisual: {alignItems: 'center', justifyContent: 'center', gap: 2}, iconVisualPortrait: {transform: [{rotate: '-90deg'}]}, toolLabel: {fontSize: 8, lineHeight: 10, color: '#B0B9AB', textAlign: 'center'}, toolLabelActive: {color: theme.colors.primary}, usbPinned: {position: 'absolute', zIndex: 8, width: 52, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#080909'}, usbPinnedPortrait: {right: 4, top: 4}, usbPinnedLandscape: {top: 6, right: 100},
+  toolsRail: {height: 72, position: 'relative', zIndex: 5, backgroundColor: '#080909'}, toolsRailLandscape: {position: 'absolute', top: 0, bottom: 0, left: 0, width: 72, height: 'auto', alignItems: 'center'},
+  toolsViewport: {flexGrow: 0, backgroundColor: '#080909'}, toolsViewportLandscape: {position: 'relative', top: 0, bottom: 0, left: 0, width: 72, flex: 1, flexGrow: 1},
+  tools: {flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, paddingVertical: 6, backgroundColor: '#080909'}, toolsLandscape: {minHeight: '100%', minWidth: 72, flexDirection: 'column', alignItems: 'center', gap: 0},
+  toolButton: {width: 52, height: 60, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: 'transparent', backgroundColor: '#080909'}, toolButtonLandscape: {width: 48, height: 40}, iconVisual: {alignItems: 'center', justifyContent: 'center', gap: 2}, iconVisualPortrait: {transform: [{rotate: '-90deg'}]}, iconVisualLandscape: {transform: [{rotate: '-90deg'}]}, toolLabel: {fontSize: 8, lineHeight: 10, color: '#B0B9AB', textAlign: 'center'}, toolLabelActive: {color: theme.colors.primary}, usbPinned: {position: 'absolute', zIndex: 8, width: 52, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#080909'}, usbPinnedPortrait: {right: 4, top: 4}, usbPinnedLandscape: {position: 'relative', left: 0, bottom: 0, width: 48, height: 40, marginBottom: 6},
   toolButtonActive: {borderColor: '#46563D', backgroundColor: '#101610'}, toolButtonPressed: {backgroundColor: '#202321'},
   typeIcon: {fontSize: 10, fontWeight: '700', letterSpacing: .5, borderWidth: 1.5, borderRadius: 4, paddingHorizontal: 2, paddingVertical: 3},
   iconBox: {width: 22, height: 22, borderWidth: 1.5, borderRadius: 3, position: 'relative'}, iconLineV: {position: 'absolute', top: 0, bottom: 0, width: 1}, iconLineH: {position: 'absolute', left: 0, right: 0, height: 1},
@@ -208,7 +213,7 @@ const styles = StyleSheet.create({
   albumIcon: {width: 24, height: 20, borderWidth: 1.5, borderRadius: 3, position: 'relative', overflow: 'hidden'}, albumMountain: {position: 'absolute', left: 3, bottom: 2, width: 16, height: 10, borderBottomWidth: 1.5, transform: [{rotate: '-25deg'}]}, albumDot: {position: 'absolute', right: 4, top: 4, width: 3, height: 3, borderRadius: 2}, ratioIcon: {fontSize: 11, fontVariant: ['tabular-nums'], fontWeight: '700'}, focusIcon: {width: 22, height: 22, borderWidth: 1.5, borderRadius: 3, alignItems: 'center', justifyContent: 'center'}, focusCircle: {width: 7, height: 7, borderWidth: 1.2, borderRadius: 4}, focusArrowStem: {position: 'absolute', width: 1.5, height: 9, right: -5, bottom: -4, alignItems: 'center'}, focusArrowHead: {position: 'absolute', bottom: 0, width: 0, height: 0, borderLeftWidth: 3, borderRightWidth: 3, borderBottomWidth: 4, borderLeftColor: 'transparent', borderRightColor: 'transparent'},
   touch: {minHeight: 48},
   body: {flex: 1, minHeight: 0}, bodyLandscape: {flexDirection: 'row'},
-  finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#080909', overflow: 'hidden'},
+  finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#080909', overflow: 'hidden'}, finderLandscape: {marginLeft: 72},
   previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: '#181D18'}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
   empty: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 8}, muted: {color: theme.colors.onSurfaceVariant},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC8'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC8'},
