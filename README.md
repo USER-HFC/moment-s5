@@ -4,11 +4,11 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.5.7 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.5.7) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[下载 v0.5.8 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.5.8) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
 当前开发版是支持横竖屏的 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。Android 发布包只提供 `arm64-v8a`，适合现代手机直装。
 
-v0.5.7 在 `cn.moment.lumix` 基础上继续打磨相机工作区：动态照片相册新增“播放动态”和“保存到系统相册”，应用启动后直接进入拍照页，竖屏工具栏收紧间距，横屏电量 HUD 固定在取景框右上角，工具与底部功能选中态仅改变图标和文字颜色。横屏工具栏保持左侧竖向 rail，预览区避让 rail，快门 rail 继续独立居中。直接复用 H5 原型 SVG 图标，预览、网格、HUD 共用取景矩形。**当前驱动仍限定初代 S5，改名不代表新增机型支持**。这是全新安装包，不兼容旧包 `cn.moment.s5` 的升级关系；如需清理旧版请手动卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
+v0.5.8 修复 S5 拍摄后 JPEG 索引更新滞后导致的“未找到本次 JPEG”：事件端点和文件索引改为双通道轮询，并延长高分辨率原片接收等待；同时把真实失败原因同步到相册，不再把失败记录永久显示为“合成中”。**当前驱动仍限定初代 S5，改名不代表新增机型支持**。这是全新安装包，不兼容旧包 `cn.moment.s5` 的升级关系；如需清理旧版请手动卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
 
 <img src="evidence/v0.2.0/01-home.png" alt="横屏首页：监看、定时遥控、动态照片、相册" width="720">
 

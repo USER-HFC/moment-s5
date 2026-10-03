@@ -15,6 +15,8 @@ public final class CaptureEngine {
         void status(String message,boolean ready);
         void frame(byte[] jpeg,long bufferedUs,boolean demo);
         void saved(File directory);
+        /** Called when a capture directory is kept for diagnostics but the workflow failed. */
+        default void failed(File directory,String message) {}
         void log(String message);
         void exposure(String value);
     }
@@ -100,7 +102,12 @@ public final class CaptureEngine {
                 if(!demo) {
                     listener.status("正在准备拍摄 · 读取照片索引",false);
                     long indexStart=now();
-                    try {baseline=camera.handles();} catch(IOException e) {log("文件列表读取不可用，将使用事件："+e.getMessage());}
+                    try {baseline=camera.handles();}
+                    catch(IOException e) {
+                        log("文件列表读取不可用，准备重试："+e.getMessage());
+                        try {Thread.sleep(250);baseline=camera.handles();log("照片索引重试成功");}
+                        catch(Exception retry) {log("文件列表重试仍不可用，将使用照片事件："+retry.getMessage());}
+                    }
                     log("照片索引读取耗时 "+(now()-indexStart)/1000+" ms");
                 }
                 long shutterUs=now();List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
@@ -169,27 +176,59 @@ public final class CaptureEngine {
                         meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);listener.saved(finalDir);
                         log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");
                         listener.status("实况已保存",false);
-                    } catch(Exception e) {saveFailure(finalDir,meta,e);fail(e);}
+                    } catch(Exception e) {saveFailure(finalDir,meta,e);listener.failed(finalDir,e.getMessage());fail(e);}
                     finally {busy=false;ring.clear();}
                 });
-            } catch(Exception e) {if(dir!=null) saveFailure(dir,new JSONObject(),e);busy=false;ring.clear();fail(e);}
+            } catch(Exception e) {if(dir!=null) {saveFailure(dir,new JSONObject(),e);listener.failed(dir,e.getMessage());}busy=false;ring.clear();fail(e);}
         });
     }
     private void saveFailure(File dir,JSONObject meta,Exception error) {
         try {meta.put("complete",false);meta.put("error",error.getMessage());MomentStore.metadata(dir,meta);} catch(Exception ex) {log("失败记录写入失败："+ex.getMessage());}
     }
     private int waitForJpeg(Set<Integer> baseline) throws Exception {
-        long deadline=now()+20_000_000;Set<Integer> checked=new HashSet<>();long nextList=now()+500_000;
+        // The S5 may finish writing a high-resolution JPEG well after the shutter
+        // response. Keep polling the object list even when the event endpoint is
+        // unavailable; relying on ObjectAdded alone loses valid captures.
+        long deadline=now()+60_000_000;Set<Integer> rejected=new HashSet<>();Set<Integer> pendingEvents=new HashSet<>();long nextList=now();
         while(now()<deadline && active) {
-            Integer handle=camera.nextAdded();
-            if(handle!=null && checked.add(handle)) {if(camera.objectInfo(handle).jpeg()) return handle;}
-            if(baseline!=null && now()>=nextList) {
-                for(int h:camera.handles()) if(!baseline.contains(h) && checked.add(h) && camera.objectInfo(h).jpeg()) return h;
+            Integer eventHandle=camera.nextAdded();
+            if(eventHandle!=null) pendingEvents.add(eventHandle);
+            for(Iterator<Integer> it=pendingEvents.iterator();it.hasNext();) {
+                int handle=it.next();
+                try {
+                    Ptp.ObjectInfo info=camera.objectInfo(handle);
+                    if(info.jpeg()) return handle;
+                    rejected.add(handle);it.remove();
+                } catch(IOException e) {log("收到照片事件但暂时无法读取索引 "+handle+"："+e.getMessage());}
+            }
+            if(now()>=nextList) {
+                Set<Integer> handles;
+                try {handles=camera.handles();}
+                catch(IOException e) {log("照片索引暂不可用，继续等待："+e.getMessage());nextList=now()+500_000;Thread.sleep(80);continue;}
+                Integer newest=null;
+                for(int h:handles) {
+                    if(rejected.contains(h) || (baseline!=null && baseline.contains(h))) continue;
+                    try {
+                        Ptp.ObjectInfo info=camera.objectInfo(h);
+                        if(!info.jpeg()) {rejected.add(h);continue;}
+                        // With a readable baseline, only a genuinely new handle is
+                        // accepted. Without one, the highest PTP handle is the
+                        // camera's best available indication of the just-written file.
+                        if(baseline!=null) return h;
+                        if(newest==null || Integer.compareUnsigned(h,newest)>0) newest=h;
+                    } catch(IOException e) {log("照片索引暂不可读 "+h+"："+e.getMessage());}
+                }
+                if(baseline==null && newest!=null) {
+                    log("未能读取快门前索引，使用最新 JPEG 句柄 "+newest);
+                    return newest;
+                }
                 nextList=now()+1_000_000;
             }
             Thread.sleep(80);
         }
-        throw new IOException("未找到本次 JPEG。请用单张拍摄和 JPEG/RAW+JPEG，确认 SD 卡可写");
+        throw new IOException(baseline==null
+                ? "未找到本次 JPEG。相机文件索引不可读；请确认 PC(Tether)、单张拍摄、JPEG/RAW+JPEG 与 SD 卡可写"
+                : "未找到本次 JPEG。请用单张拍摄和 JPEG/RAW+JPEG，确认 SD 卡可写；相机可能仍在写入，请重试");
     }
     public void focus(int direction) {
         if(!active || busy || demo) return;

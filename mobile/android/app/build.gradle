@@ -96,8 +96,8 @@ android {
         applicationId "cn.moment.lumix"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 17
-        versionName "0.5.7"
+        versionCode 18
+        versionName "0.5.8"
     }
     signingConfigs {
         debug {
