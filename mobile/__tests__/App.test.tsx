@@ -8,16 +8,13 @@ jest.mock('react-native-safe-area-context', () => { const React = require('react
 
 import App from '../App';
 
-it('renders the four cross-platform workspace entries', async () => {
+it('opens the camera workspace directly', async () => {
   jest.useFakeTimers();
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
-  const PaperText = require('react-native-paper').Text;
-  const text = tree!.root.findAllByType(PaperText).map((node: any) => node.props.children).flat().join(' ');
-  expect(text).toContain('监看');
-  expect(text).toContain('瞬间 Lumix');
-  expect(text).not.toContain('瞬间 S5');
-  expect(text).toContain('动态照片');
+  expect(tree!.root.findByProps({testID: 'camera-workspace'})).toBeTruthy();
+  expect(tree!.root.findByProps({accessibilityLabel: '动态照片'})).toBeTruthy();
+  expect(tree!.root.findByProps({accessibilityLabel: '拍照到相机'})).toBeTruthy();
   act(() => tree!.unmount());
   jest.clearAllTimers();
   jest.useRealTimers();
@@ -30,8 +27,6 @@ it('keeps the camera workspace usable at phone portrait and landscape sizes', as
     Dimensions.set({window: {...original, ...size}, screen: {...original, ...size}});
     let tree: renderer.ReactTestRenderer;
     await act(async () => { tree = renderer.create(<App/>); });
-    const monitor = tree!.root.findAllByProps({accessibilityLabel: '监看'})[0];
-    act(() => monitor.props.onPress());
     expect(tree!.root.findByProps({testID: 'camera-tools'})).toBeTruthy();
     expect(tree!.root.findByProps({accessibilityLabel: '动态照片'})).toBeTruthy();
     expect(tree!.root.findByProps({accessibilityLabel: '定时'})).toBeTruthy();

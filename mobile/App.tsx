@@ -13,7 +13,7 @@ const emptyState: CameraState = {active: false, busy: false, ready: false, demo:
 export default function App() {
   const {width} = useWindowDimensions();
   const compactHeader = width < 600;
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>('monitor');
   const [state, setState] = useState<CameraState>(emptyState);
   const [status, setStatus] = useState('未连接');
   const [preview, setPreview] = useState<string>();
