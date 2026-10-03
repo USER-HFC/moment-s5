@@ -35,3 +35,4 @@ dialog{border-radius:10px;border-color:#3d403d;background:#101111;box-shadow:0 1
 .camera:not(.portrait) .utility-rail>#connection-open>.upright{transform:rotate(-90deg)}
 .camera:not(.portrait) .view-area{margin-left:72px}
 .camera:not(.portrait) .image-top{top:12px}
+.camera.portrait .utility-rail .icon-button{width:44px;height:44px}
