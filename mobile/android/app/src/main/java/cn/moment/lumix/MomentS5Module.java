@@ -42,7 +42,22 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     @ReactMethod public void setLut(String id,Promise promise){try{if(engine.busy())throw new IOException("拍摄处理中，请稍后再切换 LUT");if(id==null||id.isEmpty()||"off".equals(id)){engine.setLut(null);promise.resolve(null);return;}File file=safeFile(id);if(!file.isFile())throw new IOException("LUT 不存在");engine.setLut(LutEngine.load(file));promise.resolve(engine.lutTitle());}catch(Exception e){promise.reject("LUT_INVALID",e.getMessage(),e);}}
     @ReactMethod public void listLuts(Promise promise){try{WritableArray out=Arguments.createArray();File[] files=lutDir.listFiles(f->f.isFile()&&f.getName().toLowerCase(Locale.ROOT).endsWith(".cube"));if(files!=null){Arrays.sort(files,Comparator.comparing(File::getName,String.CASE_INSENSITIVE_ORDER));for(File f:files){WritableMap m=Arguments.createMap();m.putString("id",f.getName());try{m.putString("name",LutEngine.load(f).title);}catch(IOException bad){m.putString("name",f.getName());}m.putDouble("size",f.length());out.pushMap(m);}}promise.resolve(out);}catch(Exception e){promise.reject("LUT_LIST",e);}}
     @ReactMethod public void listMoments(Promise promise){try{WritableArray out=Arguments.createArray();for(File dir:new MomentStore(context).list()){try{org.json.JSONObject meta=MomentStore.metadata(dir);WritableMap m=Arguments.createMap();m.putString("id",dir.getName());m.putString("source",meta.optString("source","动态照片"));m.putDouble("createdAt",meta.optLong("createdAt",dir.lastModified()));m.putBoolean("complete",meta.optBoolean("complete",false));String error=meta.optString("error",null);if(error!=null&&!error.isEmpty())m.putString("error",error);m.putString("lut",meta.optString("lut",null));File image=new File(dir,"rendered.jpg");if(!image.isFile()) image=new File(dir,"original.jpg");if(image.isFile())m.putString("imageUri",ShareProvider.uri(context,image).toString());File video=new File(dir,"motion.mp4");if(video.isFile())m.putString("videoUri",ShareProvider.uri(context,video).toString());out.pushMap(m);}catch(Exception ignored){}}promise.resolve(out);}catch(Exception e){promise.reject("MOMENT_LIST",e);}}
-    @ReactMethod public void playMoment(String id,Promise promise){try{File dir=momentDir(id),video=new File(dir,"motion.mp4");if(!video.isFile())throw new IOException("动态视频尚未生成");Uri uri=ShareProvider.uri(context,video);Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"video/mp4").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.setClipData(ClipData.newRawUri(video.getName(),uri));context.startActivity(Intent.createChooser(intent,"播放动态照片"));promise.resolve(null);}catch(Exception e){promise.reject("MOMENT_PLAY",e.getMessage(),e);}}
+    @ReactMethod public void playMoment(String id,Promise promise){
+        try {
+            File dir=momentDir(id),video=new File(dir,"motion.mp4");
+            if(!video.isFile())throw new IOException("动态视频尚未生成");
+            Uri uri=ShareProvider.uri(context,video);
+            Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"video/mp4")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setClipData(ClipData.newRawUri(video.getName(),uri));
+            // createChooser propagates URI grants, not NEW_TASK. The outer intent
+            // must carry it because ReactApplicationContext is not an Activity.
+            Intent chooser=Intent.createChooser(intent,"播放动态照片")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(chooser);
+            promise.resolve(null);
+        }catch(Exception e){promise.reject("MOMENT_PLAY",e.getMessage(),e);}
+    }
     @ReactMethod public void exportMoment(String id,Promise promise){try{Uri uri=MomentStore.export(context,momentDir(id));promise.resolve(uri.toString());}catch(Exception e){promise.reject("MOMENT_EXPORT",e.getMessage(),e);}}
     @ReactMethod public void importLut(String uri,String displayName,Promise promise){
         File temp=null;
