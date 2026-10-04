@@ -3,6 +3,7 @@ package cn.moment.lumix;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** JPEG ring, bounded by both time and bytes. Uses monotonic microseconds. */
 public final class FrameRing {
@@ -44,4 +45,14 @@ public final class FrameRing {
     public synchronized long lastUs() { return frames.isEmpty()?0:frames.getLast().us; }
     public synchronized void clear() { frames.clear(); bytes=0; }
     public static long maxGap(List<Frame> fs) { long max=0; for(int i=1;i<fs.size();i++) max=Math.max(max,fs.get(i).us-fs.get(i-1).us); return max; }
+    /** Select a post-shutter handle only when a pre-shutter baseline exists. */
+    public static Integer newestFreshHandle(Set<Integer> handles,Set<Integer> baseline) {
+        if(handles==null || baseline==null) return null;
+        Integer newest=null;
+        for(Integer handle:handles) {
+            if(handle==null || baseline.contains(handle)) continue;
+            if(newest==null || Integer.compareUnsigned(handle,newest)>0) newest=handle;
+        }
+        return newest;
+    }
 }

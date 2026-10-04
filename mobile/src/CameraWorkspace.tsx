@@ -6,11 +6,10 @@ import {camera, CameraState, LutItem} from './native';
 import {theme} from './theme';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 
-export type CameraMode = 'monitor' | 'timer' | 'motion';
 type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
 type Props = {
-  page: CameraMode; go: (page: CameraMode | 'album' | 'home') => void;
+  onAlbum: () => void;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
@@ -34,14 +33,14 @@ function DockButton({label, icon, iconLabel, active = false, onPress, accessibil
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({pressed}) => [styles.dockIconButton, active && styles.dockIconActive, pressed && styles.toolButtonPressed]}><CameraIcon name={icon} active={active} label={iconLabel} size={18}/><Text numberOfLines={1} style={[styles.dockLabel, active && styles.dockLabelActive]}>{label}</Text></Pressable>;
 }
 
-export default function CameraWorkspace({page, go, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect}: Props) {
+export default function CameraWorkspace({onAlbum, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const [panel, setPanel] = useState<Panel>(null);
   const [grid, setGrid] = useState(true);
   const [audio, setAudio] = useState(false);
-  const [motionEnabled, setMotionEnabled] = useState(page === 'motion');
-  const [timerEnabled, setTimerEnabled] = useState(page === 'timer');
+  const [motionEnabled, setMotionEnabled] = useState(false);
+  const [timerEnabled, setTimerEnabled] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>('auto');
   const [ratioMode, setRatioMode] = useState<'3:2' | '16:9'>('3:2');
   const [delay, setDelay] = useState(10);
@@ -77,10 +76,6 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
     transform: [{rotate: '90deg'}],
   } : StyleSheet.absoluteFillObject;
 
-  useEffect(() => {
-    setDeadline(null); setPanel(null);
-    setMotionEnabled(page === 'motion'); setTimerEnabled(page === 'timer');
-  }, [page]);
   useEffect(() => { if (!state.active) setDeadline(null); }, [state.active]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => { if (next !== 'active') setDeadline(null); });
@@ -137,7 +132,6 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
   return <View style={styles.root} testID="camera-workspace">
     <View style={[styles.toolsRail, landscape && styles.toolsRailLandscape]}>
       <ScrollView horizontal={!landscape} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape]} testID="camera-tools">
-      <Pressable hitSlop={6} accessibilityRole="button" accessibilityLabel="返回首页" onPress={() => go('home')} style={[styles.toolButton, landscape && styles.toolButtonLandscape]}><View style={styles.iconVisual}><View style={landscape ? styles.iconVisualLandscape : styles.iconVisualPortrait}><CameraIcon name="back" size={18}/></View><Text style={styles.toolLabel}>返回</Text></View></Pressable>
       <ToolButton label="构图网格" icon="grid" rotateIcon={landscape ? 'landscape' : 'portrait'} active={grid} onPress={() => setGrid(value => !value)} />
       <ToolButton label="LUT 风格" icon="lut" rotateIcon={landscape ? 'landscape' : 'portrait'} active={!!state.lut} onPress={() => {setLutPage(0); setPanel('lut');}} />
       <ToolButton label="动态照片" icon="motion" rotateIcon={landscape ? 'landscape' : 'portrait'} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
@@ -174,7 +168,7 @@ export default function CameraWorkspace({page, go, state, preview, buffered, lut
             <DockButton label="画幅" icon="ratio" iconLabel={ratioMode} accessibilityLabel={`画幅 ${ratioMode}`} onPress={() => setRatioMode(value => value === '3:2' ? '16:9' : '3:2')} />
             {timerEnabled && <DockButton label={`${delay}秒`} icon="delay" accessibilityLabel={`延时 ${delay} 秒`} onPress={() => setPanel('delay')} />}
           </View>
-          <DockButton label="相册" icon="album" accessibilityLabel="打开相册" onPress={() => go('album')} />
+          <DockButton label="相册" icon="album" accessibilityLabel="打开相册" onPress={() => {setDeadline(null); onAlbum();}} />
         </View>
         <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} disabled={disabled} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
         <Text style={styles.dockHint} variant="labelMedium">{waiting ? `${seconds}秒` : motionEnabled ? '快门前3秒' : timerEnabled ? `${delay}秒延时` : '机身照片'}</Text>

@@ -20,6 +20,7 @@ public final class MomentStore {
         File[] files=root.listFiles(f->f.isDirectory() && new File(f,"moment.json").isFile());
         ArrayList<File> list=new ArrayList<>(Arrays.asList(files==null?new File[0]:files));list.sort((a,b)->b.getName().compareTo(a.getName()));return list;
     }
+    public void delete(String id) throws IOException {MomentDeletion.delete(root,id);}
     public static JSONObject metadata(File dir) throws Exception {return new JSONObject(new String(Files.readAllBytes(new File(dir,"moment.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));}
     public static void metadata(File dir,JSONObject json) throws IOException {
         try {

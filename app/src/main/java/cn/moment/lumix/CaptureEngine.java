@@ -31,6 +31,10 @@ public final class CaptureEngine {
     private volatile boolean demo,busy,shuttingDown;
     private volatile boolean active;
     private volatile LutEngine lut;
+    /** Object handles captured during session preparation, before a shutter tap. */
+    private volatile Set<Integer> preparedHandles;
+    /** Changes whenever the camera session is replaced or disconnected. */
+    private volatile long sessionEpoch;
     private ScheduledFuture<?> polling;
     private final List<String> logs=Collections.synchronizedList(new ArrayList<>());
     public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;}
@@ -70,13 +74,27 @@ public final class CaptureEngine {
     public void connect(UsbManager manager,UsbDevice device) {
         worker.execute(()-> {
             disconnectNow();listener.status("正在打开 S5 USB 会话…",false);
-            try {camera=new UsbS5(manager,device,this::log);camera.open();active=true;demo=false;listener.exposure(camera.exposure());startPolling();}
+            try {
+                camera=new UsbS5(manager,device,this::log);camera.open();
+                // Read the object list while still preparing the session. A slow
+                // list must never sit between the user's tap and the shutter.
+                try {
+                    preparedHandles=Collections.unmodifiableSet(new HashSet<>(camera.handles()));
+                    log("已准备快门前照片索引："+preparedHandles.size()+" 个句柄");
+                } catch(IOException e) {
+                    preparedHandles=null;
+                    log("快门前照片索引暂不可用，将仅接受快门后的照片事件："+e.getMessage());
+                }
+                if(camera.closed()) throw new IOException("照片索引读取使 USB 会话失效，请重新连接相机");
+                camera.clearCaptureEvents();
+                active=true;demo=false;listener.exposure(camera.exposure());startPolling();
+            }
             catch(Exception e) {if(camera!=null) camera.close();camera=null;active=false;fail(e);}
         });
     }
     public void demo() {
         if(busy) {listener.status("正在保存实况，请稍候",false);return;}
-        worker.execute(()-> {disconnectNow();demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
+        worker.execute(()-> {disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
     }
     private void startPolling() {
         startAudio();
@@ -92,36 +110,20 @@ public final class CaptureEngine {
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
     public void capture() {
-        if(!ready()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
+        // Freeze the button boundary before queueing any work. The worker may be
+        // delayed by a prior USB operation, but the clip must remain pre-tap.
+        long shutterUs=now();
+        UsbS5 cameraAtTap=camera;
+        boolean demoAtTap=demo;
+        long captureEpoch=sessionEpoch;
+        List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
+        if(!active || busy || (!demoAtTap && cameraAtTap==null) || pre.isEmpty()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
+        Set<Integer> baseline=preparedHandles;
         busy=true;
         worker.execute(()-> {
             File dir=null;
             try {
-                if(!active) throw new IOException("相机已断开");
-                Set<Integer> baseline=null;
-                if(!demo) {
-                    listener.status("正在准备拍摄 · 读取照片索引",false);
-                    long indexStart=now();
-                    try {baseline=camera.handles();}
-                    catch(IOException e) {
-                        log("文件列表读取不可用，准备重试："+e.getMessage());
-                        try {Thread.sleep(250);baseline=camera.handles();log("照片索引重试成功");}
-                        catch(Exception retry) {log("文件列表重试仍不可用，将使用照片事件："+retry.getMessage());}
-                    }
-                    log("照片索引读取耗时 "+(now()-indexStart)/1000+" ms");
-                }
-                long shutterUs=now();List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
-                if(pre.isEmpty()) {
-                    log("拍摄准备使预缓存过期，继续取景后再触发快门");
-                    listener.status("正在补齐快门前动态 · 请保持构图",false);
-                    long warmupDeadline=now()+8_000_000;
-                    while(pre.isEmpty() && active && now()<warmupDeadline) {
-                        grab();shutterUs=now();pre=ring.preCaptureWindow(shutterUs);
-                        if(pre.isEmpty()) Thread.sleep(65);
-                    }
-                }
-                if(!active) throw new IOException("相机已断开，尚未触发快门");
-                if(pre.isEmpty()) throw new IOException("取景持续不足，尚未触发快门；请检查实时画面并分享连接诊断");
+                if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("相机已断开，尚未触发快门");
                 List<FrameRing.Frame> fs=pre;
                 long from=shutterUs-FrameRing.PRE_CAPTURE_US,to=shutterUs;
                 short[] capturedAudio=null;
@@ -129,19 +131,24 @@ public final class CaptureEngine {
                 // Snapshot audio before the shutter command can block or age out the ring.
                 if(recording!=null)try{capturedAudio=recording.slice(from,to);}catch(IOException e){log(e.getMessage());}
                 short[] audioSamples=capturedAudio;
-                if(!demo) camera.clearCaptureEvents();
+                if(!demoAtTap) cameraAtTap.clearCaptureEvents();
                 listener.status("正在拍摄 · 已保留快门前 3 秒",false);
-                if(!demo) camera.shutter();
-                if(!active) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
+                if(!demoAtTap) cameraAtTap.shutter();
+                if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
                 dir=store.create();byte[] still;
                 String filename;
-                if(demo) {still=demoFrame(shutterUs,2400,1600);filename="DEMO.jpg";}
+                if(demoAtTap) {still=demoFrame(shutterUs,2400,1600);filename="DEMO.jpg";}
                 else {
                     listener.status("动态已缓存 · 正在接收原尺寸照片",false);
-                    int handle=waitForJpeg(baseline);Ptp.ObjectInfo info=camera.objectInfo(handle);filename=info.filename;
+                    int handle=waitForJpeg(baseline,captureEpoch,cameraAtTap);Ptp.ObjectInfo info=cameraAtTap.objectInfo(handle);filename=info.filename;
                     if(info.size>64*1024*1024L) throw new IOException("照片超过当前 64 MB 接收上限");
-                    still=camera.object(handle);
+                    still=cameraAtTap.object(handle);
                     if(still.length!=info.size && info.size!=0) throw new IOException("原片长度不符，未生成实况文件");
+                    // Refresh the next button boundary after this transfer. This
+                    // USB index read is deliberately after the shutter and can
+                    // never delay the current capture.
+                    try {preparedHandles=Collections.unmodifiableSet(new HashSet<>(cameraAtTap.handles()));}
+                    catch(IOException e) {preparedHandles=null;log("下一次拍摄的照片索引暂不可用："+e.getMessage());}
                 }
                 LutEngine filter=lut;
                 // Keep the camera bytes immutable; rendered.jpg is an explicit derivative.
@@ -152,9 +159,9 @@ public final class CaptureEngine {
                     try { Files.write(new File(dir,"rendered.jpg").toPath(),filter.applyJpeg(still)); lutApplied=true; }
                     catch(IOException e) { log("LUT 原片套用失败，保留相机原片："+e.getMessage()); }
                 }
-                JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demo);meta.put("source",filename);
+                JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
                 meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000);
-                meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","pre-shutter buffer snapshot; exposure time is approximate");
+                meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","button-tap pre-shutter buffer snapshot; exposure time is approximate");
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
@@ -185,50 +192,49 @@ public final class CaptureEngine {
     private void saveFailure(File dir,JSONObject meta,Exception error) {
         try {meta.put("complete",false);meta.put("error",error.getMessage());MomentStore.metadata(dir,meta);} catch(Exception ex) {log("失败记录写入失败："+ex.getMessage());}
     }
-    private int waitForJpeg(Set<Integer> baseline) throws Exception {
+    private int waitForJpeg(Set<Integer> baseline,long epoch,UsbS5 session) throws Exception {
         // The S5 may finish writing a high-resolution JPEG well after the shutter
-        // response. Keep polling the object list even when the event endpoint is
-        // unavailable; relying on ObjectAdded alone loses valid captures.
+        // response. Keep polling the object list when a safe baseline exists.
+        // Without it, only an event observed after clearCaptureEvents() is safe;
+        // selecting the highest old handle can pair the wrong still.
         long deadline=now()+60_000_000;Set<Integer> rejected=new HashSet<>();Set<Integer> pendingEvents=new HashSet<>();long nextList=now();
-        while(now()<deadline && active) {
-            Integer eventHandle=camera.nextAdded();
+        while(now()<deadline && sameSession(epoch,session,false)) {
+            Integer eventHandle=session.nextAdded();
             if(eventHandle!=null) pendingEvents.add(eventHandle);
             for(Iterator<Integer> it=pendingEvents.iterator();it.hasNext();) {
                 int handle=it.next();
                 try {
-                    Ptp.ObjectInfo info=camera.objectInfo(handle);
-                    if(info.jpeg()) return handle;
+                    Ptp.ObjectInfo info=session.objectInfo(handle);
+                    if(info.jpeg() && (baseline==null || !baseline.contains(handle))) return handle;
                     rejected.add(handle);it.remove();
                 } catch(IOException e) {log("收到照片事件但暂时无法读取索引 "+handle+"："+e.getMessage());}
             }
-            if(now()>=nextList) {
+            if(baseline!=null && now()>=nextList) {
                 Set<Integer> handles;
-                try {handles=camera.handles();}
+                try {handles=session.handles();}
                 catch(IOException e) {log("照片索引暂不可用，继续等待："+e.getMessage());nextList=now()+500_000;Thread.sleep(80);continue;}
-                Integer newest=null;
+                Set<Integer> jpegHandles=new HashSet<>();
                 for(int h:handles) {
                     if(rejected.contains(h) || (baseline!=null && baseline.contains(h))) continue;
                     try {
-                        Ptp.ObjectInfo info=camera.objectInfo(h);
+                        Ptp.ObjectInfo info=session.objectInfo(h);
                         if(!info.jpeg()) {rejected.add(h);continue;}
-                        // With a readable baseline, only a genuinely new handle is
-                        // accepted. Without one, the highest PTP handle is the
-                        // camera's best available indication of the just-written file.
-                        if(baseline!=null) return h;
-                        if(newest==null || Integer.compareUnsigned(h,newest)>0) newest=h;
+                        jpegHandles.add(h);
                     } catch(IOException e) {log("照片索引暂不可读 "+h+"："+e.getMessage());}
                 }
-                if(baseline==null && newest!=null) {
-                    log("未能读取快门前索引，使用最新 JPEG 句柄 "+newest);
-                    return newest;
-                }
+                Integer newest=FrameRing.newestFreshHandle(jpegHandles,baseline);
+                if(newest!=null) return newest;
                 nextList=now()+1_000_000;
             }
             Thread.sleep(80);
         }
+        if(!sameSession(epoch,session,false)) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
         throw new IOException(baseline==null
-                ? "未找到本次 JPEG。相机文件索引不可读；请确认 PC(Tether)、单张拍摄、JPEG/RAW+JPEG 与 SD 卡可写"
+                ? "未找到本次 JPEG。未获得快门前照片索引，且相机未提供可确认的新照片事件；未使用旧文件，请重试"
                 : "未找到本次 JPEG。请用单张拍摄和 JPEG/RAW+JPEG，确认 SD 卡可写；相机可能仍在写入，请重试");
+    }
+    private boolean sameSession(long epoch,UsbS5 expected,boolean expectedDemo) {
+        return active && sessionEpoch==epoch && (expectedDemo ? demo : expected!=null && camera==expected && !expected.closed());
     }
     public void focus(int direction) {
         if(!active || busy || demo) return;
@@ -239,7 +245,7 @@ public final class CaptureEngine {
     public void detach() {UsbS5 c=camera;if(c!=null)c.abort();worker.execute(()->{disconnectNow();listener.status("USB 已拔出 · 照片保留在机身或本机",false);});}
     private void disconnectNow() {
         stopAudio();
-        active=false;demo=false;if(polling!=null) polling.cancel(false);polling=null;
+        sessionEpoch++;active=false;demo=false;preparedHandles=null;if(polling!=null) polling.cancel(false);polling=null;
         if(camera!=null) camera.close();camera=null;ring.clear();
     }
     private void fail(Exception e) {log(e.getClass().getSimpleName()+": "+e.getMessage());listener.status(e.getMessage()==null?"发生错误，请查看连接诊断":e.getMessage(),false);}

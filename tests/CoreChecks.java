@@ -57,6 +57,10 @@ public final class CoreChecks {
         check(captureRing.preCaptureWindow(9_000_000).stream().allMatch(f->f.us<=9_000_000) && renewed.size()==31,"capture snapshot excludes later frames");
         check(captureRing.preCaptureWindow(9_600_000).isEmpty(),"preview that stopped updating is not ready");
         captureRing.clear();check(captureRing.preCaptureWindow(9_600_000).isEmpty(),"empty buffer is not ready");
+        Set<Integer> oldHandles=new HashSet<>(Arrays.asList(41,42));
+        check(FrameRing.newestFreshHandle(new HashSet<>(Arrays.asList(42)),oldHandles)==null,"old JPEG is not paired");
+        check(FrameRing.newestFreshHandle(new HashSet<>(Arrays.asList(42,43)),oldHandles)==43,"new JPEG handle is paired");
+        check(FrameRing.newestFreshHandle(new HashSet<>(Arrays.asList(99)),null)==null,"missing baseline never selects an old JPEG");
         List<FrameRing.Frame> fs=List.of(new FrameRing.Frame(0,new byte[1]),new FrameRing.Frame(70_000,new byte[1]),new FrameRing.Frame(600_000,new byte[1]));
         check(FrameRing.maxGap(fs)==530_000,"measure blackout, not synthetic FPS");
         Path tmp=Files.createTempDirectory("moment-core-");

@@ -81,6 +81,7 @@ public final class UsbS5 implements AutoCloseable {
     }
     public void clearCaptureEvents() { added.clear(); }
     public Integer nextAdded() { return added.poll(); }
+    public boolean closed() { return closed; }
     public Ptp.ObjectInfo objectInfo(int h) throws IOException { Result r=exchange(0x1008,null,65536,h);r.ok();return new Ptp.ObjectInfo(r.data); }
     public byte[] object(int h) throws IOException { Result r=exchange(0x1009,null,64*1024*1024,h);r.ok();return r.data; }
     public synchronized String exposure() {

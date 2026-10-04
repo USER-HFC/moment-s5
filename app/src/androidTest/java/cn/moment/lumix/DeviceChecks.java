@@ -37,8 +37,8 @@ public final class DeviceChecks extends LayoutChecks {
             require(blocked.await(3,TimeUnit.SECONDS),"capture worker paused");
             require(engine.ready(),"prebuffer ready before simulated USB delay");
             engine.capture();Thread.sleep(2200);resume.countDown();
-            require(saved.await(60,TimeUnit.SECONDS),"capture recovers from stale prebuffer\n"+logs);
-            require(logs.toString().contains("预缓存过期"),"capture replenished frames after delayed preparation");
+            require(saved.await(60,TimeUnit.SECONDS),"capture completes after queued worker delay\n"+logs);
+            require(!logs.toString().contains("读取照片索引"),"capture did not read the object list after the shutter tap");
             File dir=output[0];JSONObject meta=MomentStore.metadata(dir);
             require(meta.getBoolean("demo") && meta.getBoolean("complete"),"demo clearly marked");
             require(postFramesAtSave[0]==0,"no preview frames requested between shutter and save");

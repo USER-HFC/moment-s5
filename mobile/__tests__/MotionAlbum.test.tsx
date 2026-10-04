@@ -21,15 +21,15 @@ const moments = [{
 const exportMock = async (_id: string) => {};
 
 it('opens the latest photo as the primary album view', () => {
-  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} />);
+  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} />);
   expect(tree.root.findByProps({testID: 'motion-viewer'})).toBeTruthy();
   expect(tree.root.findByProps({accessibilityLabel: '查看相册列表'})).toBeTruthy();
-  expect(tree.root.findByProps({accessibilityLabel: '轻点缩放，长按播放动态照片'})).toBeTruthy();
+  expect(tree.root.findByProps({accessibilityLabel: '单击显示或隐藏操作，双指缩放，长按播放动态照片'})).toBeTruthy();
   act(() => tree.unmount());
 });
 
 it('reveals the full list through the explicit list action', () => {
-  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} />);
+  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} />);
   act(() => tree.root.findByProps({accessibilityLabel: '查看相册列表'}).props.onPress());
   expect(tree.root.findByProps({accessibilityLabel: '动态照片列表'})).toBeTruthy();
   expect(tree.root.findByProps({accessibilityLabel: '返回最近照片预览'})).toBeTruthy();
