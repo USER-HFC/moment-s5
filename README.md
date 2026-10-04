@@ -4,9 +4,9 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.5.9 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.5.9) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[下载 v0.6.0 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.6.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
-v0.5.9 修复相册“播放动态”启动外部播放器时的 `FLAG_ACTIVITY_NEW_TASK` 报错：为最外层播放器选择器补齐启动标记，保留视频的临时只读授权。已有照片无需重新拍摄。本次不改变拍摄、合成、LUT 或保存位置。
+v0.6.0 将相册改为手机相机式最近照片预览：进入相册直接显示最新照片，轻点缩放，长按在当前页面播放动态，播放结束后淡回静态图；点“列表”再查看全部照片。播放使用 RN 原生视频组件，不再跳转第三方播放器；保留原片、LUT 和系统相册导出。本次不改变拍摄、合成或保存位置。
 
 当前开发版是支持横竖屏的 React Native 应用，使用 React Native Paper，首页提供 **监看、定时遥控、动态照片、相册** 四个入口。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。Android 发布包只提供 `arm64-v8a`，适合现代手机直装。
 

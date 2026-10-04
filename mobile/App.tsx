@@ -6,6 +6,7 @@ import {Button, Card, Provider as PaperProvider, Snackbar, Text} from 'react-nat
 import {camera, cameraEvents, CameraState, LutItem, MomentItem} from './src/native';
 import {theme} from './src/theme';
 import CameraWorkspace from './src/CameraWorkspace';
+import MotionAlbum from './src/MotionAlbum';
 
 type Page = 'home' | 'monitor' | 'timer' | 'motion' | 'album';
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
@@ -48,12 +49,11 @@ export default function App() {
     try { const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]}); const item = await camera.importLut(file.uri, file.name || 'imported.cube'); await refresh(); await setLut(item.id); }
     catch (e) { if (!DocumentPicker.isCancel(e)) setSnack(errorText(e)); }
   };
-  const playMoment = async (id: string) => { if (!camera) return setSnack('当前平台没有相机桥'); try { await camera.playMoment(id); } catch (e) { setSnack(errorText(e)); } };
   const exportMoment = async (id: string) => { if (!camera) return setSnack('当前平台没有相机桥'); try { await camera.exportMoment(id); setSnack('动态照片已保存到系统相册'); } catch (e) { setSnack(errorText(e)); } };
   return <SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
-    <StatusBar hidden={page !== 'home' && page !== 'album'} barStyle="light-content" backgroundColor="#080909" />
-    {(page === 'home' || page === 'album') && <View style={[styles.header, compactHeader && styles.headerCompact]}><View style={styles.headerLeft}>{page !== 'home' && <Button mode="text" compact onPress={() => setPage('home')} accessibilityLabel="返回首页">返回</Button>}<View><Text variant={compactHeader ? 'titleLarge' : 'headlineMedium'}>瞬间 Lumix</Text>{!compactHeader && <Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text>}</View></View><View style={[styles.headerRight, compactHeader && styles.headerRightCompact]}><Text variant="labelLarge" numberOfLines={1} style={compactHeader ? styles.statusCompact : undefined}>{status}</Text><Button compact={compactHeader} mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>}
-    {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <Album moments={moments} onBack={() => setPage('home')} onPlay={playMoment} onExport={exportMoment}/> : <CameraWorkspace page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={connect}/>}
+    <StatusBar hidden={page !== 'home'} barStyle="light-content" backgroundColor="#080909" />
+    {page === 'home' && <View style={[styles.header, compactHeader && styles.headerCompact]}><View style={styles.headerLeft}><View><Text variant={compactHeader ? 'titleLarge' : 'headlineMedium'}>瞬间 Lumix</Text>{!compactHeader && <Text variant="labelMedium" style={styles.muted}>RN · Android / iPhone / iPad 共用页面契约</Text>}</View></View><View style={[styles.headerRight, compactHeader && styles.headerRightCompact]}><Text variant="labelLarge" numberOfLines={1} style={compactHeader ? styles.statusCompact : undefined}>{status}</Text><Button compact={compactHeader} mode="outlined" onPress={connect} accessibilityLabel="连接相机">连接</Button></View></View>}
+    {page === 'home' ? <Home go={setPage} connected={state.active}/> : page === 'album' ? <MotionAlbum moments={moments} onBack={() => setPage('home')} onExport={exportMoment}/> : <CameraWorkspace page={page} go={setPage} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={connect}/>}
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={3500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider>;
 }
