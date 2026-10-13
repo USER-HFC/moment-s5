@@ -24,3 +24,26 @@ The repository includes the generated Gradle 8.9 wrapper scripts and wrapper JAR
 
 Copyright 2015 the original author or authors (wrapper scripts).
 Source: https://github.com/gradle/gradle/tree/v8.9.0
+
+## Built-in Fuji-style LUT approximations
+
+The eight `.cube` assets in `mobile/android/app/src/main/assets/luts/` are **original, unofficial artistic approximations** by USER-HFC and Moment S5 contributors, licensed under MIT. They contain no Fujifilm official LUTs, camera profiles, or data copied from third-party LUT collections. Their names describe an intended style, not a calibrated match to a Fujifilm camera.
+
+| Asset | Display name | Source / license |
+| --- | --- | --- |
+| `fuji-style-provia-standard.cube` | Fuji 风格 · Provia / Standard | Original generator / MIT |
+| `fuji-style-velvia.cube` | Fuji 风格 · Velvia | Original generator / MIT |
+| `fuji-style-astia.cube` | Fuji 风格 · Astia | Original generator / MIT |
+| `fuji-style-classic-chrome.cube` | Fuji 风格 · Classic Chrome | Original generator / MIT |
+| `fuji-style-classic-negative.cube` | Fuji 风格 · Classic Negative | Original generator / MIT |
+| `fuji-style-eterna.cube` | Fuji 风格 · Eterna | Original generator / MIT |
+| `fuji-style-acros.cube` | Fuji 风格 · Acros | Original generator / MIT |
+| `fuji-style-pro-neg-standard.cube` | Fuji 风格 · Pro Neg.Std | Original generator / MIT |
+
+Repository: https://github.com/USER-HFC/moment-s5 . Reproducible source: [`tools/generate_fuji_style_luts.py`](tools/generate_fuji_style_luts.py). The bundled `manifest.json` records every recipe, the generator SHA-256 and each asset SHA-256. License: [`third_party/fuji-style-LICENSE.txt`](third_party/fuji-style-LICENSE.txt), also copied into the APK's `luts/LICENSE.txt`. The reviewed external repositories and rejection reasons are recorded in [`third_party/fuji-style-SOURCES.txt`](third_party/fuji-style-SOURCES.txt); none of their code or assets is bundled.
+
+Input/output is full-range, display-encoded **SDR sRGB / Rec.709 RGB**, intended for normal JPEG/preview images with a standard camera photo style. These are artistic look transforms operating on encoded values, not a conversion between the differing sRGB and Rec.709 transfer functions. They do not convert V-Log, F-Log, HDR or RAW, and do not simulate grain, halation or spatial effects. `original.jpg` remains the camera's untouched JPEG; the look applies to live view and `rendered.jpg` through the existing LUT pipeline.
+
+FUJIFILM and the film-simulation names are trademarks of their respective owners. This project and these presets are not affiliated with, endorsed by, or produced by Fujifilm.
+
+Regenerate: `python3 tools/generate_fuji_style_luts.py`; verify generated outputs: `python3 tools/generate_fuji_style_luts.py --check`. Run the production parser/interpolation and pixel-loop checks with a JDK using `python3 tools/check_bundled_luts.py` (or `--java-home /path/to/jdk`). The host check uses test-only Android graphics substitutes backed by ImageIO, including immutable decoded bitmaps; it does not exercise Android codecs or device behavior.

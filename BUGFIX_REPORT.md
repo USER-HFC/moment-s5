@@ -70,3 +70,23 @@ Suspected or hardware-dependent issues left unconfirmed:
 - `mobile/App.tsx:25` / `mobile/src/CameraWorkspace.tsx:81`: overlapping refresh responses and continuous replacement of a pending preview image could produce stale UI data or slow-decoder starvation. No such failure was reproduced in the available tests; this audit did not add an unverified concurrency redesign.
 
 FrameRing's existing bounds, backward-clock rejection, pre-only snapshots, freshness, and unsigned-handle selection were reviewed; its applicable core checks pass without a production change. MomentDeletion's traversal/symlink protection passes without a production change. The remaining Promise-returning bridge methods were reviewed for normal resolve/reject paths; connect's request setup was the confirmed unsettled path repaired here.
+
+## Integration
+
+Merged `murder/pro-scopes`, then `murder/fuji-luts`, onto `murder/scan-bugfix` using merge commits, without changing versions or dependencies.
+
+- Both merges conflicted in `CameraWorkspace.tsx` imports and `MomentS5Module.java`. Retained countdown/microphone hooks, correct focus directions, USB permission lifecycle and audio state; added scope hooks and built-in LUT listing/selection. Invalidation closes scopes and removes the camera lifecycle listener before shutting down capture.
+- The Fuji merge also conflicted in `LutEngine.java`. Kept the hardened bounds-only decode, mutable-bitmap guard, scanline processing and guaranteed bitmap cleanup; the overlapping `be699d4` fix is present once. `CaptureEngine.java` remains unchanged from the accepted bug fixes.
+- README and `native.ts` merged cleanly. README now has distinct scope and built-in LUT sections; optional built-in/read-only metadata coexists with microphone state. APK presets use `LutImport.copy` and the same hardened `LutEngine.load` as imports, with exact asset-size checks and temporary-file cleanup.
+- The post-LUT `CaptureEngine.Listener.frame` JPEG feeds both preview and scopes. Updated the Fuji host graphics substitutes for decoder options and scope sampling without replacing the native regression doubles. Added actual asset-loader failure/cleanup checks, all-eight-preset JPEG-to-scope checks, and a real camera-page test selecting built-in/imported LUTs while scopes remain subscribed. The scope check launcher now honors `JAVA_HOME` like the other Java launchers.
+
+| Integration verification | Result |
+| --- | --- |
+| `cd mobile && npx tsc --noEmit && npx jest --runInBand` | Passed: 8 suites, 39 tests, including the original focus/countdown/microphone/album regressions. |
+| `cd mobile && npx eslint src __tests__` | Passed: 0 errors, 124 warnings; no new errors. |
+| `JAVA_HOME="$PWD/.tools/jdk-17.0.20.1+1/Contents/Home" ./tools/check-core.sh` | Passed: CoreChecks 51, MomentDeletionChecks 6, LutImportChecks 11. |
+| Same `JAVA_HOME`, `./tools/check-native-host.sh` / `sh tools/check-scopes.sh` | Passed: NativeBugfixChecks 65, ScopeAnalyzerChecks 97; separately compiled all 24 shared/bridge Java classes against Android API 35/RN 0.76.7 classes, with the same 4 optional annotation warnings. |
+| `python3 tools/check_bundled_luts.py --java-home .tools/jdk-17.0.20.1+1/Contents/Home` | Passed: BundledLutChecks 1,258 and LutBitmapChecks 66, including actual asynchronous post-LUT scope decoding/crop/rotation; **1,554 Java checks total** across all suites. |
+| `python3 tools/generate_fuji_style_luts.py --check` / `git diff --check` | Passed: all 8 LUT assets, manifest, license and catalog remain reproducible; no whitespace errors. |
+
+Android Gradle compilation/APK verification cannot run on this host because no Android SDK is installed; host javac checks do not replace it. No camera/device validation was possible. PowerShell launchers were not run because `pwsh` is unavailable; their corresponding Java suites were run through the Unix/Python launchers above.

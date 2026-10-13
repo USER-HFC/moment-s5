@@ -2,12 +2,13 @@ import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {AppState, NativeModules, View} from 'react-native';
+import {Button} from 'react-native-paper';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
   const {NativeModules: modules} = require('react-native');
   modules.MomentLumix = {setScopesEnabled: jest.fn()};
-  return {cameraEvents: {addListener: jest.fn((name: string, handler: (event: unknown) => void) => {
+  return {camera: modules.MomentLumix, cameraEvents: {addListener: jest.fn((name: string, handler: (event: unknown) => void) => {
     mockHandlers.set(name, handler);
     return {remove: () => mockHandlers.delete(name)};
   })}};
@@ -17,6 +18,7 @@ jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
 import ScopesOverlay from '../src/scopes/ScopesOverlay';
 import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
+import CameraWorkspace from '../src/CameraWorkspace';
 
 function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: number}) {
   const panels = useScopePanels();
@@ -97,5 +99,32 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(tree!.root.findAllByProps({accessibilityLabel: '亮度波形 实时图表'})).toHaveLength(0);
     act(() => mockHandlers.get('cameraScopes')!({...event(), sourceAspectRatio: 16 / 9}));
     expect(tree!.root.findByProps({accessibilityLabel: '亮度波形 实时图表'})).toBeTruthy();
+  });
+  it('keeps real camera scopes subscribed while selecting built-in and imported LUTs', async () => {
+    const onLut = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const state = {active: true, busy: false, ready: true, demo: true, lut: null as string | null};
+    const luts = [
+      {id: 'builtin:acros', name: 'Fuji 风格 · Acros', size: 970721, builtIn: true, readOnly: true},
+      {id: 'imported.cube', name: '我的 LUT', size: 1024},
+    ];
+    const props = {state, buffered: 3, luts, onLut, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
+    act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
+    act(() => tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 375, height: 560}}}));
+    act(() => tree!.root.findByProps({accessibilityLabel: '示波器'}).props.onPress());
+    act(() => tree!.root.findByProps({testID: 'scope-option-waveform'}).props.onPress());
+    act(() => tree!.root.findByProps({accessibilityLabel: 'LUT 风格'}).props.onPress());
+    const before = api.setScopesEnabled.mock.calls.length;
+    for (const lut of luts) {
+      const button = tree!.root.findAllByType(Button).find(node => node.props.accessibilityLabel === `选择 LUT ${lut.builtIn ? '内置 · ' : ''}${lut.name}`)!;
+      await act(async () => {await button.props.onPress();});
+      expect(onLut).toHaveBeenLastCalledWith(lut.id);
+      act(() => tree!.update(<CameraWorkspace {...props} state={{...state, lut: lut.name}}/>));
+      expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
+      expect(mockHandlers.has('cameraScopes')).toBe(true);
+      expect(api.setScopesEnabled.mock.calls).toHaveLength(before);
+    }
+    act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: false}}/>));
+    expect(mockHandlers.size).toBe(0);
+    expect(api.setScopesEnabled.mock.calls.at(-1)?.[0]).toBe(false);
   });
 });
