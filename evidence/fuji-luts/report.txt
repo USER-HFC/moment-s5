@@ -1,0 +1,146 @@
+TASK C — Built-in Fuji-style LUTs
+Date: 2026-10-13
+Outcome: succeeded (implementation complete; Android/device verification limits below)
+Branch: murder/fuji-luts
+Worktree: /Users/murder/orca/workspaces/moment-s5/fuji-luts
+
+Implementation commits
+----------------------
+1e1b0b578c518042ee9cfc704a22d8fb7da5ff95
+  feat(luts): bundle original Fuji-style presets
+be699d4e430734653eb76a3185242091a0bbbc84
+  fix(luts): copy immutable decoded bitmaps before rendering
+The final documentation commit adds this report. No commits were pushed.
+
+Delivered
+---------
+Eight original 33-grid, full-range SDR sRGB/Rec.709 artistic approximations are
+bundled in mobile/android/app/src/main/assets/luts. These are not official
+Fujifilm LUTs, camera-calibrated matches, log conversions, or extracted profiles.
+No reviewed third-party LUTs or source code were copied into the generator.
+
+LUT inventory: each row uses source S1 and is authored by USER-HFC and Moment
+S5 contributors under MIT; all eight have 35,937 RGB nodes in the range [0,1].
+
+Display name                         | Asset                                  | Source | License | Bytes
+Fuji 风格 · Provia / Standard          | fuji-style-provia-standard.cube         | S1     | MIT     | 970733
+Fuji 风格 · Velvia                     | fuji-style-velvia.cube                  | S1     | MIT     | 970722
+Fuji 风格 · Astia                      | fuji-style-astia.cube                   | S1     | MIT     | 970721
+Fuji 风格 · Classic Chrome             | fuji-style-classic-chrome.cube          | S1     | MIT     | 970730
+Fuji 风格 · Classic Negative           | fuji-style-classic-negative.cube        | S1     | MIT     | 970732
+Fuji 风格 · Eterna                     | fuji-style-eterna.cube                  | S1     | MIT     | 970722
+Fuji 风格 · Acros                      | fuji-style-acros.cube                   | S1     | MIT     | 970721
+Fuji 风格 · Pro Neg.Std                | fuji-style-pro-neg-standard.cube        | S1     | MIT     | 970727
+
+S1 repository: https://github.com/USER-HFC/moment-s5
+S1 file: tools/generate_fuji_style_luts.py
+S1 pinned local commit: 1e1b0b578c518042ee9cfc704a22d8fb7da5ff95
+S1 source URL after this commit is published by the repository owner:
+https://github.com/USER-HFC/moment-s5/blob/1e1b0b578c518042ee9cfc704a22d8fb7da5ff95/tools/generate_fuji_style_luts.py
+Generator SHA-256: 2bfaf407ed87bc55228076cc571eba665e3f3569894904f67a760ff886539d9e
+License: third_party/fuji-style-LICENSE.txt, copied to APK luts/LICENSE.txt
+Provenance and numeric recipes: APK luts/manifest.json (also per-cube SHA-256)
+Cube bytes: 7,765,808; complete LUT asset directory: 7,773,194 bytes (<10 MB).
+
+Source review
+-------------
+The bounded review found no ready-made set meeting all task restrictions, so
+the explicitly allowed procedural fallback was used. Full URLs, author/license
+details and reasons are in third_party/fuji-style-SOURCES.txt:
+
+- YahiaAngelo/Film-Luts, af957b631a304e6be94778b96cb3395de3438e9f:
+  repository MIT label but README disclaims ownership of underlying LUTs;
+  no clear per-asset redistribution chain. Rejected.
+- pyrocat101/Fujifilm-LUTs, c687686384bbe6983c7d20d5ade21068d08dfbf8:
+  explicitly derives its data from official Fujifilm LUTs; no license file
+  found in the reviewed tree. Rejected.
+- hulk-2019/FujiSim, 665c9844cbe58faa222d41d070ec0ba7f239a71e:
+  no license file or checked-in cube set at the reviewed commit. Not adopted.
+- sadziu/Fuji-Recipe-Converter, a6691ea0e880ddd5fd19d7ca2d48a502fb0e7e07:
+  MIT code, but a generation tool with zero checked-in cubes. Not reused.
+- cedeber/hald-clut, 3b3180f82d4dcea1e6e8c5648473539a910d7f49:
+  GPL-3.0 HaldCLUT PNG collection and profile-derived provenance, rather than
+  the clearly permissive independent cube set sought. Not incorporated.
+
+Product behavior and merge surface
+----------------------------------
+The native list prepends an immutable generated catalog with builtin: IDs and
+builtIn/readOnly flags. Selection resolves only exact catalog IDs and reads
+the packaged assets, copying temporarily into cache for the existing file
+parser and deleting that temporary copy. Package presets are independent of
+the user-imported files directory and have no deletion operation.
+
+UI uses a new LutPresetList component, displays 内置 and a Chinese unofficial
+approximation/SDR input note, and uses the same selection callback for imports.
+Imported IDs, names, sorting, ZIP extraction and file storage are unchanged.
+The added native.ts metadata fields are optional for existing bridge clients.
+
+CaptureEngine was not modified: live-view frames and rendered.jpg use the
+existing LUT path, and original.jpg retains the original camera JPEG bytes.
+Only one LutEngine line changes: reuse ARGB_8888 only if isMutable() is true.
+Final review found its previous default-decode/setPixels path could attempt to
+write an immutable bitmap. The host regression first reproduced the failure,
+then passed after the guard. This also fixes the existing imported LUT path.
+Contract reference:
+https://developer.android.com/reference/android/graphics/BitmapFactory.Options#inMutable
+https://developer.android.com/reference/android/graphics/Bitmap#setPixels(int[],%20int,%20int,%20int,%20int,%20int,%20int)
+
+Shared-file edits are focused: list/select hooks in MomentS5Module.java, one
+LutPresetList import/render hook in CameraWorkspace.tsx, optional LutItem flags
+in native.ts, and the one-line mutability guard in LutEngine.java. Other feature
+logic, assets, generation/catalog data and checks live in new files.
+
+Verification actually completed
+-------------------------------
+- Read README.md, DESIGN.md and TEST_REPORT.md before implementation.
+- cd mobile && npm ci: succeeded; package-lock.json unchanged.
+- cd mobile && npx tsc --noEmit: passed, exit 0.
+- cd mobile && npx jest --runInBand: passed, 3 suites / 6 tests; includes all
+  built-in labels/listing, shared selection callbacks and disabled selections.
+- python3 tools/generate_fuji_style_luts.py --check: passed; exact byte-for-byte
+  comparison of cubes, manifest, license and generated Java catalog.
+- python3 tools/check_bundled_luts.py --java-home
+  .tools/temurin17/jdk-17.0.20.1+1/Contents/Home: passed, 1,227 production
+  LutEngine parser/interpolation checks plus 42 immutable-bitmap/host JPEG
+  checks. Every cube is loaded and its grid, domain, all values, checksum,
+  monotonic neutral ramp, primary axes and interpolated samples are checked.
+  The host pixel loop checks every preset, preserves input JPEG bytes and
+  dimensions, and compares rendered pixels with sampler outputs.
+- A synthetic skin/color/gray chart generated from the actual cube nodes was
+  visually inspected: looks are distinct, gray ramps remain ordered, and Acros
+  is monochrome. This is a sanity check, not camera/colorimetric validation.
+- git diff --check: passed.
+
+Unavailable verification / next validation
+-----------------------------------------
+No JDK or Android SDK was initially configured. A checksum-verified Temurin
+17.0.20.1 JDK was downloaded into this worktree's ignored .tools directory for
+the host Java checks; no system Java installation or environment was changed.
+
+Android compile was attempted with the isolated JDK. The exact ./gradlew
+invocation first encountered the checked-in wrapper's non-executable mode, so
+it was retried with bash (without changing its tracked mode):
+
+cd mobile/android
+JAVA_HOME=/Users/murder/orca/workspaces/moment-s5/fuji-luts/.tools/temurin17/jdk-17.0.20.1+1/Contents/Home \
+  bash ./gradlew :app:compileReleaseJavaWithJavac
+
+Result: exit 1, before compiling application Java:
+"Could not determine the dependencies of task ':app:compileReleaseJavaWithJavac'."
+"SDK location not found. Define a valid SDK location with an ANDROID_HOME
+environment variable or by setting the sdk.dir path ..."
+Gradle plugin tasks completed, but the application compile did not run.
+
+The host graphics substitutes use Java ImageIO and model immutable decoding;
+they do not exercise Android's BitmapFactory/JPEG codecs. No Android build,
+APK/emulator test, physical camera, live USB preview or real rendered camera
+photo was verified. Re-run the Android compile with SDK Platform 35, then use
+the demo/device to check visual rendering and a real S5 to validate SDR input
+photo styles, preview continuity and original.jpg preservation on-device.
+
+Reproduction
+------------
+python3 tools/generate_fuji_style_luts.py
+python3 tools/generate_fuji_style_luts.py --check
+python3 tools/check_bundled_luts.py --java-home /path/to/JDK17
+cd mobile && npx tsc --noEmit && npx jest --runInBand
