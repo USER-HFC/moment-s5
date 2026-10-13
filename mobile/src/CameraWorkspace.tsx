@@ -1,10 +1,12 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {AppState, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Button, Surface, Text} from 'react-native-paper';
 import {camera, CameraState, LutItem} from './native';
 import {theme} from './theme';
 import CameraIcon, {CameraIconName} from './CameraIcon';
+import useCaptureCountdown from './useCaptureCountdown';
+import {requestMicrophonePermission} from './microphonePermission';
 
 type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
@@ -38,14 +40,13 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const landscape = width > height;
   const [panel, setPanel] = useState<Panel>(null);
   const [grid, setGrid] = useState(true);
-  const [audio, setAudio] = useState(false);
+  const [audio, setAudio] = useState(!!state.audio);
+  const audioPending = useRef(false);
   const [motionEnabled, setMotionEnabled] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>('auto');
   const [ratioMode, setRatioMode] = useState<'3:2' | '16:9'>('3:2');
   const [delay, setDelay] = useState(10);
-  const [deadline, setDeadline] = useState<number | null>(null);
-  const [seconds, setSeconds] = useState(0);
   const [lutPage, setLutPage] = useState(0);
   const [working, setWorking] = useState(false);
   const [captureMark, setCaptureMark] = useState(false);
@@ -59,7 +60,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const pageSize = Math.max(1, Math.min(4, Math.floor((height - 250) / 56)));
   const pages = Math.max(1, Math.ceil(luts.length / pageSize));
   const currentPage = Math.min(lutPage, pages - 1);
-  const waiting = deadline !== null;
+  const {waiting, seconds, start: startCountdown, cancel: cancelCountdown} = useCaptureCountdown(captureNow, state.active && !state.busy);
   const sourceRatio = ratioMode === '3:2' ? 1.5 : 16 / 9;
   const previewRatio = landscape ? sourceRatio : 1 / sourceRatio;
   const previewFrame = useMemo(() => {
@@ -76,22 +77,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
     transform: [{rotate: '90deg'}],
   } : StyleSheet.absoluteFillObject;
 
-  useEffect(() => { if (!state.active) setDeadline(null); }, [state.active]);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', next => { if (next !== 'active') setDeadline(null); });
-    return () => sub.remove();
-  }, []);
+  useEffect(() => { if (state.audio !== undefined) setAudio(state.audio); }, [state.audio]);
   useEffect(() => () => { if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current); }, []);
-  useEffect(() => {
-    if (deadline === null) return;
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSeconds(left);
-      if (left === 0) { setDeadline(null); captureNow(); }
-    };
-    const timer = setInterval(tick, 100);
-    return () => clearInterval(timer);
-  }, [deadline]);
   useEffect(() => {
     if (!preview) return;
     const nextSlot = (1 - activeSlotRef.current) as 0 | 1;
@@ -105,6 +92,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   }, [preview]);
 
   function captureNow() {
+    if (!state.active || state.busy || (motionEnabled && !state.ready)) return;
     setCaptureMark(true);
     if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current);
     captureMarkTimer.current = setTimeout(() => setCaptureMark(false), 700);
@@ -112,15 +100,24 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
     else camera?.remoteShutter();
   }
   const fire = () => {
-    if (waiting) { setDeadline(null); return; }
+    if (waiting) { cancelCountdown(); return; }
     if (!state.active || state.busy || (motionEnabled && !state.ready)) return;
-    if (timerEnabled) { setSeconds(delay); setDeadline(Date.now() + delay * 1000); return; }
+    if (timerEnabled) { startCountdown(delay); return; }
     captureNow();
   };
   const chooseLut = async (id: string) => { setWorking(true); try { await onLut(id); } finally { setWorking(false); } };
   const chooseFocus = (mode: FocusMode, direction: number) => { setFocusMode(mode); camera?.focus(direction); };
   const toggleMotion = () => setMotionEnabled(value => !value);
-  const toggleTimer = () => setTimerEnabled(value => { if (value) setDeadline(null); return !value; });
+  const toggleTimer = () => { if (timerEnabled) cancelCountdown(); setTimerEnabled(!timerEnabled); };
+  const toggleAudio = async () => {
+    if (!camera || audioPending.current) return;
+    audioPending.current = true;
+    try {
+      const enabled = !audio;
+      if (enabled && !(await requestMicrophonePermission())) return;
+      camera.setAudio(enabled); setAudio(enabled);
+    } finally { audioPending.current = false; }
+  };
   const captureLabel = waiting ? '取消倒计时' : motionEnabled ? '拍摄动态照片' : timerEnabled ? '开始倒计时' : '拍照到相机';
   const disabled = !waiting && (!state.active || state.busy || (motionEnabled && !state.ready));
   const focusLabel = focusMode === 'auto' ? 'AFS' : 'MF';
@@ -137,8 +134,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
       <ToolButton label="动态照片" icon="motion" rotateIcon={landscape ? 'landscape' : 'portrait'} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
       <ToolButton label="定时" icon="timer" rotateIcon={landscape ? 'landscape' : 'portrait'} active={timerEnabled} switchValue={timerEnabled} onPress={toggleTimer} />
       <ToolButton label="自动对焦" icon="focus" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />
-      <ToolButton label="远对焦" icon="far" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'far'} onPress={() => chooseFocus('far', -1)} />
-      <ToolButton label="近对焦" icon="near" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'near'} onPress={() => chooseFocus('near', 1)} />
+      <ToolButton label="远对焦" icon="far" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'far'} onPress={() => chooseFocus('far', 1)} />
+      <ToolButton label="近对焦" icon="near" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'near'} onPress={() => chooseFocus('near', -1)} />
       </ScrollView>
       <Pressable hitSlop={6} accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? styles.usbPinnedLandscape : styles.usbPinnedPortrait]}><View style={styles.iconVisual}><View style={landscape ? styles.iconVisualLandscape : styles.iconVisualPortrait}><CameraIcon name="usb" active={state.active} size={18}/></View><Text style={[styles.toolLabel, state.active && styles.toolLabelActive]}>连接</Text></View></Pressable>
     </View>
@@ -164,11 +161,11 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]}>
         <View style={[styles.dockSide, landscape && styles.dockSideLandscape]}>
           <View style={[styles.dockLeft, landscape && styles.dockLeftLandscape]}>
-            <DockButton label="环境" icon="mic" active={audio} accessibilityLabel="环境声" onPress={() => {setAudio(value => {camera?.setAudio(!value); return !value;});}} />
+            <DockButton label="环境" icon="mic" active={audio} accessibilityLabel="环境声" onPress={() => { void toggleAudio(); }} />
             <DockButton label="画幅" icon="ratio" iconLabel={ratioMode} accessibilityLabel={`画幅 ${ratioMode}`} onPress={() => setRatioMode(value => value === '3:2' ? '16:9' : '3:2')} />
             {timerEnabled && <DockButton label={`${delay}秒`} icon="delay" accessibilityLabel={`延时 ${delay} 秒`} onPress={() => setPanel('delay')} />}
           </View>
-          <DockButton label="相册" icon="album" accessibilityLabel="打开相册" onPress={() => {setDeadline(null); onAlbum();}} />
+          <DockButton label="相册" icon="album" accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); onAlbum();}} />
         </View>
         <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} disabled={disabled} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
         <Text style={styles.dockHint} variant="labelMedium">{waiting ? `${seconds}秒` : motionEnabled ? '快门前3秒' : timerEnabled ? `${delay}秒延时` : '机身照片'}</Text>

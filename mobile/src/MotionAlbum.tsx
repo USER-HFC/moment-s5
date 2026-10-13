@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Alert, Animated, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Alert, Animated, AppState, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
@@ -23,6 +23,15 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
 
   useEffect(() => { if (!selectedId || !moments.some((moment) => moment.id === selectedId)) setSelectedId(moments[0]?.id); }, [moments, selectedId]);
   useEffect(() => { setPlaying(false); setVideoReady(false); setScale(1); imageOpacity.setValue(1); videoOpacity.setValue(0); }, [selected?.id, imageOpacity, videoOpacity]);
+  useEffect(() => {
+    if (showList) { setPlaying(false); setVideoReady(false); imageOpacity.setValue(1); videoOpacity.setValue(0); }
+  }, [showList, imageOpacity, videoOpacity]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next !== 'active') { setPlaying(false); imageOpacity.setValue(1); videoOpacity.setValue(0); }
+    });
+    return () => { sub.remove(); imageOpacity.stopAnimation(); videoOpacity.stopAnimation(); };
+  }, [imageOpacity, videoOpacity]);
   const pinch = Gesture.Pinch().runOnJS(true).onBegin(() => { pinchStart.current = scale; }).onUpdate((event) => { setScale(Math.min(3, Math.max(1, pinchStart.current * event.scale))); }).onEnd(() => { if (scale < 1.05) setScale(1); });
 
   if (!selected) return <View style={styles.empty}><Text variant="titleLarge">还没有动态照片</Text><Text style={styles.muted}>拍摄一张动态照片后，它会在这里直接预览。</Text><Button mode="outlined" onPress={onBack} accessibilityLabel="返回拍照页面">返回拍照</Button></View>;
@@ -41,7 +50,7 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
           {moment.imageUri ? <Image source={{uri: moment.imageUri}} style={styles.thumb} /> : <View style={[styles.thumb, styles.thumbEmpty]} />}
           <View style={styles.listCopy}><Text variant="titleMedium" numberOfLines={1}>{moment.source || '动态照片'}</Text><Text style={styles.muted}>{new Date(moment.createdAt).toLocaleString()}</Text><Text style={[styles.muted, moment.error && styles.error]}>{moment.complete ? (moment.lut ? 'LUT · ' + moment.lut : '已合成') : moment.error ? '失败：' + moment.error : '合成中'}</Text></View>
         </Pressable>
-        {moment.complete && <View style={styles.listActions}><Button compact mode="outlined" onPress={() => { void onExport(moment.id); }}>导出</Button><Button compact mode="text" textColor={theme.colors.error} onPress={() => askDelete(moment.id)}>删除</Button></View>}
+        <View style={styles.listActions}>{moment.complete && <Button compact mode="outlined" onPress={() => { void onExport(moment.id); }}>导出</Button>}<Button compact mode="text" textColor={theme.colors.error} onPress={() => askDelete(moment.id)}>删除</Button></View>
       </View>)}
     </ScrollView>
   </View>;
@@ -50,12 +59,12 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
   return <View style={styles.root} testID="motion-viewer">
     {controlsVisible && <View style={styles.viewerHeader}><Button mode="text" compact onPress={onBack} accessibilityLabel="返回拍照页面">返回</Button><View style={styles.viewerTitle}><Text variant="titleLarge">最近照片</Text><Text variant="labelSmall" style={styles.muted}>{new Date(selected.createdAt).toLocaleString()}</Text></View><Button mode="text" compact onPress={() => setShowList(true)} accessibilityLabel="查看相册列表">列表</Button></View>}
     <GestureDetector gesture={pinch}><View style={styles.viewer}>
-      <Pressable style={styles.mediaHit} delayLongPress={240} onLongPress={startPlayback} onPress={() => setControlsVisible((value) => !value)} accessibilityRole="button" accessibilityLabel={selected.videoUri && selected.complete ? '单击显示或隐藏操作，双指缩放，长按播放动态照片' : '单击显示或隐藏操作，双指缩放查看照片'}>
+      <Pressable style={styles.mediaHit} delayLongPress={240} onLongPress={startPlayback} onPressOut={finishPlayback} onPress={() => setControlsVisible((value) => !value)} accessibilityRole="button" accessibilityLabel={selected.videoUri && selected.complete ? '单击显示或隐藏操作，双指缩放，长按播放动态照片' : '单击显示或隐藏操作，双指缩放查看照片'}>
         {selected.imageUri && <Animated.Image source={{uri: selected.imageUri}} style={mediaStyle} resizeMode="contain" />}
-        {selected.videoUri && selected.complete && <Animated.View pointerEvents="none" style={[styles.videoLayer, {opacity: videoOpacity, transform: [{scale}]}]}><Video key={selected.id} ref={videoRef} source={{uri: selected.videoUri}} style={styles.media} resizeMode="contain" paused={!playing} repeat={false} muted={false} onLoad={() => { setVideoReady(true); if (playing) { videoRef.current?.seek(0); fadeToVideo(); } }} onEnd={finishPlayback} onError={() => { setPlaying(false); fadeToImage(); }} /></Animated.View>}
+        {selected.videoUri && selected.complete && <Animated.View pointerEvents="none" style={[styles.videoLayer, {opacity: videoOpacity, transform: [{scale}]}]}><Video key={selected.id} ref={videoRef} source={{uri: selected.videoUri}} style={styles.media} resizeMode="contain" paused={!playing} repeat={false} muted={false} onLoad={() => { if (playing) videoRef.current?.seek(0); }} onReadyForDisplay={() => { setVideoReady(true); if (playing) fadeToVideo(); }} onEnd={finishPlayback} onError={() => { setPlaying(false); fadeToImage(); }} /></Animated.View>}
       </Pressable>
       {controlsVisible && !playing && <View pointerEvents="none" style={styles.viewerHint}><Text variant="labelMedium">{selected.videoUri && selected.complete ? '长按播放动态 · 双指缩放' : '双指缩放查看'}</Text></View>}
-      {controlsVisible && selected.complete && <View style={styles.actionRow}><Button compact mode="outlined" onPress={() => { void onExport(selected.id); }} accessibilityLabel="保存到系统相册">保存到系统相册</Button><Button compact mode="text" textColor={theme.colors.error} onPress={() => askDelete(selected.id)} accessibilityLabel="删除动态照片">删除</Button></View>}
+      {controlsVisible && <View style={styles.actionRow}>{selected.complete && <Button compact mode="outlined" onPress={() => { void onExport(selected.id); }} accessibilityLabel="保存到系统相册">保存到系统相册</Button>}<Button compact mode="text" textColor={theme.colors.error} onPress={() => askDelete(selected.id)} accessibilityLabel="删除动态照片">删除</Button></View>}
     </View></GestureDetector>
   </View>;
 }

@@ -16,13 +16,12 @@ export default function App() {
   const pageRef = useRef(page);
   pageRef.current = page;
   const [state, setState] = useState<CameraState>(emptyState);
-  const [status, setStatus] = useState('未连接');
   const [preview, setPreview] = useState<string>();
   const [buffered, setBuffered] = useState(0);
   const [luts, setLuts] = useState<LutItem[]>([]);
   const [moments, setMoments] = useState<MomentItem[]>([]);
   const [snack, setSnack] = useState('');
-  const lastPreviewAt = useRef(0);
+  const lastPreviewAt = useRef(-Infinity);
   const refresh = useCallback(async () => {
     if (!camera) return;
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
@@ -30,11 +29,11 @@ export default function App() {
   }, []);
   useEffect(() => {
     void refresh();
-    if (!cameraEvents) { setStatus('当前平台没有相机桥'); return; }
+    if (!cameraEvents) { setSnack('当前平台没有相机桥'); return; }
     const subs = [
-      cameraEvents.addListener('cameraStatus', (e) => { setStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
+      cameraEvents.addListener('cameraStatus', (e) => { setSnack(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
       cameraEvents.addListener('cameraFrame', (e) => {
-        const now = Date.now();
+        const now = performance.now();
         if (pageRef.current === 'camera' && now - lastPreviewAt.current >= 66) {
           lastPreviewAt.current = now; setPreview('data:image/jpeg;base64,' + e.jpegBase64);
         }
