@@ -21,9 +21,12 @@ public final class LutEngine {
     }
 
     public static LutEngine load(File file) throws IOException {
+        return load(file,file==null?"imported.cube":file.getName());
+    }
+    public static LutEngine load(File file,String fallbackTitle) throws IOException {
         if (file == null || !file.isFile()) throw new IOException("LUT 文件不存在");
         if (file.length() > MAX_FILE) throw new IOException("LUT 文件超过 16 MB");
-        int size = 0; String title = file.getName();
+        int size = 0; String title = fallbackTitle;
         float[] min = {0f, 0f, 0f}, max = {1f, 1f, 1f};
         ArrayList<float[]> rows = new ArrayList<>();
         boolean sawSize = false, sawMin = false, sawMax = false;
@@ -32,7 +35,7 @@ public final class LutEngine {
             while ((raw = in.readLine()) != null) {
                 lineNo++; String line = raw.trim();
                 if (lineNo == 1 && line.startsWith("\uFEFF")) line = line.substring(1).trim();
-                int comment = line.indexOf('#'); if (comment >= 0) line = line.substring(0, comment).trim();
+                line = withoutComment(line);
                 if (line.isEmpty()) continue;
                 String[] p = line.split("\\s+"); String key = p[0].toUpperCase(Locale.ROOT);
                 try {
@@ -45,6 +48,11 @@ public final class LutEngine {
                         sawSize = true;
                     } else if ("LUT_1D_SIZE".equals(key)) {
                         throw new IOException("仅支持 3D .cube LUT，不支持 1D LUT");
+                    } else if ("LUT_3D_INPUT_RANGE".equals(key)) {
+                        if (p.length != 3 || sawMin || sawMax) throw new IOException("LUT_3D_INPUT_RANGE 重复或与 DOMAIN 冲突");
+                        float lo = Float.parseFloat(p[1]), hi = Float.parseFloat(p[2]);
+                        if (!Float.isFinite(lo) || !Float.isFinite(hi)) throw new IOException("LUT_3D_INPUT_RANGE 不是有限数");
+                        Arrays.fill(min, lo); Arrays.fill(max, hi); sawMin = true; sawMax = true;
                     } else if ("DOMAIN_MIN".equals(key) || "DOMAIN_MAX".equals(key)) {
                         if (p.length != 4) throw new IOException("DOMAIN 需要 3 个数");
                         float[] dest = "DOMAIN_MIN".equals(key) ? min : max;
@@ -70,26 +78,51 @@ public final class LutEngine {
         for (int i = 0; i < 3; i++) if (!(max[i] > min[i])) throw new IOException("DOMAIN_MAX 必须大于 DOMAIN_MIN");
         float[] data = new float[rows.size() * 3];
         for (int i = 0; i < rows.size(); i++) { data[i * 3] = rows.get(i)[0]; data[i * 3 + 1] = rows.get(i)[1]; data[i * 3 + 2] = rows.get(i)[2]; }
-        return new LutEngine(size, data, min, max, title.isEmpty() ? file.getName() : title);
+        return new LutEngine(size, data, min, max, title == null || title.isEmpty() ? file.getName() : title);
+    }
+
+    private static String withoutComment(String line) {
+        char quote = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if ((c == '\"' || c == '\'') && (i == 0 || line.charAt(i - 1) != '\\')) {
+                if (quote == 0) quote = c; else if (quote == c) quote = 0;
+            } else if (c == '#' && quote == 0) return line.substring(0, i).trim();
+        }
+        return line;
     }
 
     public byte[] applyJpeg(byte[] jpeg) throws IOException {
         if (jpeg == null || jpeg.length == 0) throw new IOException("LUT 输入为空");
-        Bitmap source = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
+        BitmapFactory.Options options = new BitmapFactory.Options(); options.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, options);
+        if (options.outWidth <= 0 || options.outHeight <= 0) throw new IOException("LUT 输入 JPEG 无法解码");
+        if ((long) options.outWidth * options.outHeight > MAX_PIXELS) throw new IOException("照片分辨率超过 LUT 处理上限");
+        options.inJustDecodeBounds = false; options.inMutable = true; options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap source = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, options);
         if (source == null) throw new IOException("LUT 输入 JPEG 无法解码");
-        long pixels = (long) source.getWidth() * source.getHeight();
-        if (pixels > MAX_PIXELS) { source.recycle(); throw new IOException("照片分辨率超过 LUT 处理上限"); }
-        Bitmap bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 ? source : source.copy(Bitmap.Config.ARGB_8888, true);
-        if (bitmap == null) { source.recycle(); throw new IOException("无法建立 LUT 图像缓冲"); }
-        if (bitmap != source) source.recycle();
-        int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w * h]; bitmap.getPixels(px, 0, w, 0, 0, w, h);
-        for (int i = 0; i < px.length; i++) {
-            int c = px[i]; float[] out = sample((c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f);
-            px[i] = (c & 0xff000000) | (toByte(out[0]) << 16) | (toByte(out[1]) << 8) | toByte(out[2]);
+        Bitmap bitmap = null;
+        try {
+            bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 && source.isMutable() ? source : source.copy(Bitmap.Config.ARGB_8888, true);
+            if (bitmap == null) throw new IOException("无法建立 LUT 图像缓冲");
+            int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w];
+            for (int row = 0; row < h; row++) {
+                bitmap.getPixels(px, 0, w, 0, row, w, 1);
+                for (int i = 0; i < px.length; i++) {
+                    int c = px[i]; float[] out = sample((c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f);
+                    px[i] = (c & 0xff000000) | (toByte(out[0]) << 16) | (toByte(out[1]) << 8) | toByte(out[2]);
+                }
+                bitmap.setPixels(px, 0, w, 0, row, w, 1);
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(jpeg.length, 1024));
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)) throw new IOException("LUT JPEG 编码失败");
+            return out.toByteArray();
+        } catch (RuntimeException e) {
+            throw new IOException("LUT 图像处理失败：" + e.getMessage(), e);
+        } finally {
+            if (bitmap != null && bitmap != source) bitmap.recycle();
+            source.recycle();
         }
-        bitmap.setPixels(px, 0, w, 0, 0, w, h); ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(jpeg.length, 1024));
-        try { if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)) throw new IOException("LUT JPEG 编码失败"); return out.toByteArray(); }
-        finally { bitmap.recycle(); }
     }
 
     private int toByte(float v) { return Math.round(Math.max(0f, Math.min(1f, v)) * 255f); }
@@ -105,8 +138,8 @@ public final class LutEngine {
         }
         return out;
     }
-    private static float lerp(float a, float b, float t) { return a + (b - a) * t; }
-    private float norm(float value, int c) { return Math.max(0f, Math.min(1f, (value - domainMin[c]) / (domainMax[c] - domainMin[c]))); }
+    private static float lerp(float a, float b, float t) { return (float) (a + ((double) b - a) * t); }
+    private float norm(float value, int c) { return (float) Math.max(0d, Math.min(1d, ((double) value - domainMin[c]) / ((double) domainMax[c] - domainMin[c]))); }
     // .cube rows enumerate red fastest, then green, then blue (the Lab export order).
     private float v(int r, int g, int b, int c) { return values[((b * size + g) * size + r) * 3 + c]; }
 }

@@ -9,6 +9,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class CaptureEngine {
     public interface Listener {
@@ -34,7 +35,7 @@ public final class CaptureEngine {
     /** Object handles captured during session preparation, before a shutter tap. */
     private volatile Set<Integer> preparedHandles;
     /** Changes whenever the camera session is replaced or disconnected. */
-    private volatile long sessionEpoch;
+    private final AtomicLong sessionEpoch=new AtomicLong();
     private ScheduledFuture<?> polling;
     private final List<String> logs=Collections.synchronizedList(new ArrayList<>());
     public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;}
@@ -44,38 +45,46 @@ public final class CaptureEngine {
     }
     public String diagnostics() {synchronized(logs){return String.join("\n",logs);}}
     public boolean busy() {return busy;}
-    public void audio(boolean enabled) {audioEnabled=enabled;worker.execute(()->{stopAudio();if(active)startAudio();});}
+    public void audio(boolean enabled) {audioEnabled=enabled;if(!enabled)stopAudio();if(!worker.isShutdown())worker.execute(()->{stopAudio();if(active)startAudio();});}
     public boolean audioEnabled() {return audioEnabled;}
-    private synchronized void startAudio() {if(audioEnabled){try{microphone=new AudioRing();microphone.start();log("环境声录制已开启");}catch(Exception e){stopAudio();log("收音不可用，本次为无声："+e.getMessage());}}}
+    private synchronized void startAudio() {if(audioEnabled && active && !shuttingDown){try{microphone=new AudioRing();microphone.start();log("环境声录制已开启");}catch(Exception e){stopAudio();log("收音不可用，本次为无声："+e.getMessage());}}}
     public synchronized void stopAudio() {if(microphone!=null){microphone.close();microphone=null;}}
     public boolean canFocus() {return active && !demo && !busy && camera!=null;}
     public boolean active() {return active;}
-    public synchronized void setLut(LutEngine value) {lut=value;ring.clear();log(value==null?"LUT 已关闭，正在重建预缓存":"LUT 已启用："+value.title+"，正在重建预缓存");}
+    public synchronized void setLut(LutEngine value) {if(busy)throw new IllegalStateException("拍摄处理中，请稍后再切换 LUT");lut=value;ring.clear();log(value==null?"LUT 已关闭，正在重建预缓存":"LUT 已启用："+value.title+"，正在重建预缓存");}
     public String lutTitle() {LutEngine value=lut;return value==null?null:value.title;}
     public boolean demoMode() {return demo;}
     public boolean canRemoteCapture() {return active && !busy && !shuttingDown;}
     /** Single shot saved by the camera; no download and never an automatic retry. */
-    public void remoteShutter() {
+    public synchronized void remoteShutter() {
         if(!canRemoteCapture()) {listener.status("相机未连接或正在处理拍摄",false);return;}
         busy=true;
+        long epoch=sessionEpoch.get();UsbS5 session=camera;boolean synthetic=demo;
+        // A remote shot can appear in the index later. The old baseline is no longer safe.
+        preparedHandles=null;
         worker.execute(()-> {
+            String result=null;Exception failure=null;
             try {
-                if(!active) throw new IOException("相机已断开，未触发快门");
-                if(!demo) {
-                    if(camera==null) throw new IOException("相机已断开，未触发快门");
-                    camera.shutter();
-                }
-                String result=demo?"演示：遥控快门已触发（未连接机身）":"遥控指令已完成 · 请在机身确认照片";
-                log(result);listener.status(result,false);
-            } catch(Exception e) {fail(e);}
+                if(!sameSession(epoch,session,synthetic)) throw new IOException("相机已断开，未触发快门");
+                if(!synthetic) session.shutter();
+                result=synthetic?"演示：遥控快门已触发（未连接机身）":"遥控指令已完成 · 请在机身确认照片";
+                log(result);
+            } catch(Exception e) {failure=e;}
             finally {ring.clear();busy=false;}
+            if(failure!=null)fail(failure);else listener.status(result,false);
         });
     }
     public void connect(UsbManager manager,UsbDevice device) {
+        if(busy || shuttingDown) {listener.status("正在保存实况，请稍候",false);return;}
+        long requestedEpoch=sessionEpoch.get();
         worker.execute(()-> {
+            if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get()) return;
             disconnectNow();listener.status("正在打开 S5 USB 会话…",false);
+            long connectingEpoch=sessionEpoch.get();
             try {
-                camera=new UsbS5(manager,device,this::log);camera.open();
+                camera=new UsbS5(manager,device,this::log);
+                if(connectingEpoch!=sessionEpoch.get()) throw new IOException("相机连接已取消");
+                camera.open();
                 // Read the object list while still preparing the session. A slow
                 // list must never sit between the user's tap and the shutter.
                 try {
@@ -85,16 +94,19 @@ public final class CaptureEngine {
                     preparedHandles=null;
                     log("快门前照片索引暂不可用，将仅接受快门后的照片事件："+e.getMessage());
                 }
-                if(camera.closed()) throw new IOException("照片索引读取使 USB 会话失效，请重新连接相机");
+                if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("USB 会话已失效或连接已取消，请重新连接相机");
                 camera.clearCaptureEvents();
-                active=true;demo=false;listener.exposure(camera.exposure());startPolling();
+                active=true;demo=false;listener.exposure(camera.exposure());
+                if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("相机连接已取消");
+                startPolling();
             }
             catch(Exception e) {if(camera!=null) camera.close();camera=null;active=false;fail(e);}
         });
     }
     public void demo() {
-        if(busy) {listener.status("正在保存实况，请稍候",false);return;}
-        worker.execute(()-> {disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
+        if(busy || shuttingDown) {listener.status("正在保存实况，请稍候",false);return;}
+        long requestedEpoch=sessionEpoch.get();
+        worker.execute(()-> {if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get())return;disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
     }
     private void startPolling() {
         startAudio();
@@ -106,22 +118,22 @@ public final class CaptureEngine {
     }
     private void grab() throws Exception {
         byte[] bytes=demo?demoFrame(now(),960,640):(camera==null?null:camera.preview());
-        if(bytes!=null) {LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}long t=now();ring.add(t,bytes);listener.frame(bytes,ring.durationUs(),demo);}
+        if(bytes!=null) {LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}synchronized(this){if(!active || busy || filter!=lut)return;long t=now();ring.add(t,bytes);listener.frame(bytes,ring.durationUs(),demo);}}
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
-    public void capture() {
+    public synchronized void capture() {
         // Freeze the button boundary before queueing any work. The worker may be
         // delayed by a prior USB operation, but the clip must remain pre-tap.
         long shutterUs=now();
         UsbS5 cameraAtTap=camera;
         boolean demoAtTap=demo;
-        long captureEpoch=sessionEpoch;
+        long captureEpoch=sessionEpoch.get();
         List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
-        if(!active || busy || (!demoAtTap && cameraAtTap==null) || pre.isEmpty()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
+        if(!active || busy || shuttingDown || (!demoAtTap && cameraAtTap==null) || pre.isEmpty()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
         Set<Integer> baseline=preparedHandles;
         busy=true;
         worker.execute(()-> {
-            File dir=null;
+            File dir=null;JSONObject meta=new JSONObject();
             try {
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("相机已断开，尚未触发快门");
                 List<FrameRing.Frame> fs=pre;
@@ -135,7 +147,7 @@ public final class CaptureEngine {
                 listener.status("正在拍摄 · 已保留快门前 3 秒",false);
                 if(!demoAtTap) cameraAtTap.shutter();
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
-                dir=store.create();byte[] still;
+                dir=store.create();meta.put("demo",demoAtTap);byte[] still;
                 String filename;
                 if(demoAtTap) {still=demoFrame(shutterUs,2400,1600);filename="DEMO.jpg";}
                 else {
@@ -159,7 +171,7 @@ public final class CaptureEngine {
                     try { Files.write(new File(dir,"rendered.jpg").toPath(),filter.applyJpeg(still)); lutApplied=true; }
                     catch(IOException e) { log("LUT 原片套用失败，保留相机原片："+e.getMessage()); }
                 }
-                JSONObject meta=new JSONObject();meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
+                meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
                 meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000);
                 meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","button-tap pre-shutter buffer snapshot; exposure time is approximate");
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
@@ -172,6 +184,7 @@ public final class CaptureEngine {
                 File finalDir=dir; final boolean rendered=lutApplied;
                 listener.status("原片已接收 · 正在合成实况",false);
                 exporter.execute(()-> {
+                    Exception failure=null;
                     try {
                         VideoEncoder.encode(fs,from,to,new File(finalDir,"motion.mp4"));
                         if(audioSamples!=null){
@@ -180,13 +193,14 @@ public final class CaptureEngine {
                             Files.move(withAudio.toPath(),new File(finalDir,"motion.mp4").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                         }
                         MotionPhoto.write(new File(finalDir,rendered?"rendered.jpg":"original.jpg"),new File(finalDir,"motion.mp4"),new File(finalDir,"MOMENT_MP.jpg"),stillUs);
-                        meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);listener.saved(finalDir);
-                        log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");
-                        listener.status("实况已保存",false);
-                    } catch(Exception e) {saveFailure(finalDir,meta,e);listener.failed(finalDir,e.getMessage());fail(e);}
-                    finally {busy=false;ring.clear();}
+                        meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);
+                    } catch(Exception e) {saveFailure(finalDir,meta,e);failure=e;}
+                    finally {ring.clear();busy=false;}
+                    // Observers must see the completed state when the result event arrives.
+                    if(failure!=null) {listener.failed(finalDir,failure.getMessage());fail(failure);}
+                    else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status("实况已保存",false);}
                 });
-            } catch(Exception e) {if(dir!=null) {saveFailure(dir,new JSONObject(),e);listener.failed(dir,e.getMessage());}busy=false;ring.clear();fail(e);}
+            } catch(Exception e) {if(dir!=null)saveFailure(dir,meta,e);ring.clear();busy=false;if(dir!=null)listener.failed(dir,e.getMessage());fail(e);}
         });
     }
     private void saveFailure(File dir,JSONObject meta,Exception error) {
@@ -234,22 +248,27 @@ public final class CaptureEngine {
                 : "未找到本次 JPEG。请用单张拍摄和 JPEG/RAW+JPEG，确认 SD 卡可写；相机可能仍在写入，请重试");
     }
     private boolean sameSession(long epoch,UsbS5 expected,boolean expectedDemo) {
-        return active && sessionEpoch==epoch && (expectedDemo ? demo : expected!=null && camera==expected && !expected.closed());
+        return active && sessionEpoch.get()==epoch && (expectedDemo ? demo : expected!=null && camera==expected && !expected.closed());
     }
     public void focus(int direction) {
         if(!active || busy || demo) return;
         worker.execute(()-> {try {if(camera!=null) {if(direction==0) camera.autofocus();else camera.focus(direction>0);}} catch(Exception e) {fail(e);}});
     }
     public void refreshExposure() {if(active && !busy && camera!=null) worker.execute(()-> {if(camera!=null) listener.exposure(camera.exposure());});}
-    public void disconnect() {worker.execute(this::disconnectNow);}
-    public void detach() {UsbS5 c=camera;if(c!=null)c.abort();worker.execute(()->{disconnectNow();listener.status("USB 已拔出 · 照片保留在机身或本机",false);});}
+    public void disconnect() {
+        // Invalidate queued shutters and unblock USB reads before waiting for the worker.
+        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;
+        UsbS5 c=camera;if(c!=null)c.abort();stopAudio();
+        if(!worker.isShutdown())worker.execute(this::disconnectNow);
+    }
+    public void detach() {disconnect();if(!worker.isShutdown())worker.execute(()->listener.status("USB 已拔出 · 照片保留在机身或本机",false));}
     private void disconnectNow() {
         stopAudio();
-        sessionEpoch++;active=false;demo=false;preparedHandles=null;if(polling!=null) polling.cancel(false);polling=null;
+        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;if(polling!=null) polling.cancel(false);polling=null;
         if(camera!=null) camera.close();camera=null;ring.clear();
     }
     private void fail(Exception e) {log(e.getClass().getSimpleName()+": "+e.getMessage());listener.status(e.getMessage()==null?"发生错误，请查看连接诊断":e.getMessage(),false);}
-    public void shutdown() {if(shuttingDown)return;shuttingDown=true;worker.execute(this::disconnectNow);worker.shutdown();exporter.shutdown();}
+    public synchronized void shutdown() {if(shuttingDown)return;shuttingDown=true;disconnect();worker.shutdown();exporter.shutdown();}
     static long now() {return SystemClock.elapsedRealtimeNanos()/1000;}
     static byte[] demoFrame(long us,int width,int height) {
         Bitmap b=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(b);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);

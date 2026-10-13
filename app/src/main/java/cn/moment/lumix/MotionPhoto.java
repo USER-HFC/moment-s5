@@ -8,6 +8,7 @@ import java.nio.file.Files;
 public final class MotionPhoto {
     private MotionPhoto() {}
     public static void write(File jpeg,File mp4,File output,long stillUs) throws IOException {
+        if(stillUs < -1) throw new IOException("实况照片时间标记无效");
         if(jpeg.getCanonicalFile().equals(output.getCanonicalFile()) || mp4.getCanonicalFile().equals(output.getCanonicalFile()))
             throw new IOException("不能覆盖原始素材");
         long length=mp4.length(); if(length<12) throw new IOException("视频为空");
@@ -23,7 +24,11 @@ public final class MotionPhoto {
             out.write(255);out.write(216);out.write(255);out.write(225);
             out.write((packet.length+2)>>>8);out.write((packet.length+2)&255);out.write(packet);
             in.transferTo(out); try(InputStream video=new BufferedInputStream(new FileInputStream(mp4))) { video.transferTo(out); }
-        } catch(IOException ex) { Files.deleteIfExists(temporary.toPath()); throw ex; }
-        Files.move(temporary.toPath(),output.toPath());
+        } catch(IOException ex) {removePartial(temporary,ex);throw ex;}
+        try {Files.move(temporary.toPath(),output.toPath());}
+        catch(IOException ex) {removePartial(temporary,ex);throw ex;}
+    }
+    private static void removePartial(File file,IOException error) {
+        try {Files.deleteIfExists(file.toPath());}catch(IOException cleanup){error.addSuppressed(cleanup);}
     }
 }

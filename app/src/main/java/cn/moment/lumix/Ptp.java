@@ -24,6 +24,16 @@ public final class Ptp {
         for (int p : params) b.putInt(p);
         return b.array();
     }
+    public record Container(int type,int code,int payloadLength) {}
+    public static Container container(byte[] header,int operation,int transaction,int limit) throws IOException {
+        if(header.length!=12)throw new IOException("PTP 容器头截断");
+        ByteBuffer b=le(header);int length=b.getInt(),type=b.getShort()&65535,code=b.getShort()&65535,id=b.getInt();
+        if(id!=transaction)throw new IOException("PTP 事务编号不匹配；请断开重连");
+        if(type!=3 && (type!=2 || code!=operation || limit==0))throw new IOException("PTP 容器类型或指令异常 "+type);
+        int maximum=type==3?20:limit;
+        if(length<12 || (long)length>12L+maximum || (type==3 && (length-12)%4!=0))throw new IOException("PTP 长度越界 "+length);
+        return new Container(type,code,length-12);
+    }
     public static final class Reader {
         private final ByteBuffer b;
         public Reader(byte[] bytes) { b = le(bytes); }

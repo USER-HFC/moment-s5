@@ -47,7 +47,7 @@ public final class VideoEncoder {
                                 if(scaled!=null) scaled.recycle();
                                 FrameRing.Frame f=frames.get(next);Bitmap original=BitmapFactory.decodeByteArray(f.jpeg,0,f.jpeg.length);
                                 if(original==null) throw new IOException("动态帧解码失败");
-                                scaled=Bitmap.createScaledBitmap(original,width,height,true);if(scaled!=original) original.recycle();
+                                try {scaled=Bitmap.createScaledBitmap(original,width,height,true);}finally {if(scaled!=original)original.recycle();}
                                 scaled.getPixels(pixels,0,width,0,0,width,height);source=next;
                             }
                             try(Image image=codec.getInputImage(index)) {
@@ -75,8 +75,8 @@ public final class VideoEncoder {
         } catch(RuntimeException e) {throw new IOException("视频编码失败："+e.getMessage(),e);}
         finally {
             if(scaled!=null) scaled.recycle();
-            if(codec!=null) {try {codec.stop();} catch(RuntimeException ignored) {} codec.release();}
-            if(muxer!=null) {try {if(started) muxer.stop();} catch(RuntimeException ignored) {} muxer.release();}
+            if(codec!=null) {try {codec.stop();} catch(RuntimeException ignored) {} try {codec.release();} catch(RuntimeException ignored) {}}
+            if(muxer!=null) {try {if(started) muxer.stop();} catch(RuntimeException ignored) {} try {muxer.release();} catch(RuntimeException ignored) {}}
             if(!complete) java.nio.file.Files.deleteIfExists(output.toPath());
         }
     }

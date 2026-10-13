@@ -14,7 +14,7 @@ public final class AudioMux {
     private static void encode(short[] samples,File target) throws IOException {
         MediaFormat format=MediaFormat.createAudioFormat("audio/mp4a-latm",AudioRing.RATE,1);
         format.setInteger(MediaFormat.KEY_AAC_PROFILE,MediaCodecInfo.CodecProfileLevel.AACObjectLC);format.setInteger(MediaFormat.KEY_BIT_RATE,96000);
-        MediaCodec codec=MediaCodec.createEncoderByType("audio/mp4a-latm");MediaMuxer muxer=null;boolean started=false;
+        MediaCodec codec=MediaCodec.createEncoderByType("audio/mp4a-latm");MediaMuxer muxer=null;boolean started=false,complete=false;
         try{
             codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);codec.start();
             muxer=new MediaMuxer(target.getPath(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -35,10 +35,17 @@ public final class AudioMux {
                     done=(info.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0;codec.releaseOutputBuffer(i,false);
                 }
             }
-        }finally{try{codec.stop();}finally{codec.release();}if(muxer!=null){try{if(started)muxer.stop();}finally{muxer.release();}}}
+            if(!started)throw new IOException("没有输出音频帧");
+            muxer.stop();started=false;complete=true;
+        }finally{
+            try{codec.stop();}catch(RuntimeException ignored){}
+            try{codec.release();}catch(RuntimeException ignored){}
+            if(muxer!=null){try{if(started)muxer.stop();}catch(RuntimeException ignored){}try{muxer.release();}catch(RuntimeException ignored){}}
+            if(!complete)java.nio.file.Files.deleteIfExists(target.toPath());
+        }
     }
     private static void mux(File video,File audio,File output) throws IOException {
-        MediaExtractor v=new MediaExtractor(),a=new MediaExtractor();MediaMuxer mux=null;boolean started=false;
+        MediaExtractor v=new MediaExtractor(),a=new MediaExtractor();MediaMuxer mux=null;boolean started=false,complete=false;
         try{
             v.setDataSource(video.getPath());a.setDataSource(audio.getPath());v.selectTrack(0);a.selectTrack(0);
             mux=new MediaMuxer(output.getPath(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -50,6 +57,11 @@ public final class AudioMux {
                 int flags=(source.getSampleFlags()&MediaExtractor.SAMPLE_FLAG_SYNC)!=0?MediaCodec.BUFFER_FLAG_KEY_FRAME:0;
                 info.set(0,size,source.getSampleTime(),flags);data.position(0);data.limit(size);mux.writeSampleData(useV?vi:ai,data,info);source.advance();
             }
-        }finally{v.release();a.release();if(mux!=null){try{if(started)mux.stop();}finally{mux.release();}}}
+            mux.stop();started=false;complete=true;
+        }finally{
+            try{v.release();}catch(RuntimeException ignored){}try{a.release();}catch(RuntimeException ignored){}
+            if(mux!=null){try{if(started)mux.stop();}catch(RuntimeException ignored){}try{mux.release();}catch(RuntimeException ignored){}}
+            if(!complete)java.nio.file.Files.deleteIfExists(output.toPath());
+        }
     }
 }

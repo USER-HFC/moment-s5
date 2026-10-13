@@ -39,7 +39,7 @@ public final class MomentStore {
         if(uri==null) throw new IOException("系统相册创建失败");
         try {
             try(OutputStream out=r.openOutputStream(uri)) {if(out==null) throw new IOException("无法写入相册");Files.copy(motion.toPath(),out);}
-            v.clear();v.put(MediaStore.Images.Media.IS_PENDING,0);r.update(uri,v,null,null);return uri;
-        } catch(Exception e) {r.delete(uri,null,null);throw e;}
+            v.clear();v.put(MediaStore.Images.Media.IS_PENDING,0);if(r.update(uri,v,null,null)!=1)throw new IOException("系统相册发布失败");return uri;
+        } catch(Exception e) {try{r.delete(uri,null,null);}catch(Exception cleanup){e.addSuppressed(cleanup);}throw e;}
     }
 }

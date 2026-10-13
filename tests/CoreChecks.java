@@ -25,6 +25,19 @@ public final class CoreChecks {
         catch(IOException expected) {check(expected.getMessage().contains("机身忙"),"other session errors are preserved");}
         byte[] command=Ptp.command(0x9404,17,0x03000011);
         check(Arrays.equals(command,new byte[]{16,0,0,0,1,0,4,(byte)0x94,17,0,0,0,17,0,0,3}),"capture packet");
+        byte[] response=Ptp.command(0x2001,17);Ptp.le(response).putShort(4,(short)3);
+        check(Ptp.container(response,0x9404,17,0).payloadLength()==0,"bounded response header");
+        for(int length:new int[]{11,13,33,Integer.MAX_VALUE}) {
+            Ptp.le(response).putInt(0,length);
+            try{Ptp.container(response,0x9404,17,64*1024*1024);throw new AssertionError("malformed response accepted");}
+            catch(IOException expected){checks++;}
+        }
+        Ptp.le(response).putInt(0,12).putInt(8,18);
+        try{Ptp.container(response,0x9404,17,0);throw new AssertionError("wrong transaction accepted");}catch(IOException expected){checks++;}
+        byte[] dataHeader=Ptp.command(0x9706,17);Ptp.le(dataHeader).putInt(0,20).putShort(4,(short)2);
+        check(Ptp.container(dataHeader,0x9706,17,8).payloadLength()==8,"data limit exact");
+        try{Ptp.container(dataHeader,0x9706,17,7);throw new AssertionError("oversized data accepted");}catch(IOException expected){checks++;}
+        try{Ptp.container(dataHeader,0x9404,17,0);throw new AssertionError("data during no-data operation accepted");}catch(IOException expected){checks++;}
         try {new Ptp.Reader(new byte[]{(byte)255,(byte)255,(byte)255,127}).array(4);throw new AssertionError("array accepted");} catch(IOException expected){checks++;}
         try {new Ptp.Reader(new byte[]{4,65,0}).string();throw new AssertionError("truncated string accepted");} catch(IOException expected){checks++;}
         byte[] live=new byte[190];Ptp.le(live).putInt(0,0x17000001).putInt(4,8).putInt(12,180);live[180]=(byte)255;live[181]=(byte)216;live[182]=(byte)255;
@@ -83,6 +96,10 @@ public final class CoreChecks {
             check(videoItem.getAttributeNS("http://ns.google.com/photos/1.0/container/item/","Length").equals("16"),"MP4 offset metadata");
             check(xmp.contains("MotionPhotoPresentationTimestampUs=\"1500000\""),"keyframe timestamp");
             try {MotionPhoto.write(jpg,mp4,jpg,0);throw new AssertionError("overwrite accepted");} catch(IOException expected){checks++;}
+            try {MotionPhoto.write(jpg,mp4,out,0);throw new AssertionError("existing output overwritten");} catch(IOException expected){checks++;}
+            check(!new File(out.getPath()+".part").exists(),"failed final move removes partial output");
+            check(Arrays.equals(result,Files.readAllBytes(out.toPath())),"failed final move preserves existing output");
+            try {MotionPhoto.write(jpg,mp4,tmp.resolve("bad.jpg").toFile(),-2);throw new AssertionError("invalid timestamp accepted");} catch(IOException expected){checks++;}
         } finally {try(var walk=Files.walk(tmp)){for(Path p:walk.sorted(Comparator.reverseOrder()).toList())Files.delete(p);}}
         System.out.println("PASS "+checks+" core checks");
     }

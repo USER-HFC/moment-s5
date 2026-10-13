@@ -127,7 +127,8 @@ public final class UsbS5 implements AutoCloseable {
     private synchronized Result exchange(int op,byte[] send,int limit,int... params) throws IOException {
         if(closed) throw new IOException("USB 已断开");
         if(!allowed(op)) throw new IOException("指令不在白名单");
-        int tx=transaction++;
+        // OpenSession is outside the session and must use transaction zero.
+        int tx=op==0x1002?0:transaction++;
         long deadline=SystemClock.elapsedRealtime()+15000;
         try {
             write(Ptp.command(op,tx,params),deadline);
@@ -135,16 +136,12 @@ public final class UsbS5 implements AutoCloseable {
                 byte[] block=new byte[send.length+12];ByteBuffer b=Ptp.le(block);
                 b.putInt(block.length).putShort((short)2).putShort((short)op).putInt(tx).put(send);write(block,deadline);
             }
-            byte[] data=new byte[0];
+            byte[] data=new byte[0];boolean receivedData=false;
             for(int count=0;count<4;count++) {
-                byte[] header=read(12,deadline);ByteBuffer h=Ptp.le(header);
-                int length=h.getInt(),type=h.getShort()&65535,code=h.getShort()&65535,id=h.getInt();
-                if(length<12 || length>Math.max(limit,20)+12) throw new IOException("PTP 长度越界 "+length);
-                byte[] payload=read(length-12,deadline);
-                if(id!=tx) throw new IOException("PTP 事务编号不匹配；请断开重连");
-                if(type==2 && code==op) {data=payload;continue;}
-                if(type==3) return new Result(op,code,data);
-                throw new IOException("PTP 容器类型异常 "+type);
+                Ptp.Container header=Ptp.container(read(12,deadline),op,tx,limit);
+                byte[] payload=read(header.payloadLength(),deadline);
+                if(header.type()==2) {if(receivedData)throw new IOException("PTP 收到重复数据容器");data=payload;receivedData=true;continue;}
+                return new Result(op,header.code(),data);
             }
             throw new IOException("PTP 未收到结束响应");
         } catch(IOException e) {
