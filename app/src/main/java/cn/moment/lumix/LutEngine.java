@@ -79,7 +79,7 @@ public final class LutEngine {
         if (source == null) throw new IOException("LUT 输入 JPEG 无法解码");
         long pixels = (long) source.getWidth() * source.getHeight();
         if (pixels > MAX_PIXELS) { source.recycle(); throw new IOException("照片分辨率超过 LUT 处理上限"); }
-        Bitmap bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 ? source : source.copy(Bitmap.Config.ARGB_8888, true);
+        Bitmap bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 && source.isMutable() ? source : source.copy(Bitmap.Config.ARGB_8888, true);
         if (bitmap == null) { source.recycle(); throw new IOException("无法建立 LUT 图像缓冲"); }
         if (bitmap != source) source.recycle();
         int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w * h]; bitmap.getPixels(px, 0, w, 0, 0, w, h);

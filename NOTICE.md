@@ -46,4 +46,4 @@ Input/output is full-range, display-encoded **SDR sRGB / Rec.709 RGB**, intended
 
 FUJIFILM and the film-simulation names are trademarks of their respective owners. This project and these presets are not affiliated with, endorsed by, or produced by Fujifilm.
 
-Regenerate: `python3 tools/generate_fuji_style_luts.py`; verify generated outputs: `python3 tools/generate_fuji_style_luts.py --check`. Run the production parser/interpolation checks with a JDK using `python3 tools/check_bundled_luts.py` (or `--java-home /path/to/jdk`). The host check uses test-only Android graphics stubs and does not exercise JPEG rendering.
+Regenerate: `python3 tools/generate_fuji_style_luts.py`; verify generated outputs: `python3 tools/generate_fuji_style_luts.py --check`. Run the production parser/interpolation and pixel-loop checks with a JDK using `python3 tools/check_bundled_luts.py` (or `--java-home /path/to/jdk`). The host check uses test-only Android graphics substitutes backed by ImageIO, including immutable decoded bitmaps; it does not exercise Android codecs or device behavior.
