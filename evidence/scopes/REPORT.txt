@@ -1,0 +1,83 @@
+TASK B — Professional real-time scopes overlay
+Branch: murder/pro-scopes
+Base: c1504f5 (feat(capture): freeze prebuffer at shutter)
+Date: 2026-10-13
+
+Delivered
+- RGB + luma histogram, luma waveform, RGB parade, vectorscope and RGB endpoint clipping counts.
+- Chinese toolbar picker supports any combination of four floating cards, independent close buttons,
+  header dragging and session persistence, including camera -> album -> camera navigation.
+- Normalized card positions remain within portrait/landscape preview bounds.
+- Panels analyze the same post-LUT JPEG that RN displays, including demo frames, center crop for
+  3:2/16:9 and the current clockwise portrait rotation.
+- Native sampling runs on a dedicated Android background-priority Java thread. At most one frame
+  can be queued or running; subsequent preview frames are dropped while it is busy.
+- The cadence targets a 10 Hz average even with 75 ms previews, without a stall catch-up queue.
+- JS explicitly enables sampling only when a panel is open, the camera is active and the app is
+  foregrounded; leaving the camera or closing the last panel removes the listener and disables it.
+- Source/rotation changes invalidate in-flight native results. JS rejects mismatched old events.
+- Stalled data is marked "取景暂停" after approximately 0.8-1.3 seconds.
+- Scope density rendering uses six SVG paths per intensity grid rather than thousands of React nodes.
+- No npm dependency/package-lock changes. CaptureEngine, LutEngine, PreviewView, FrameRing,
+  native.ts and Motion Photo processing are unchanged.
+
+Data protocol
+API: MomentLumix.setScopesEnabled(enabled: boolean, rotateClockwise: boolean,
+                                 sourceAspectRatio: number)
+Event: cameraScopes, emitted through RCTDeviceEventEmitter / the existing NativeEventEmitter.
+Fields:
+  version: 1
+  timestampUs: Android monotonic preview-offer timestamp in microseconds
+  width, height: analyzed/cropped dimensions after the optional rotation, each 1..256
+  rotation: 0 or 90 degrees clockwise
+  sourceAspectRatio: preview aspect ratio before portrait rotation (1.5 or 16/9)
+  demo: true for synthetic demo frames
+  postLut: true (the exact effective JPEG also delivered to preview/capture, including LUT fallback)
+  pixels: width * height
+  clipLow, clipHigh: number of sampled pixels with ANY RGB channel equal to 0 or 255,
+                     counted once per pixel for each endpoint; both may include the same pixel
+  histogram: Base64 of 1024 Uint8 values, channel-major R, G, B, Y, 256 bins each
+  waveform: Base64 of 4096 Uint8 values, row-major 64 columns x 64 brightness levels
+  parade: Base64 of 6144 Uint8 values, channel-major R/G/B with 32 x 64 row-major grids
+  vectorscope: Base64 of 4096 Uint8 values, row-major 64 x 64, Cb increases right, Cr increases up
+Histogram count intensities use a common linear peak across RGBY. Density grids use logarithmic
+count intensity, with a shared peak across RGB parade channels. Uint8 values represent intensity,
+not the original raw counts. Zero means an empty bin. Waveform/parade top is 100%, bottom is 0%.
+Y' = 0.2126 R + 0.7152 G + 0.0722 B on full-range, gamma-encoded JPEG values;
+Cb = (B - Y') / 1.8556 and Cr = (R - Y') / 1.5748. Vectorscope targets are 75% RGB color bars.
+The four arrays total 15360 binary bytes (20488 Base64 characters) per sample, plus small metadata.
+JS validates schema, dimensions, clipping counts, exact buffer sizes and canonical Base64 padding;
+its decoder does not rely on Node Buffer or atob on device.
+
+Validation
+- npm ci: succeeded; installed the existing locked mobile dependencies.
+- cd mobile && npx tsc --noEmit && npx jest --runInBand: passed, 4 suites / 16 tests.
+  Tests cover unsigned decoding/padding, malformed schema/buffers, all 16 open-panel combinations,
+  independent closing, saved/clamped positions, portrait/landscape bounds, actual picker/overlay
+  interaction, last-panel unsubscribe, background pause/resume, session restore and crop/rotation
+  reconfiguration with rejection of old results.
+- sh tools/check-scopes.sh: passed 97 pure Java checks using an isolated Temurin JDK 17 under
+  ignored .tools/scopes-jdk. Covers Rec.709 histogram/waveform/parade/vector math, gray ramps,
+  clipping, rotation, bounded frames, counter overflow and 75 ms sampling cadence.
+  A 240 x 160 desktop-JVM math sample averaged approximately 0.36 ms in the initial run;
+  this excludes JPEG decoding, Android scheduling, bridge transfer and rendering.
+- Android compile attempt: JAVA_HOME pointed at the temporary JDK, then
+  cd mobile/android && sh ./gradlew :app:compileReleaseJavaWithJavac.
+  Could not run app Java compilation: Gradle failed to determine task dependencies with
+  "SDK location not found"; ANDROID_HOME and android/local.properties are absent.
+  The wrapper was invoked with sh because this checkout's gradlew has no executable bit.
+- git diff --check: passed.
+
+Remaining verification
+An Android SDK environment must run :app:compileReleaseJavaWithJavac (or assembleDebug).
+An emulator/device should visually check drag behavior, all four plots and demo mode; a physical
+S5/phone must measure sustained preview/recording performance, LUT preview consistency and USB
+behavior. No physical camera was available, and no Android emulator or APK/device check was run.
+
+Merge notes
+Shared changes are six additive CameraWorkspace.tsx lines and small MomentS5Module.java hooks
+(new ScopeEmitter field/init, frame offer, setScopesEnabled method, close on invalidate).
+All analysis/rendering/state/bridge serialization lives in new files. README has one appended
+feature section. Integrate the native configure signature and the overlay sourceAspectRatio prop
+together if other workers change preview geometry. Scope controls preserve the existing toolbar,
+LUT/capture flow and source ratio selection.
