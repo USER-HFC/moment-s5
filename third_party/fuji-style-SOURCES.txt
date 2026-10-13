@@ -1,0 +1,92 @@
+Moment S5 built-in Fuji-style LUT source review
+Review date: 2026-10-13
+
+Decision
+--------
+No reviewed collection satisfied all of: an existing suitable SDR sRGB/Rec.709
+cube set, clearly authorized redistribution, and no Fujifilm official LUT data.
+The task's fallback was used: original procedural artistic approximations.
+No source code, numeric recipe data, LUT nodes, images or profiles from the
+repositories below were copied or incorporated into the generator or assets.
+This review is bounded to the repositories listed; it does not claim that no
+suitable collection could exist elsewhere.
+
+Bundled source (all eight files)
+-------------------------------
+Source repository: https://github.com/USER-HFC/moment-s5
+Source file: tools/generate_fuji_style_luts.py
+Author: USER-HFC and Moment S5 contributors
+License: MIT, full text in third_party/fuji-style-LICENSE.txt and APK assets
+Pinning: luts/manifest.json contains the generator SHA-256 and each cube SHA-256;
+the task completion report records the local generation commit after committing.
+Assets: fuji-style-provia-standard.cube, fuji-style-velvia.cube,
+fuji-style-astia.cube, fuji-style-classic-chrome.cube,
+fuji-style-classic-negative.cube, fuji-style-eterna.cube,
+fuji-style-acros.cube, fuji-style-pro-neg-standard.cube.
+
+Reviewed, rejected or not adopted (not bundled)
+---------------------------------------------
+
+1. YahiaAngelo/Film-Luts
+   Source: https://github.com/YahiaAngelo/Film-Luts
+   Commit: af957b631a304e6be94778b96cb3395de3438e9f
+   Repository author: Yahia Angelo (YahiaAngelo); underlying LUT authors varied.
+   Declared repository license: MIT.
+   Evidence: README.md, sections Disclaimer and License; LICENSE.
+   Reason: the README disclaims ownership of the LUTs and warns they may have
+   other owners' copyrights. The repository-wide MIT statement does not establish
+   a clear per-asset redistribution chain for its G'MIC/XTrans collection.
+   Pinned README:
+   https://github.com/YahiaAngelo/Film-Luts/blob/af957b631a304e6be94778b96cb3395de3438e9f/README.md
+
+2. pyrocat101/Fujifilm-LUTs
+   Source: https://github.com/pyrocat101/Fujifilm-LUTs
+   Commit: c687686384bbe6983c7d20d5ade21068d08dfbf8
+   Repository author: pyrocat101.
+   License: no repository license file found in this commit's recursive tree.
+   Evidence: README.md opening paragraphs and generated output paths.
+   Reason: explicitly generated from Fujifilm's official F-Log2C/F-Gamut C LUTs;
+   excluded by the task regardless of possible technical resampling/conversion.
+   Pinned README:
+   https://github.com/pyrocat101/Fujifilm-LUTs/blob/c687686384bbe6983c7d20d5ade21068d08dfbf8/README.md
+
+3. hulk-2019/FujiSim
+   Source: https://github.com/hulk-2019/FujiSim
+   Commit: 665c9844cbe58faa222d41d070ec0ba7f239a71e
+   Repository author: hulk-2019.
+   License: no repository license file found in this commit's recursive tree.
+   Evidence: GitHub repository metadata, recursive tree and README.md.
+   Reason: a parametric simulation application, no checked-in .cube set and no
+   clear license grant at the reviewed commit; not adopted.
+
+4. sadziu/Fuji-Recipe-Converter
+   Source: https://github.com/sadziu/Fuji-Recipe-Converter
+   Commit: a6691ea0e880ddd5fd19d7ca2d48a502fb0e7e07
+   Repository author: sadziu.
+   License: MIT for repository code, third-party tools retain their own licenses.
+   Evidence: LICENSE, README.md and recursive tree (zero .cube assets).
+   Reason: this is a recipe conversion/generation tool, not an existing cube set.
+   It honestly calls its outputs approximations. We chose a small independently
+   authored standard-library generator and did not reuse its implementation.
+
+5. cedeber/hald-clut (also used by alexanderawerin/PhotoChrome)
+   Source: https://github.com/cedeber/hald-clut
+   Commit: 3b3180f82d4dcea1e6e8c5648473539a910d7f49
+   Repository author: cedeber; source LUT/profile authors varied.
+   Declared repository license: GPL-3.0.
+   Evidence: LICENSE, repository tree (HaldCLUT PNGs, no .cube set), and
+   https://github.com/alexanderawerin/PhotoChrome README License/Sources.
+   Reason: not the clearly permissive independently authored cube set sought for
+   this MIT app; its camera-profile-derived asset provenance would need further
+   review. No GPL code, CLUTs or profiles were incorporated.
+
+Method and limits
+-----------------
+GitHub repositories/README/license files were inspected, with full commit hashes
+from the GitHub API and recursive trees checked for .cube and licensing files.
+GitHub search and public web search were used for discovery. No physical camera
+was available, so these original looks are neither camera-calibrated nor
+validated as matching Fujifilm's proprietary simulations. A LUT is a static
+RGB transform and cannot emulate camera grain, sharpening or other spatial or
+exposure-adaptive behavior. Presets operate on display-encoded SDR RGB values;
+they are not log/RAW/HDR transforms or a colorimetric sRGB-to-Rec.709 conversion.

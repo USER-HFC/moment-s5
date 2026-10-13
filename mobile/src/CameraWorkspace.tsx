@@ -5,6 +5,7 @@ import {Button, Surface, Text} from 'react-native-paper';
 import {camera, CameraState, LutItem} from './native';
 import {theme} from './theme';
 import CameraIcon, {CameraIconName} from './CameraIcon';
+import LutPresetList from './LutPresetList';
 
 type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
@@ -182,7 +183,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
           {panel === 'delay' && <View style={styles.options}>{[2, 5, 10, 30].map(value => <Button key={value} compact style={styles.option} contentStyle={styles.touch} accessibilityState={{selected: delay === value}} mode={delay === value ? 'contained' : 'outlined'} onPress={() => {setDelay(value); setPanel(null);}}>{value}秒</Button>)}</View>}
           {panel === 'lut' && <>
             <View style={styles.options}><Button compact contentStyle={styles.touch} disabled={working || state.busy} onPress={() => chooseLut('off')}>原色</Button><Button compact contentStyle={styles.touch} disabled={working || state.busy} onPress={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}}>导入</Button><Button compact contentStyle={styles.touch} disabled={working} onPress={onRefresh}>刷新</Button></View>
-            {luts.length === 0 ? <Text style={styles.emptyLuts}>导入 LUMIX Lab 的 .cube 或 .zip 文件</Text> : luts.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(lut => <Button key={lut.id} contentStyle={styles.touch} disabled={working || state.busy} mode={state.lut === lut.name ? 'contained-tonal' : 'text'} accessibilityLabel={`选择 LUT ${lut.name}`} onPress={() => chooseLut(lut.id)}>{lut.name}</Button>)}
+            {luts.length === 0 ? <Text style={styles.emptyLuts}>导入 LUMIX Lab 的 .cube 或 .zip 文件</Text> : <LutPresetList luts={luts.slice(currentPage * pageSize, (currentPage + 1) * pageSize)} activeName={state.lut} disabled={working || state.busy} onSelect={chooseLut}/>}
             <View style={styles.pagination}><Button compact contentStyle={styles.touch} disabled={currentPage === 0} onPress={() => setLutPage(currentPage - 1)}>上一页</Button><Text>{currentPage + 1} / {pages}</Text><Button compact contentStyle={styles.touch} disabled={currentPage + 1 >= pages} onPress={() => setLutPage(currentPage + 1)}>下一页</Button></View>
           </>}
           </ScrollView>

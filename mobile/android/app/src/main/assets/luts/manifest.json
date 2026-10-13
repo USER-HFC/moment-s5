@@ -1,0 +1,268 @@
+{
+  "schema": 1,
+  "author": "USER-HFC and Moment S5 contributors",
+  "license": "MIT",
+  "licenseFile": "LICENSE.txt",
+  "source": "tools/generate_fuji_style_luts.py",
+  "generatorSha256": "2bfaf407ed87bc55228076cc571eba665e3f3569894904f67a760ff886539d9e",
+  "input": "display-encoded SDR sRGB / Rec.709 RGB, full range [0,1]",
+  "unofficial": true,
+  "calibrated": false,
+  "recipes": [
+    {
+      "slug": "provia-standard",
+      "label": "Provia / Standard",
+      "contrast": 0.22,
+      "saturation": 1.06,
+      "black": 0.0,
+      "white": 1.0
+    },
+    {
+      "slug": "velvia",
+      "label": "Velvia",
+      "contrast": 0.85,
+      "saturation": 1.28,
+      "black": 0.0,
+      "white": 1.0,
+      "hue_saturation": [
+        1.03,
+        1.0,
+        1.1,
+        1.0,
+        1.08,
+        1.0
+      ],
+      "hue_shift": [
+        0.0,
+        -2.0,
+        -3.0,
+        0.0,
+        2.0,
+        0.0
+      ]
+    },
+    {
+      "slug": "astia",
+      "label": "Astia",
+      "contrast": 0.08,
+      "saturation": 1.01,
+      "black": 0.006,
+      "white": 0.985,
+      "hue_saturation": [
+        0.98,
+        0.97,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "highlights": [
+        0.006,
+        0.002,
+        -0.004
+      ]
+    },
+    {
+      "slug": "classic-chrome",
+      "label": "Classic Chrome",
+      "contrast": 0.58,
+      "saturation": 0.76,
+      "black": 0.012,
+      "white": 0.987,
+      "hue_saturation": [
+        1.09,
+        0.9,
+        0.92,
+        0.98,
+        0.92,
+        0.9
+      ],
+      "hue_shift": [
+        0.0,
+        -3.0,
+        6.0,
+        2.0,
+        -6.0,
+        0.0
+      ],
+      "shadows": [
+        -0.008,
+        0.001,
+        0.012
+      ],
+      "highlights": [
+        0.012,
+        0.003,
+        -0.008
+      ]
+    },
+    {
+      "slug": "classic-negative",
+      "label": "Classic Negative",
+      "contrast": 0.9,
+      "saturation": 0.86,
+      "black": 0.008,
+      "white": 0.985,
+      "hue_saturation": [
+        1.12,
+        0.91,
+        0.88,
+        0.94,
+        0.95,
+        0.95
+      ],
+      "hue_shift": [
+        -2.0,
+        -5.0,
+        10.0,
+        3.0,
+        -3.0,
+        0.0
+      ],
+      "shadows": [
+        -0.014,
+        0.01,
+        0.006
+      ],
+      "highlights": [
+        0.018,
+        0.001,
+        -0.015
+      ]
+    },
+    {
+      "slug": "eterna",
+      "label": "Eterna",
+      "contrast": -0.25,
+      "saturation": 0.73,
+      "black": 0.025,
+      "white": 0.955,
+      "shadows": [
+        -0.006,
+        0.004,
+        0.01
+      ],
+      "highlights": [
+        0.008,
+        0.002,
+        -0.006
+      ]
+    },
+    {
+      "slug": "acros",
+      "label": "Acros",
+      "contrast": 0.95,
+      "saturation": 0.0,
+      "black": 0.004,
+      "white": 0.997,
+      "monochrome": [
+        0.25,
+        0.65,
+        0.1
+      ]
+    },
+    {
+      "slug": "pro-neg-standard",
+      "label": "Pro Neg.Std",
+      "contrast": -0.08,
+      "saturation": 0.91,
+      "black": 0.006,
+      "white": 0.992,
+      "hue_saturation": [
+        0.99,
+        0.98,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "highlights": [
+        0.004,
+        0.001,
+        -0.003
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "builtin:provia-standard",
+      "name": "Fuji 风格 · Provia / Standard",
+      "file": "fuji-style-provia-standard.cube",
+      "gridSize": 33,
+      "bytes": 970733,
+      "sha256": "f10d9b539085b9d253ca700c0b53f08d95a984b0fa4cc5667ee55177171e8452",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:velvia",
+      "name": "Fuji 风格 · Velvia",
+      "file": "fuji-style-velvia.cube",
+      "gridSize": 33,
+      "bytes": 970722,
+      "sha256": "6c352df6c9879d3aa955a92295a863070f6e8b7221823f47da1dc010b50edd3c",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:astia",
+      "name": "Fuji 风格 · Astia",
+      "file": "fuji-style-astia.cube",
+      "gridSize": 33,
+      "bytes": 970721,
+      "sha256": "38793484bbdfceeccef38f646f9ab221ba3e449d19dd617c06d2b52a3bc53c4b",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:classic-chrome",
+      "name": "Fuji 风格 · Classic Chrome",
+      "file": "fuji-style-classic-chrome.cube",
+      "gridSize": 33,
+      "bytes": 970730,
+      "sha256": "8a3116c5b36dd5501e74fcadf363a67cf484d588d89e55507099c7640e581208",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:classic-negative",
+      "name": "Fuji 风格 · Classic Negative",
+      "file": "fuji-style-classic-negative.cube",
+      "gridSize": 33,
+      "bytes": 970732,
+      "sha256": "f3fb161c0f3cf73395dc23e0633f8aa322485d0b8ddd6622450f44186ecb3f69",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:eterna",
+      "name": "Fuji 风格 · Eterna",
+      "file": "fuji-style-eterna.cube",
+      "gridSize": 33,
+      "bytes": 970722,
+      "sha256": "fd0f0c3dd3f3c441ac1fa0a82c9673979b40e3dd7eac09ced63a13a576a35368",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:acros",
+      "name": "Fuji 风格 · Acros",
+      "file": "fuji-style-acros.cube",
+      "gridSize": 33,
+      "bytes": 970721,
+      "sha256": "1afe0228bd6a4f96be5913913aa80fdd44c873a3f200f1af9069912c24abee23",
+      "builtIn": true,
+      "readOnly": true
+    },
+    {
+      "id": "builtin:pro-neg-standard",
+      "name": "Fuji 风格 · Pro Neg.Std",
+      "file": "fuji-style-pro-neg-standard.cube",
+      "gridSize": 33,
+      "bytes": 970727,
+      "sha256": "fea1938e962654f834ef13a69fe68d3c3a87c03e72a7f41b9add13806791d67f",
+      "builtIn": true,
+      "readOnly": true
+    }
+  ]
+}

@@ -23,6 +23,7 @@ v0.5.8 修复 S5 拍摄后 JPEG 索引更新滞后导致的“未找到本次 JP
 - 原照片 + H.264 视频打包为 Android Motion Photo；保留原始 EXIF 与 JPEG 数据。
 - 可选手机麦克风收音，AAC 音轨与视频合并。默认关闭，需要明确授予录音权限。
 - LUT 仓库：导入 LUMIX Lab 33-grid `.cube` 或 `.zip`，启用后同时作用于监看帧和手机端渲染照片；`original.jpg` 永远保留相机原始 JPEG，`rendered.jpg` 是派生文件。LUT 必须匹配输入色彩空间，App 不会把普通 JPEG 自动变成 V-Log。
+- 内置 8 个只读“Fuji 风格”LUT：Provia/Standard、Velvia、Astia、Classic Chrome、Classic Negative、Eterna、Acros、Pro Neg.Std。它们是本项目原创的非官方近似效果，适用于普通 SDR sRGB / Rec.709 取景与 JPEG，建议搭配相机标准照片风格；不是富士官方 LUT 或机内色彩的精确复现。生成脚本、许可与来源核查见 [NOTICE.md](NOTICE.md)。
 - 最近照片全屏预览、双指缩放、单击显隐操作、长按播放、列表查看、删除 App 内副本、系统相册导出。
 - 可运行的合成演示，用于无相机测试。演示拍摄、界面及元数据都明确标记，不伪装成机身输出。
 - 连接诊断可分享，不记录机身序列号，不上传日志。
