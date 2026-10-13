@@ -5,6 +5,9 @@ import {Button, Surface, Text} from 'react-native-paper';
 import {camera, CameraState, LutItem} from './native';
 import {theme} from './theme';
 import CameraIcon, {CameraIconName} from './CameraIcon';
+import ScopeToolbar from './scopes/ScopeToolbar';
+import ScopesOverlay from './scopes/ScopesOverlay';
+import {useScopePanels} from './scopes/useScopes';
 
 type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
@@ -36,6 +39,7 @@ function DockButton({label, icon, iconLabel, active = false, onPress, accessibil
 export default function CameraWorkspace({onAlbum, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
+  const scopePanels = useScopePanels();
   const [panel, setPanel] = useState<Panel>(null);
   const [grid, setGrid] = useState(true);
   const [audio, setAudio] = useState(false);
@@ -134,6 +138,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
       <ScrollView horizontal={!landscape} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} style={[styles.toolsViewport, landscape && styles.toolsViewportLandscape]} contentContainerStyle={[styles.tools, landscape && styles.toolsLandscape]} testID="camera-tools">
       <ToolButton label="构图网格" icon="grid" rotateIcon={landscape ? 'landscape' : 'portrait'} active={grid} onPress={() => setGrid(value => !value)} />
       <ToolButton label="LUT 风格" icon="lut" rotateIcon={landscape ? 'landscape' : 'portrait'} active={!!state.lut} onPress={() => {setLutPage(0); setPanel('lut');}} />
+      <ScopeToolbar panels={scopePanels} landscape={landscape}/>
       <ToolButton label="动态照片" icon="motion" rotateIcon={landscape ? 'landscape' : 'portrait'} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
       <ToolButton label="定时" icon="timer" rotateIcon={landscape ? 'landscape' : 'portrait'} active={timerEnabled} switchValue={timerEnabled} onPress={toggleTimer} />
       <ToolButton label="自动对焦" icon="focus" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />
@@ -159,6 +164,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
           {captureMark && <View pointerEvents="none" style={styles.captureMark}><View style={styles.captureMarkCircle}><Text style={styles.captureMarkText}>✓</Text></View></View>}
           {motionEnabled && <View pointerEvents="none" style={styles.bufferBadge}><Text style={styles.hud}>{buffered.toFixed(1)}s</Text></View>}
+          <ScopesOverlay panels={scopePanels} bounds={previewFrame || finderSize} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>
         </View>
       </View>
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]}>

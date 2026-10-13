@@ -109,3 +109,11 @@ adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.lumix.test
 相机协议适配自 MIT 许可的 [baku89/tethr](https://github.com/baku89/tethr)，固定参考提交和完整许可见 [NOTICE.md](NOTICE.md)。没有打包松下固件或闭源 SDK DLL。
 
 Motion Photo 容器按照 [Android 官方格式](https://developer.android.com/media/platform/motion-photo-format)实现。USB 访问使用 [Android UsbManager](https://developer.android.com/develop/connectivity/usb/host)。
+
+## 实时示波器
+
+拍摄页工具栏的“示波器”可同时打开 RGB + 亮度直方图、亮度波形、RGB 分列和矢量示波器。每张半透明浮动卡片可拖动标题调整位置，点 × 单独关闭；本次 App 会话会记住打开的面板及位置，横竖屏切换后仍保持在取景区域内。演示模式同样提供实时数据，取景中断时会显示“取景暂停”。直方图还显示 RGB 通道触底 / 触顶的像素比例。
+
+Android 在独立低优先级线程中分析与监看相同的 LUT 后 JPEG，最长边降采样至 256 像素，匹配当前 3:2 / 16:9 裁切及竖屏旋转，目标约 10 Hz；仅保留一个正在分析的帧。关闭所有面板、离开拍摄页或进入后台即停止分析，返回拍摄页可恢复本次会话。亮度与色差按全范围 JPEG 的 Rec.709 Y′ / Cb / Cr 计算，矢量图显示 75% 色标；这些是监看诊断，不是 RAW、机内曝光值或自动 V-Log 转换。没有新增 npm 依赖。
+
+`cameraScopes` v1 事件提供四组 Base64 Uint8 数据：RGBY 直方图 4 × 256、波形 64 × 64、RGB 分列 3 × 32 × 64、矢量图 64 × 64。纯 Java 数学与采样节奏检查可用 JDK 17 运行 `sh tools/check-scopes.sh`；JS 解码、多个面板状态和订阅生命周期检查包含在 `cd mobile && npx tsc --noEmit && npx jest` 中。真实 S5 / 手机连续采样性能仍需实体设备验证。
