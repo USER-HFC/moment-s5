@@ -28,6 +28,14 @@ const moments = [{
 }] as any;
 const exportMock = async (_id: string) => {};
 
+it('keeps Wi-Fi capture provenance visible in the album after disconnection', () => {
+  const tree = renderer.create(<MotionAlbum moments={[{...moments[0], experimentalWifi: true}]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+  expect(tree.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
+  act(() => tree.update(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
+  expect(tree.root.findAllByProps({testID: 'experimental-wifi-badge'})).toHaveLength(0);
+  act(() => tree.unmount());
+});
+
 it('opens the latest photo as the primary album view', () => {
   const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} />);
   expect(tree.root.findByProps({testID: 'motion-viewer'})).toBeTruthy();

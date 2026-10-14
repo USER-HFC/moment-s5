@@ -5,6 +5,8 @@ import android.view.MotionEvent;
 import android.widget.ImageView;
 
 /** Keeps the touch target alive while its still image becomes transparent. */
+// Shared with the standalone framework Activity, which deliberately has no AppCompat dependency.
+@android.annotation.SuppressLint("AppCompatCustomView")
 public final class HoldPhotoView extends ImageView {
     private boolean holding;
     private Runnable release=()->{};

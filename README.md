@@ -124,3 +124,21 @@ Motion Photo 容器按照 [Android 官方格式](https://developer.android.com/m
 Android 在独立低优先级线程中分析与监看相同的 LUT 后 JPEG（内置或导入 LUT 均适用），最长边降采样至 256 像素，匹配当前 3:2 / 16:9 裁切及竖屏旋转，目标约 10 Hz；仅保留一个正在分析的帧。关闭所有面板、离开拍摄页或进入后台即停止分析，返回拍摄页可恢复本次会话。亮度与色差按全范围 JPEG 的 Rec.709 Y′ / Cb / Cr 计算，矢量图显示 75% 色标；这些是监看诊断，不是 RAW、机内曝光值或自动 V-Log 转换。没有新增 npm 依赖。
 
 `cameraScopes` v1 事件提供四组 Base64 Uint8 数据：RGBY 直方图 4 × 256、波形 64 × 64、RGB 分列 3 × 32 × 64、矢量图 64 × 64。纯 Java 数学与采样节奏检查可用 JDK 17 运行 `sh tools/check-scopes.sh`；JS 解码、多个面板状态和订阅生命周期检查包含在 `cd mobile && npx tsc --noEmit && npx jest` 中。真实 S5 / 手机连续采样性能仍需实体设备验证。
+
+### v0.8.0-beta.1 Wi-Fi 实验
+
+**实验性 · 未经真机验证。初代 DC-S5 固件 2.9 尚未完成实体相机握手、取景、原片或射频验证，推荐使用 USB。** 连接面板默认 USB；切到“Wi-Fi（实验）”后，可输入相机 SSID / 密码由 Android 请求加入，或先在系统设置连接相机 Wi-Fi，再选择“已手动连接相机 Wi-Fi”并填相机 IP。默认 `192.168.54.1` 只是旧协议候选地址，以机身实际地址为准。SSID / 密码只用于本次系统请求，不写入日志或照片。
+
+本版使用独立的 `CameraTransport`：USB 包装原有 `UsbS5`，实验 Wi-Fi 使用串行 `cam.cgi`、`getstate` 保活、独立 UDP 完整 JPEG 接收和 description 公布的 DLNA ContentDirectory。相机 HTTP / UDP socket 绑定到所选 Android `Network`，不绑定整个进程或替换默认互联网网络。应用的通用明文 HTTP 策略保持关闭；相机专用 socket 客户端另行强制同一相机私有 IPv4、校验公布的资源地址、拒绝重定向和控制指令资源。debug 的 Metro 例外仅限 localhost / 模拟器主机。
+
+- 只实现候选 legacy `req_acc` 与设备名登记；机身须接受连接。Gen2 `req_acc_g` / `req_acc_e` 仅解析结构，报告“需要真机抓包确认”，没有移植 G9II 常量或响应算法。
+- AF 使用 `oneshot_af`，MF 使用 `wide-slow` / `tele-slow`；只在只读能力探测明确声明后显示按钮。曝光仅展示可读的 `getsetting` 字段。
+- 每次拍摄先取得完整分页目录基线，再单发快门。快门超时或拒绝后退出会话，**绝不自动重发**；请检查 SD 卡后重新连接。只接受唯一新对象中的 `CAM_ORG` / `CAM_RAW_JPG` 原 JPEG；多张新图、双卡歧义、缩略图或旧图均不能代替本次原片。请使用单张 JPEG / RAW+JPEG，避免机身或其他 App 同时拍摄。
+- 原片流式写入临时文件，校验长度、JPEG SOI / SOF / SOS / EOI 后原子发布；随后沿用 LUT、三秒 pre-only 缓冲、编码、Motion Photo 和相册流程。完整连续三秒、帧间隔不超过 500 ms 的门槛由原生引擎强制执行。
+- UDP 当前只接受含完整 JPEG 的单个 datagram，可识别有限长度的前缀。残帧被丢弃，有界队列最多三帧；未知应用分包格式须真机抓包确认。离开前台释放取景与网络，不进行后台拍摄。暂不包含 BLE 唤醒、自动发现或 iOS Wi-Fi 实现。
+
+模拟器闭环只证明本项目自写 mock 与 App 的协议 / 媒体路径，不能代替真实 S5、Find X8、双 STA / 蜂窝共存、长曝光、双卡或原片 SD 字节一致性验收。证据见 [Wi-Fi beta 验证报告](evidence/v0.8.0-beta.1-wifi/REPORT.md)，实体测试清单见 [无线研究](docs/research/wireless-connection.md)。纯 Java 主机检查运行 `JAVA_HOME=/path/to/JDK17 bash tools/check-wifi.sh`；保留现有 core / native / scopes / LUT / Jest 与 `python3 -I -m unittest discover tools/s5-wifi` 检查。
+
+debug APK 才显示“模拟相机调试”，也会在原生层拒绝 release 的任意主机设置。独立模拟器可使用 `10.0.2.2:18088`、UDP `49152`，运行 `python3 -I tools/s5-wifi/mock_camera.py --http-port 18088 --ssdp-port 11988 --advertise-host 10.0.2.2`；向指定模拟器执行 `adb -s emulator-5580 emu redir add udp:49152:49152`。mock HTTP 仍只绑定 Mac loopback。详细复现命令在验证报告中。
+
+**安装 beta 前先导出照片。** 本版使用与 v0.7.0 不同的开发签名密钥：原密钥不可用，当前 `~/.android/debug.keystore` 于 2026-10-14 创建。因此不能覆盖安装旧版，须先把 App 内照片保存到系统相册，再卸载旧 App、安装 beta；卸载会删除 App 内照片和导入的 LUT，SD 卡原片和已导出的系统相册副本保留。本分支只准备版本 `0.8.0-beta.1` / code `22`，未推送、打 tag 或发布。

@@ -134,7 +134,7 @@ public final class NativeBugfixChecks {
         });reference.set(engine);
         try {
             field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"demo").set(engine,true);
-            field(CaptureEngine.class,"preparedHandles").set(engine,Set.of(41));CountDownLatch resume=block(engine),go=new CountDownLatch(1);
+            field(CaptureEngine.class,"preparedHandles").set(engine,new CameraTransport.Baseline(){});CountDownLatch resume=block(engine),go=new CountDownLatch(1);
             List<Thread> callers=new ArrayList<>();
             for(int i=0;i<40;i++){Thread caller=new Thread(()->{try{go.await();engine.remoteShutter();}catch(InterruptedException e){Thread.currentThread().interrupt();}});callers.add(caller);caller.start();}
             go.countDown();for(Thread caller:callers)caller.join();resume.countDown();settle(engine);
@@ -145,6 +145,8 @@ public final class NativeBugfixChecks {
             check(field(CaptureEngine.class,"microphone").get(engine)==null,"audio off releases microphone before a blocked USB worker can run");resume.countDown();settle(engine);
             resume=block(engine);UsbManager manager=manager();engine.connect(manager,new UsbDevice());engine.disconnect();resume.countDown();settle(engine);
             check(manager.opened==0 && !engine.active(),"disconnect cancels a queued USB connect");
+            resume=block(engine);engine.disconnect();UsbManager replacement=manager();engine.connect(replacement,new UsbDevice());resume.countDown();settle(engine);
+            check(replacement.opened==1,"a new connect requested after disconnect is not cancelled by its queued cleanup");engine.disconnect();settle(engine);
             warm(engine);
             resume=block(engine);engine.capture();check(engine.busy(),"capture reserves the task before queueing");engine.disconnect();
             check(!engine.active(),"disconnect invalidates the session without waiting for worker");resume.countDown();settle(engine);

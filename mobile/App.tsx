@@ -8,6 +8,8 @@ import {camera, cameraEvents, CameraState, LutItem, MomentItem} from './src/nati
 import {theme} from './src/theme';
 import CameraWorkspace from './src/CameraWorkspace';
 import MotionAlbum from './src/MotionAlbum';
+import ConnectionSheet from './src/connection/ConnectionSheet';
+import {WifiConnectionOptions} from './src/connection/model';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -21,6 +23,8 @@ export default function App() {
   const [luts, setLuts] = useState<LutItem[]>([]);
   const [moments, setMoments] = useState<MomentItem[]>([]);
   const [snack, setSnack] = useState('');
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('');
   const lastPreviewAt = useRef(-Infinity);
   const refresh = useCallback(async () => {
     if (!camera) return;
@@ -31,14 +35,14 @@ export default function App() {
     void refresh();
     if (!cameraEvents) { setSnack('当前平台没有相机桥'); return; }
     const subs = [
-      cameraEvents.addListener('cameraStatus', (e) => { setSnack(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
+      cameraEvents.addListener('cameraStatus', (e) => { setSnack(e.message); setConnectionStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
       cameraEvents.addListener('cameraFrame', (e) => {
         const now = performance.now();
         if (pageRef.current === 'camera' && now - lastPreviewAt.current >= 66) {
           lastPreviewAt.current = now; setPreview('data:image/jpeg;base64,' + e.jpegBase64);
         }
         setBuffered(e.bufferedUs / 1_000_000);
-        setState((s) => ({...s, demo: !!e.demo, ready: e.ready ?? e.bufferedUs >= 3_000_000}));
+        setState((s) => ({...s, demo: !!e.demo, exposure: e.exposure ?? s.exposure, ready: e.ready ?? e.bufferedUs >= 3_000_000}));
       }),
       cameraEvents.addListener('cameraSaved', () => { setSnack('动态照片已保存'); void refresh(); }),
       cameraEvents.addListener('cameraFailed', (e) => { setSnack('动态照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
@@ -53,7 +57,8 @@ export default function App() {
     });
     return () => sub.remove();
   }, [page]);
-  const connect = async () => { if (!camera) return setSnack('当前平台没有相机桥'); try { await camera.connect(); } catch (e) { setSnack(errorText(e)); } };
+  const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
+  const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setSnack(id === 'off' ? '监看与照片 LUT 已关闭' : '监看与照片会使用此 LUT，原片仍会保留'); } catch (e) { setSnack(errorText(e)); } };
   const importLut = async () => {
     if (!camera) return setSnack('当前平台没有相机桥');
@@ -76,8 +81,9 @@ export default function App() {
   };
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {page === 'camera' && <CameraWorkspace onAlbum={() => {void refresh(); setPage('album');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={connect}/>}
+    {page === 'camera' && <CameraWorkspace onAlbum={() => {void refresh(); setPage('album');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment}/>}
+    <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDisconnect={() => camera?.disconnect()}/>
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={4500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
 }

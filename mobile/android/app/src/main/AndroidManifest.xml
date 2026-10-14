@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
 
     <application
       android:name=".MainApplication"
@@ -11,8 +16,10 @@
       android:icon="@drawable/ic_moment"
       android:roundIcon="@drawable/ic_moment"
       android:allowBackup="false"
+      android:usesCleartextTraffic="false"
       android:theme="@style/AppTheme"
       android:supportsRtl="true">
+      <!-- react-native-video's optional notification service is disabled: this app only uses foreground album playback, with showNotificationControls=false (the library default). -->
       <activity
         android:name=".MainActivity"
         android:label="瞬间 Lumix"

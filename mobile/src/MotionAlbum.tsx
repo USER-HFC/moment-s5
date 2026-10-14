@@ -5,6 +5,7 @@ import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
 import {MomentItem} from './native';
 import {theme} from './theme';
+import ExperimentalWifiBadge from './connection/ExperimentalWifiBadge';
 
 type Props = {moments: MomentItem[]; onBack: () => void; onExport: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>};
 
@@ -57,7 +58,7 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
 
   const mediaStyle = [styles.media, {opacity: imageOpacity, transform: [{scale}]}];
   return <View style={styles.root} testID="motion-viewer">
-    {controlsVisible && <View style={styles.viewerHeader}><Button mode="text" compact onPress={onBack} accessibilityLabel="返回拍照页面">返回</Button><View style={styles.viewerTitle}><Text variant="titleLarge">最近照片</Text><Text variant="labelSmall" style={styles.muted}>{new Date(selected.createdAt).toLocaleString()}</Text></View><Button mode="text" compact onPress={() => setShowList(true)} accessibilityLabel="查看相册列表">列表</Button></View>}
+    {controlsVisible && <View style={styles.viewerHeader}><Button mode="text" compact onPress={onBack} accessibilityLabel="返回拍照页面">返回</Button><View style={styles.viewerTitle}><Text variant="titleLarge">最近照片</Text><Text variant="labelSmall" style={styles.muted}>{new Date(selected.createdAt).toLocaleString()}</Text>{selected.experimentalWifi && <ExperimentalWifiBadge state={{transport: 'wifi'}}/>}</View><Button mode="text" compact onPress={() => setShowList(true)} accessibilityLabel="查看相册列表">列表</Button></View>}
     <GestureDetector gesture={pinch}><View style={styles.viewer}>
       <Pressable style={styles.mediaHit} delayLongPress={240} onLongPress={startPlayback} onPressOut={finishPlayback} onPress={() => setControlsVisible((value) => !value)} accessibilityRole="button" accessibilityLabel={selected.videoUri && selected.complete ? '单击显示或隐藏操作，双指缩放，长按播放动态照片' : '单击显示或隐藏操作，双指缩放查看照片'}>
         {selected.imageUri && <Animated.Image source={{uri: selected.imageUri}} style={mediaStyle} resizeMode="contain" />}

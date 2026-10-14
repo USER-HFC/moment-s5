@@ -9,6 +9,7 @@ import argparse
 import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
+import ipaddress
 import json
 from pathlib import Path
 import socket
@@ -66,7 +67,7 @@ def make_jpeg(level=128, width=64, height=48):
 
 
 class MockCamera:
-    def __init__(self, http_port=0, ssdp_port=0, fps=15, capture_delay=0, framing="datagram"):
+    def __init__(self, http_port=0, ssdp_port=0, fps=15, capture_delay=0, framing="datagram", advertise_host="127.0.0.1"):
         self.fps, self.capture_delay, self.framing = fps, capture_delay, framing
         self.capture_count = 0
         self.capture_paths = []
@@ -78,7 +79,7 @@ class MockCamera:
         self.stream_thread = None
         self.server = ThreadingHTTPServer(("127.0.0.1", http_port), self.handler())
         self.port = self.server.server_address[1]
-        self.base = "http://127.0.0.1:%d" % self.port
+        self.base = "http://%s:%d" % (ipaddress.IPv4Address(advertise_host), self.port)
         self.photos = {"fixture-0000": make_jpeg(80, 512, 384)}
         self.ssdp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.ssdp.bind(("127.0.0.1", ssdp_port))
@@ -235,11 +236,16 @@ class MockCamera:
                 if mode == "getstate":
                     return self.respond("<camrply><result>ok</result><state><cammode>%s</cammode></state></camrply>" % owner.mode)
                 if mode == "getinfo":
+                    if kind == "capability":
+                        return self.respond("<camrply><result>ok</result><capability><model>MOCK-DC-S5</model>"
+                                            "<camcmd>oneshot_af</camcmd><steps>focus wide-slow tele-slow</steps>"
+                                            "</capability></camrply>")
                     return self.respond("<camrply><result>ok</result><%s><model>MOCK-DC-S5</model></%s></camrply>" % (kind, kind))
                 if mode == "getsetting":
                     if kind not in ("iso", "focal", "shtrspeed", "liveviewsize"):
                         return self.respond("<camrply><result>err-param</result></camrply>")
-                    return self.respond("<camrply><result>ok</result><setting><%s>fixture</%s></setting></camrply>" % (kind, kind))
+                    setting = {"iso": "400", "focal": "2.8", "shtrspeed": "1/125", "liveviewsize": "64x48"}[kind]
+                    return self.respond("<camrply><result>ok</result><setting><%s>%s</%s></setting></camrply>" % (kind, setting, kind))
                 return self.respond("<camrply><result>ok</result></camrply>")
 
             def do_POST(self):
@@ -259,11 +265,12 @@ def main():
     parser.add_argument("--fps", type=float, default=15)
     parser.add_argument("--capture-delay", type=float, default=0)
     parser.add_argument("--framing", choices=("datagram", "sequence"), default="datagram")
+    parser.add_argument("--advertise-host", default="127.0.0.1", help="IPv4 in DLNA URLs; use 10.0.2.2 for Android emulator only (server still loopback-bound)")
     parser.add_argument("--out", default="./s5-field-runs/mock-camera")
     args = parser.parse_args()
     if args.fps <= 0 or args.capture_delay < 0:
         parser.error("fps must be positive; delay cannot be negative")
-    camera = MockCamera(args.http_port, args.ssdp_port, args.fps, args.capture_delay, args.framing).start()
+    camera = MockCamera(args.http_port, args.ssdp_port, args.fps, args.capture_delay, args.framing, args.advertise_host).start()
     output = Path(args.out)
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     print(json.dumps({"mock_only": True, "base": camera.base, "ssdp_port": camera.ssdp_port}), flush=True)

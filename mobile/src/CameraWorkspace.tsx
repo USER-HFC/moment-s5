@@ -11,6 +11,7 @@ import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {useScopePanels} from './scopes/useScopes';
 import LutPresetList from './LutPresetList';
+import ExperimentalWifiBadge from './connection/ExperimentalWifiBadge';
 
 type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
@@ -139,9 +140,9 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
       <ScopeToolbar panels={scopePanels} landscape={landscape}/>
       <ToolButton label="动态照片" icon="motion" rotateIcon={landscape ? 'landscape' : 'portrait'} active={motionEnabled} switchValue={motionEnabled} onPress={toggleMotion} />
       <ToolButton label="定时" icon="timer" rotateIcon={landscape ? 'landscape' : 'portrait'} active={timerEnabled} switchValue={timerEnabled} onPress={toggleTimer} />
-      <ToolButton label="自动对焦" icon="focus" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />
-      <ToolButton label="远对焦" icon="far" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'far'} onPress={() => chooseFocus('far', 1)} />
-      <ToolButton label="近对焦" icon="near" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'near'} onPress={() => chooseFocus('near', -1)} />
+      {(state.transport !== 'wifi' || state.autofocus) && <ToolButton label="自动对焦" icon="focus" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)} />}
+      {(state.transport !== 'wifi' || state.manualFocus) && <ToolButton label="远对焦" icon="far" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'far'} onPress={() => chooseFocus('far', 1)} />}
+      {(state.transport !== 'wifi' || state.manualFocus) && <ToolButton label="近对焦" icon="near" rotateIcon={landscape ? 'landscape' : 'portrait'} active={focusMode === 'near'} onPress={() => chooseFocus('near', -1)} />}
       </ScrollView>
       <Pressable hitSlop={6} accessibilityRole="button" accessibilityLabel="相机连接" onPress={() => { void onConnect(); }} style={[styles.usbPinned, landscape ? styles.usbPinnedLandscape : styles.usbPinnedPortrait]}><View style={styles.iconVisual}><View style={landscape ? styles.iconVisualLandscape : styles.iconVisualPortrait}><CameraIcon name="usb" active={state.active} size={18}/></View><Text style={[styles.toolLabel, state.active && styles.toolLabelActive]}>连接</Text></View></Pressable>
     </View>
@@ -153,12 +154,12 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
             <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
             <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
           </View>}
-          <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" hitSlop={8} onPress={() => chooseFocus('auto', 0)} style={styles.focusTarget}><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/><View pointerEvents="none" style={styles.focusDot}/></Pressable>
+          {(state.transport !== 'wifi' || state.autofocus) && <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" hitSlop={8} onPress={() => chooseFocus('auto', 0)} style={styles.focusTarget}><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/><View pointerEvents="none" style={styles.focusDot}/></Pressable>}
           {!preview && <View style={styles.empty}><Text variant="titleMedium">等待相机取景</Text><Text style={styles.muted}>USB 连接后开始监看</Text><Button contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button></View>}
-          <View pointerEvents="none" style={styles.hudTopLeft}>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text style={[styles.hud, styles.hudAccent]}>{state.lut}</Text>}</View>
-          <View pointerEvents="none" style={styles.hudTopRight}><Text style={styles.hud}>CAM 82%</Text><Text style={styles.hud}>PHONE 96%</Text></View>
-          <View pointerEvents="none" style={styles.hudBottomLeft}><Text style={styles.hud}>{focusLabel}</Text></View>
-          <View pointerEvents="none" style={styles.hudBottomRight}><Text style={styles.hud}>F2.8</Text><Text style={styles.hud}>1/125</Text><Text style={styles.hud}>ISO 400</Text></View>
+          <View pointerEvents="none" style={styles.hudTopLeft}><ExperimentalWifiBadge state={state}/>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text style={[styles.hud, styles.hudAccent]}>{state.lut}</Text>}</View>
+          <View pointerEvents="none" style={styles.hudTopRight}>{state.transport !== 'wifi' && <><Text style={styles.hud}>CAM 82%</Text><Text style={styles.hud}>PHONE 96%</Text></>}</View>
+          <View pointerEvents="none" style={styles.hudBottomLeft}><Text style={styles.hud}>{state.transport === 'wifi' && !state.autofocus && !state.manualFocus ? '机身对焦' : focusLabel}</Text></View>
+          <View pointerEvents="none" style={styles.hudBottomRight}>{state.transport !== 'wifi' && <><Text style={styles.hud}>F2.8</Text><Text style={styles.hud}>1/125</Text><Text style={styles.hud}>ISO 400</Text></>}</View>
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
           {captureMark && <View pointerEvents="none" style={styles.captureMark}><View style={styles.captureMarkCircle}><Text style={styles.captureMarkText}>✓</Text></View></View>}
           {motionEnabled && <View pointerEvents="none" style={styles.bufferBadge}><Text style={styles.hud}>{buffered.toFixed(1)}s</Text></View>}
