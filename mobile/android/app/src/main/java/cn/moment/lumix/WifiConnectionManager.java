@@ -27,6 +27,7 @@ final class WifiConnectionManager implements LifecycleEventListener {
     private long generation;
     WifiConnectionManager(Context context,Consumer<String> error){this.context=context;this.error=error;connectivity=(ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);}
     void connect(boolean manual,String ssid,String password,String endpoint,boolean debug,Connected ready) throws IOException {
+        if(!foreground)throw new IOException("请返回 App 前台后再连接相机 Wi-Fi");
         URL target=WifiS5Protocol.cameraUrl(endpoint,debug);close();long epoch=generation;this.ready=ready;
         if(debug){started=true;ready.accept(new WifiCameraHttp.Route(){
             volatile boolean stopped;
