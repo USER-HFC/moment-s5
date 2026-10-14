@@ -105,12 +105,12 @@ public final class LutEngine {
         try {
             bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 && source.isMutable() ? source : source.copy(Bitmap.Config.ARGB_8888, true);
             if (bitmap == null) throw new IOException("无法建立 LUT 图像缓冲");
-            int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w];
+            int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w]; float[] rgb = new float[3];
             for (int row = 0; row < h; row++) {
                 bitmap.getPixels(px, 0, w, 0, row, w, 1);
                 for (int i = 0; i < px.length; i++) {
-                    int c = px[i]; float[] out = sample((c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f);
-                    px[i] = (c & 0xff000000) | (toByte(out[0]) << 16) | (toByte(out[1]) << 8) | toByte(out[2]);
+                    int c = px[i]; sample((c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f, rgb);
+                    px[i] = (c & 0xff000000) | (toByte(rgb[0]) << 16) | (toByte(rgb[1]) << 8) | toByte(rgb[2]);
                 }
                 bitmap.setPixels(px, 0, w, 0, row, w, 1);
             }
@@ -127,16 +127,18 @@ public final class LutEngine {
 
     private int toByte(float v) { return Math.round(Math.max(0f, Math.min(1f, v)) * 255f); }
     private float[] sample(float r, float g, float b) {
+        float[] out = new float[3]; sample(r, g, b, out); return out;
+    }
+    private void sample(float r, float g, float b, float[] out) {
         float x = norm(r, 0) * (size - 1), y = norm(g, 1) * (size - 1), z = norm(b, 2) * (size - 1);
         int x0 = (int) Math.floor(x), y0 = (int) Math.floor(y), z0 = (int) Math.floor(z);
         int x1 = Math.min(x0 + 1, size - 1), y1 = Math.min(y0 + 1, size - 1), z1 = Math.min(z0 + 1, size - 1);
-        float tx = x - x0, ty = y - y0, tz = z - z0; float[] out = new float[3];
+        float tx = x - x0, ty = y - y0, tz = z - z0;
         for (int c = 0; c < 3; c++) {
             float a = lerp(v(x0,y0,z0,c), v(x1,y0,z0,c), tx), b0 = lerp(v(x0,y1,z0,c), v(x1,y1,z0,c), tx);
             float c0 = lerp(v(x0,y0,z1,c), v(x1,y0,z1,c), tx), d = lerp(v(x0,y1,z1,c), v(x1,y1,z1,c), tx);
             out[c] = lerp(lerp(a, b0, ty), lerp(c0, d, ty), tz);
         }
-        return out;
     }
     private static float lerp(float a, float b, float t) { return (float) (a + ((double) b - a) * t); }
     private float norm(float value, int c) { return (float) Math.max(0d, Math.min(1d, ((double) value - domainMin[c]) / ((double) domainMax[c] - domainMin[c]))); }

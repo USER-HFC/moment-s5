@@ -1,0 +1,14 @@
+[
+  {
+    "path": "mobile/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk",
+    "bytes": 52425795,
+    "MiB": 50.0,
+    "sha256": "fa092574bebb185f0a934fa5fbc32bc83166e8675d9e09d45fe57246738cb1eb"
+  },
+  {
+    "path": "mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk",
+    "bytes": 32230785,
+    "MiB": 30.74,
+    "sha256": "624e19d7a80b493a1e2ba3c08648450d953af45d5e0fec99152594d137c6dad9"
+  }
+]

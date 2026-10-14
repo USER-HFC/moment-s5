@@ -1,0 +1,58 @@
+[
+  {
+    "builtIn": true,
+    "id": "builtin:provia-standard",
+    "name": "Fuji 风格 · Provia / Standard",
+    "readOnly": true,
+    "size": 970733
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:velvia",
+    "name": "Fuji 风格 · Velvia",
+    "readOnly": true,
+    "size": 970722
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:astia",
+    "name": "Fuji 风格 · Astia",
+    "readOnly": true,
+    "size": 970721
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:classic-chrome",
+    "name": "Fuji 风格 · Classic Chrome",
+    "readOnly": true,
+    "size": 970730
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:classic-negative",
+    "name": "Fuji 风格 · Classic Negative",
+    "readOnly": true,
+    "size": 970732
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:eterna",
+    "name": "Fuji 风格 · Eterna",
+    "readOnly": true,
+    "size": 970722
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:acros",
+    "name": "Fuji 风格 · Acros",
+    "readOnly": true,
+    "size": 970721
+  },
+  {
+    "builtIn": true,
+    "id": "builtin:pro-neg-standard",
+    "name": "Fuji 风格 · Pro Neg.Std",
+    "readOnly": true,
+    "size": 970727
+  }
+]

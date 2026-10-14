@@ -1,0 +1,62 @@
+sh ./gradlew assembleDebug assembleRelease
+> Task :app:assembleDebug
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+BUILD SUCCESSFUL in 9s
+453 actionable tasks: 21 executed, 432 up-to-date
+
+npx tsc --noEmit: exit 0
+
+
+> MomentLumix@0.7.0 test
+> jest --runInBand
+
+PASS __tests__/ScopesUI.test.tsx
+PASS __tests__/CameraWorkspace.test.tsx
+PASS __tests__/AppEvents.test.tsx
+PASS __tests__/LutPresetList.test.tsx
+PASS __tests__/MotionAlbum.test.tsx
+PASS __tests__/App.test.tsx
+PASS __tests__/Scopes.test.ts
+PASS __tests__/microphonePermission.test.ts
+
+Test Suites: 8 passed, 8 total
+Tests:       39 passed, 39 total
+Snapshots:   0 total
+Time:        5.57 s
+Ran all test suites.
+
+
+PASS 51 core checks
+PASS 6 moment deletion checks
+PASS 11 LUT import checks
+warning: unknown enum constant Mode.LOCAL
+  reason: class file for com.facebook.infer.annotation.Nullsafe$Mode not found
+warning: unknown enum constant AnnotationRetention.RUNTIME
+  reason: class file for kotlin.annotation.AnnotationRetention not found
+warning: unknown enum constant AnnotationTarget.CLASS
+  reason: class file for kotlin.annotation.AnnotationTarget not found
+warning: unknown enum constant AnnotationRetention.RUNTIME
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+PASS 65 native bugfix checks (Android doubles, no camera)
+PASS 97 scope checks; 240 x 160 math mean 0.48 ms (desktop JVM, excludes JPEG decoding/bridge)
+
+
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1

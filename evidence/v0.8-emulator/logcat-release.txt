@@ -1,0 +1,71 @@
+Release smoke including capture, rotation and playback
+--------- beginning of main
+10-14 11:50:00.896  1128  1128 E CellBroadcastUtils: getDefaultCellBroadcastReceiverPackageName: no package found
+10-14 11:50:00.919  6696  6696 E ndroid.keychain: Not starting debugger since process cannot load the jdwp agent.
+10-14 11:50:00.922   566  1088 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms.supervision, role: android.app.role.SYSTEM_SUPERVISION
+10-14 11:50:00.944   566  1088 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms, role: android.app.role.WALLET
+10-14 11:50:00.987   566  1088 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.devicelockcontroller, role: android.app.role.SYSTEM_FINANCED_DEVICE_CONTROLLER
+10-14 11:50:01.054  6720  6720 E cn.moment.lumix: Not starting debugger since process cannot load the jdwp agent.
+10-14 11:50:01.445  6744  6744 E .apps.wellbeing: Not starting debugger since process cannot load the jdwp agent.
+10-14 11:50:01.648  6720  6738 I ReactNativeJS: Running "MomentLumix"
+--------- beginning of system
+10-14 11:50:04.505   566  2755 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+10-14 11:50:10.145  4585  4585 E abb     : Failed to read message: protocol fault (couldn't read status length): Success: Success
+10-14 11:50:10.147   566  1385 E AdbDebuggingManager: Caught an exception opening the socket: java.io.IOException: Connection refused
+10-14 11:50:12.794  6720  6720 E FrameTracker: force finish cuj, time out: J<IME_INSETS_HIDE_ANIMATION::1@0@cn.moment.lumix>
+10-14 11:51:03.074  6720  6955 E MPEG4Writer: Stop() called but track is not started or stopped
+10-14 11:52:08.131  6720  6955 E MPEG4Writer: Stop() called but track is not started or stopped
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: No service published for: ethernet
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: android.os.ServiceManager$ServiceNotFoundException: No service published for: ethernet
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.ServiceManager.getServiceOrThrow(ServiceManager.java:203)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$145.createService(SystemServiceRegistry.java:2120)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$CachedServiceFetcher.getService(SystemServiceRegistry.java:2231)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry.getSystemService(SystemServiceRegistry.java:1812)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.ContextImpl.getSystemService(ContextImpl.java:2241)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.content.ContextWrapper.getSystemService(ContextWrapper.java:936)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.isEthernetSupported(Tethering.java:1579)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.makeSupportedDownstreams(Tethering.java:2562)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.updateSupportedDownstreams(Tethering.java:2536)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.updateConfiguration(Tethering.java:549)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.-$$Nest$mupdateConfiguration(Tethering.java:0)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering$StateReceiver.onReceive(Tethering.java:1186)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args.lambda$getRunnable$0(LoadedApk.java:1814)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args.$r8$lambda$mcNAAl1SQ4MyJPyDg8TJ2x2h0Rk(Unknown Source:0)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.Handler.handleCallback(Handler.java:959)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.Handler.dispatchMessage(Handler.java:100)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.Looper.loopOnce(Looper.java:232)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.Looper.loop(Looper.java:317)
+10-14 11:52:49.163  1063  1101 E SystemServiceRegistry: 	at android.os.HandlerThread.run(HandlerThread.java:85)
+10-14 11:52:49.248  1199  1199 E DisplayController: Unexpected normalizedDisplayInfo found, invalidating cache: CachedDisplayInfo{size=Point(1080, 2400), cutout=DisplayCutout{insets=Rect(0, 128 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(492, 0 - 610, 128), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2400 physicalDisplayWidth=1080 physicalDisplayHeight=2400 density={2.625} cutoutSpec={M 507,64 a 33,33 0 1 0 66,0 33,33 0 1 0 -66,0 Z @left} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, rotation=0}
+10-14 11:52:49.248  1199  1199 E DisplayController: (Invalid Cache) perDisplayBounds : {CachedDisplayInfo{size=Point(1080, 2400), cutout=DisplayCutout{insets=Rect(0, 0 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=0 displayHeight=0 physicalDisplayWidth=0 physicalDisplayHeight=0 density={0.0} cutoutSpec={} rotation={0} scale={0.0} physicalPixelDisplaySizeRatio={0.0}}} sideOverrides=null}, rotation=0}=[WindowBounds{bounds=Rect(0, 0 - 1080, 2400), insets=Rect(0, 63 - 0, 63), availableSize=Point(1080, 2274), rotationHint=0}, WindowBounds{bounds=Rect(0, 0 - 2400, 1080), insets=Rect(0, 63 - 0, 63), availableSize=Point(2400, 954), rotationHint=1}, WindowBounds{bounds=Rect(0, 0 - 1080, 2400), insets=Rect(0, 63 - 0, 63), availableSize=Point(1080, 2274), rotationHint=2}, WindowBounds{bounds=Rect(0, 0 - 2400, 1080), insets=Rect(0, 63 - 0, 63), availableSize=Point(2400, 954), rotationHint=3}]}
+10-14 11:52:49.888  1420  7467 E HandwritingSuperpacksUtil: HandwritingSuperpacksUtil.getPackMappingPackName():40 No pack mapping pack found in []
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: No service published for: ethernet
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: android.os.ServiceManager$ServiceNotFoundException: No service published for: ethernet
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.ServiceManager.getServiceOrThrow(ServiceManager.java:203)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$145.createService(SystemServiceRegistry.java:2120)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$CachedServiceFetcher.getService(SystemServiceRegistry.java:2231)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry.getSystemService(SystemServiceRegistry.java:1812)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.ContextImpl.getSystemService(ContextImpl.java:2241)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.content.ContextWrapper.getSystemService(ContextWrapper.java:936)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.isEthernetSupported(Tethering.java:1579)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.makeSupportedDownstreams(Tethering.java:2562)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.updateSupportedDownstreams(Tethering.java:2536)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.updateConfiguration(Tethering.java:549)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering.-$$Nest$mupdateConfiguration(Tethering.java:0)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at com.android.networkstack.tethering.Tethering$StateReceiver.onReceive(Tethering.java:1186)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args.lambda$getRunnable$0(LoadedApk.java:1814)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args.$r8$lambda$mcNAAl1SQ4MyJPyDg8TJ2x2h0Rk(Unknown Source:0)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.Handler.handleCallback(Handler.java:959)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.Handler.dispatchMessage(Handler.java:100)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.Looper.loopOnce(Looper.java:232)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.Looper.loop(Looper.java:317)
+10-14 11:53:50.394  1063  1101 E SystemServiceRegistry: 	at android.os.HandlerThread.run(HandlerThread.java:85)
+10-14 11:53:52.230  1420  7467 E HandwritingSuperpacksUtil: HandwritingSuperpacksUtil.getPackMappingPackName():40 No pack mapping pack found in []
+
+Final rebuild cold launch and corrected album list
+--------- beginning of main
+10-14 11:59:45.414  7784  7784 E cn.moment.lumix: Not starting debugger since process cannot load the jdwp agent.
+10-14 11:59:46.865  7784  7814 I ReactNativeJS: Running "MomentLumix"
+10-14 11:59:57.996  7784  7784 E FrameTracker: force finish cuj, time out: J<IME_INSETS_HIDE_ANIMATION::1@0@cn.moment.lumix>
