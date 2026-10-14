@@ -1,0 +1,1 @@
+PASS 76 Wi-Fi checks (self-authored host fixtures; DC-S5 unverified)

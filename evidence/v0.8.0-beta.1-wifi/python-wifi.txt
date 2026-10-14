@@ -1,0 +1,46 @@
+test_fault_and_mismatched_pagination (test_s5wifi.CatalogTests) ... ok
+test_raw_jpg_octet_stream_and_nonstandard_separator (test_s5wifi.CatalogTests) ... ok
+test_soap_double_parse_and_original_over_thumbnail (test_s5wifi.CatalogTests) ... ok
+test_thumbnails_raw_and_converted_never_fallback (test_s5wifi.CatalogTests) ... ok
+test_two_originals_are_ambiguous (test_s5wifi.CatalogTests) ... ok
+test_complete_prefixed_datagram_and_truncated_frame (test_s5wifi.JPEGTests) ... ok
+test_invalid_sof_and_bound (test_s5wifi.JPEGTests) ... ok
+test_measured_sequence_reassembly_and_wrap (test_s5wifi.JPEGTests) ... ok
+test_metric_math_distinguishes_duplicate_stall_and_gap (test_s5wifi.JPEGTests) ... ok
+test_self_authored_real_jpeg_and_exif (test_s5wifi.JPEGTests) ... ok
+test_sequence_gap_duplicate_and_recovery (test_s5wifi.JPEGTests) ... ok
+test_capture_timeout_is_sent_once (test_s5wifi.NetworkTests) ... ok
+test_catalog_pagination_and_dual_new_match_refusal (test_s5wifi.NetworkTests) ... ok
+test_cyclic_container_refuses_complete_baseline (test_s5wifi.NetworkTests) ... ok
+test_description_or_download_cannot_dispatch_a_command (test_s5wifi.NetworkTests) ... ok
+test_existing_id_changed_cannot_be_new_capture (test_s5wifi.NetworkTests) ... ok
+test_explicit_gen2_and_session_are_bound_to_selected_camera (test_s5wifi.NetworkTests) ... ok
+test_explicit_user_agent_no_header_injection (test_s5wifi.NetworkTests) ... ok
+test_ip_scope_rejects_external_localhost_and_credentials (test_s5wifi.NetworkTests) ... ok
+test_partial_original_is_not_published (test_s5wifi.NetworkTests) ... ok
+test_probe_does_not_auth_or_write (test_s5wifi.NetworkTests) ... ok
+test_protocol_error_over_http_200 (test_s5wifi.NetworkTests) ... ok
+test_redirect_never_reaches_capture (test_s5wifi.NetworkTests) ... ok
+test_shoot_timeout_reconciles_without_second_capture (test_s5wifi.NetworkTests) ... ok
+test_stream_stalls_during_intent_write_capture_is_blocked (test_s5wifi.NetworkTests) ... ok
+test_chunked_protocol_error (test_s5wifi.PcapTests) ... ok
+test_http_pairs_pcap_and_pcapng_redacted_auth (test_s5wifi.PcapTests) ... ok
+test_optional_tshark_uses_supported_header_field (test_s5wifi.PcapTests) ... ok
+test_retransmission_gap_and_conflict (test_s5wifi.PcapTests) ... ok
+test_soap_call_summary_has_counts_and_flags (test_s5wifi.PcapTests) ... ok
+test_truncated_capture_fails_clearly (test_s5wifi.PcapTests) ... ok
+test_address_alias_uuid_and_quoted_text (test_s5wifi.RedactionTests) ... ok
+test_nested_secrets_mac_xml_query_and_gps (test_s5wifi.RedactionTests) ... ok
+test_opaque_response_values_hidden_public_commands_and_model_retained (test_s5wifi.RedactionTests) ... ok
+test_packet_size_integer_keys_and_session_presence (test_s5wifi.RedactionTests) ... ok
+test_report_excludes_raw_hex_and_images (test_s5wifi.RedactionTests) ... ok
+test_gen2_csv_quoted_name_and_session (test_s5wifi.ReplyTests) ... ok
+test_http_200_does_not_make_error_success (test_s5wifi.ReplyTests) ... ok
+test_missing_result_unknown_and_entities_refused (test_s5wifi.ReplyTests) ... ok
+test_namespace_xml_and_values (test_s5wifi.ReplyTests) ... ok
+test_verified_profile_has_no_builtin_identity (test_s5wifi.ReplyTests) ... ok
+
+----------------------------------------------------------------------
+Ran 41 tests in 11.286s
+
+OK

@@ -1,0 +1,347 @@
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :react-native-video
+Kotlin version is correct: 1.9.25
+AndroidX version is correct: 1.9.3
+useExoplayerIMA: false
+useExoplayerSmoothStreaming: false
+useExoplayerDash: false
+useExoplayerHls: false
+useExoplayerRtsp: false
+buildFromSource: false
+
+> Task :app:generateAutolinkingPackageList UP-TO-DATE
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-document-picker:preBuild UP-TO-DATE
+> Task :react-native-document-picker:preDebugBuild UP-TO-DATE
+> Task :react-native-document-picker:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preDebugBuild UP-TO-DATE
+> Task :react-native-gesture-handler:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugBuild UP-TO-DATE
+> Task :react-native-safe-area-context:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-svg:preBuild UP-TO-DATE
+> Task :react-native-svg:preDebugBuild UP-TO-DATE
+> Task :react-native-svg:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-video:preBuild UP-TO-DATE
+> Task :react-native-video:preDebugBuild UP-TO-DATE
+> Task :react-native-video:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :react-native-document-picker:generateDebugResValues UP-TO-DATE
+> Task :react-native-document-picker:generateDebugResources UP-TO-DATE
+> Task :react-native-document-picker:packageDebugResources UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugResValues UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugResources UP-TO-DATE
+> Task :react-native-gesture-handler:packageDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResValues UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:packageDebugResources UP-TO-DATE
+> Task :react-native-svg:generateDebugResValues UP-TO-DATE
+> Task :react-native-svg:generateDebugResources UP-TO-DATE
+> Task :react-native-svg:packageDebugResources UP-TO-DATE
+> Task :react-native-video:generateDebugResValues UP-TO-DATE
+> Task :react-native-video:generateDebugResources UP-TO-DATE
+> Task :react-native-video:packageDebugResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-document-picker:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-document-picker:processDebugManifest UP-TO-DATE
+> Task :react-native-gesture-handler:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-gesture-handler:processDebugManifest UP-TO-DATE
+> Task :react-native-safe-area-context:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-safe-area-context:processDebugManifest UP-TO-DATE
+> Task :react-native-svg:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-svg:processDebugManifest UP-TO-DATE
+> Task :react-native-video:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-video:processDebugManifest UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :react-native-document-picker:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-document-picker:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-document-picker:generateDebugRFile UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-gesture-handler:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugRFile UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-safe-area-context:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugRFile UP-TO-DATE
+> Task :react-native-svg:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-svg:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-svg:generateDebugRFile UP-TO-DATE
+> Task :react-native-video:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-video:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-video:generateDebugRFile UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :react-native-document-picker:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-document-picker:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-document-picker:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-document-picker:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors
+> Task :react-native-gesture-handler:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-svg:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-svg:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-svg:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-svg:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugKotlin UP-TO-DATE
+> Task :react-native-gesture-handler:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors
+> Task :react-native-safe-area-context:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugKotlin UP-TO-DATE
+> Task :react-native-safe-area-context:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-video:checkKotlinGradlePluginConfigurationErrors
+> Task :react-native-video:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-video:compileDebugKotlin UP-TO-DATE
+> Task :react-native-video:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-video:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-video:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugShaders UP-TO-DATE
+> Task :react-native-document-picker:compileDebugShaders NO-SOURCE
+> Task :react-native-document-picker:generateDebugAssets UP-TO-DATE
+> Task :react-native-document-picker:packageDebugAssets UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugShaders UP-TO-DATE
+> Task :react-native-gesture-handler:compileDebugShaders NO-SOURCE
+> Task :react-native-gesture-handler:generateDebugAssets UP-TO-DATE
+> Task :react-native-gesture-handler:packageDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugShaders UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugShaders NO-SOURCE
+> Task :react-native-safe-area-context:generateDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:packageDebugAssets UP-TO-DATE
+> Task :react-native-svg:mergeDebugShaders UP-TO-DATE
+> Task :react-native-svg:compileDebugShaders NO-SOURCE
+> Task :react-native-svg:generateDebugAssets UP-TO-DATE
+> Task :react-native-svg:packageDebugAssets UP-TO-DATE
+> Task :react-native-video:mergeDebugShaders UP-TO-DATE
+> Task :react-native-video:compileDebugShaders NO-SOURCE
+> Task :react-native-video:generateDebugAssets UP-TO-DATE
+> Task :react-native-video:packageDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-video:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-document-picker:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-svg:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :react-native-document-picker:processDebugJavaRes NO-SOURCE
+> Task :react-native-gesture-handler:processDebugJavaRes UP-TO-DATE
+> Task :react-native-safe-area-context:processDebugJavaRes UP-TO-DATE
+> Task :react-native-svg:processDebugJavaRes NO-SOURCE
+> Task :react-native-video:processDebugJavaRes UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :react-native-gesture-handler:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-video:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-document-picker:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-svg:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-document-picker:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-gesture-handler:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-svg:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :react-native-svg:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-svg:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :react-native-video:mergeDebugJniLibFolders UP-TO-DATE
+> Task :react-native-video:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-video:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :react-native-video:stripDebugDebugSymbols NO-SOURCE
+> Task :react-native-video:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :react-native-video:extractDebugAnnotations UP-TO-DATE
+> Task :react-native-video:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :react-native-video:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :react-native-video:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :react-native-video:prepareDebugArtProfile UP-TO-DATE
+> Task :react-native-video:prepareLintJarForPublish UP-TO-DATE
+> Task :react-native-video:mergeDebugJavaResource UP-TO-DATE
+> Task :react-native-video:syncDebugLibJars UP-TO-DATE
+> Task :react-native-video:bundleDebugLocalLintAar UP-TO-DATE
+> Task :react-native-document-picker:stripDebugDebugSymbols NO-SOURCE
+> Task :react-native-document-picker:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :react-native-document-picker:extractDebugAnnotations UP-TO-DATE
+> Task :react-native-document-picker:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :react-native-document-picker:prepareDebugArtProfile UP-TO-DATE
+> Task :react-native-document-picker:prepareLintJarForPublish UP-TO-DATE
+> Task :react-native-document-picker:mergeDebugJavaResource UP-TO-DATE
+> Task :react-native-document-picker:syncDebugLibJars UP-TO-DATE
+> Task :react-native-document-picker:bundleDebugLocalLintAar UP-TO-DATE
+> Task :react-native-gesture-handler:stripDebugDebugSymbols NO-SOURCE
+> Task :react-native-gesture-handler:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :react-native-gesture-handler:extractDebugAnnotations UP-TO-DATE
+> Task :react-native-gesture-handler:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :react-native-gesture-handler:prepareDebugArtProfile UP-TO-DATE
+> Task :react-native-gesture-handler:prepareLintJarForPublish UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugJavaResource UP-TO-DATE
+> Task :react-native-gesture-handler:syncDebugLibJars UP-TO-DATE
+> Task :react-native-gesture-handler:bundleDebugLocalLintAar UP-TO-DATE
+> Task :react-native-safe-area-context:stripDebugDebugSymbols NO-SOURCE
+> Task :react-native-safe-area-context:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :react-native-safe-area-context:extractDebugAnnotations UP-TO-DATE
+> Task :react-native-safe-area-context:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :react-native-safe-area-context:prepareDebugArtProfile UP-TO-DATE
+> Task :react-native-safe-area-context:prepareLintJarForPublish UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugJavaResource UP-TO-DATE
+> Task :react-native-safe-area-context:syncDebugLibJars UP-TO-DATE
+> Task :react-native-safe-area-context:bundleDebugLocalLintAar UP-TO-DATE
+> Task :react-native-svg:stripDebugDebugSymbols NO-SOURCE
+> Task :react-native-svg:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :react-native-svg:extractDebugAnnotations UP-TO-DATE
+> Task :react-native-svg:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :react-native-svg:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :react-native-svg:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :react-native-svg:prepareDebugArtProfile UP-TO-DATE
+> Task :react-native-svg:prepareLintJarForPublish UP-TO-DATE
+> Task :react-native-svg:mergeDebugJavaResource UP-TO-DATE
+> Task :react-native-svg:syncDebugLibJars UP-TO-DATE
+> Task :react-native-svg:bundleDebugLocalLintAar UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-document-picker:createFullJarDebug UP-TO-DATE
+> Task :react-native-document-picker:writeDebugLintModelMetadata UP-TO-DATE
+> Task :react-native-gesture-handler:createFullJarDebug UP-TO-DATE
+> Task :react-native-gesture-handler:writeDebugLintModelMetadata UP-TO-DATE
+> Task :react-native-safe-area-context:createFullJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:writeDebugLintModelMetadata UP-TO-DATE
+> Task :react-native-svg:createFullJarDebug UP-TO-DATE
+> Task :react-native-svg:writeDebugLintModelMetadata UP-TO-DATE
+> Task :react-native-video:createFullJarDebug UP-TO-DATE
+> Task :react-native-video:writeDebugLintModelMetadata UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :react-native-document-picker:extractProguardFiles UP-TO-DATE
+> Task :react-native-document-picker:generateDebugLintModel UP-TO-DATE
+> Task :react-native-gesture-handler:extractProguardFiles UP-TO-DATE
+> Task :react-native-svg:extractProguardFiles UP-TO-DATE
+> Task :react-native-svg:generateDebugLintModel UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugLintModel UP-TO-DATE
+> Task :react-native-safe-area-context:extractProguardFiles UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugLintModel UP-TO-DATE
+> Task :react-native-video:extractProguardFiles UP-TO-DATE
+> Task :react-native-video:generateDebugLintModel UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-document-picker:lintAnalyzeDebug UP-TO-DATE
+> Task :react-native-svg:lintAnalyzeDebug UP-TO-DATE
+> Task :react-native-gesture-handler:lintAnalyzeDebug UP-TO-DATE
+> Task :react-native-safe-area-context:lintAnalyzeDebug UP-TO-DATE
+> Task :react-native-video:lintAnalyzeDebug UP-TO-DATE
+> Task :react-native-document-picker:preDebugAndroidTestBuild UP-TO-DATE
+> Task :react-native-document-picker:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-document-picker:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :react-native-document-picker:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-document-picker:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :react-native-document-picker:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :react-native-document-picker:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :react-native-gesture-handler:preDebugAndroidTestBuild UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :react-native-gesture-handler:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-gesture-handler:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :react-native-gesture-handler:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :react-native-gesture-handler:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugAndroidTestBuild UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :react-native-safe-area-context:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :react-native-safe-area-context:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :react-native-svg:preDebugAndroidTestBuild UP-TO-DATE
+> Task :react-native-svg:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-svg:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :react-native-svg:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-svg:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :react-native-svg:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :react-native-svg:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :react-native-video:preDebugAndroidTestBuild UP-TO-DATE
+> Task :react-native-video:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :react-native-video:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :react-native-video:preDebugUnitTestBuild UP-TO-DATE
+> Task :react-native-video:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :react-native-video:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :react-native-video:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugKotlin
+
+> Task :app:compileDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:generateDebugLintReportModel
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:mergeProjectDexDebug
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebug
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebug
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///Users/murder/orca/workspaces/moment-s5/wifi-beta/mobile/android/app/build/reports/lint-results-debug.html
+
+> Task :app:lintDebug
+
+BUILD SUCCESSFUL in 9s
+267 actionable tasks: 21 executed, 246 up-to-date

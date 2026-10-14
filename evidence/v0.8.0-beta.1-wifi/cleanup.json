@@ -1,0 +1,27 @@
+{
+  "mock_only": true,
+  "emulator": {
+    "avd": "moment_s5_wifi_api35",
+    "serial": "emulator-5580",
+    "stopped": true
+  },
+  "metro": {
+    "port": 8088,
+    "stopped": true,
+    "exit_code": 130
+  },
+  "mock": {
+    "ports": [
+      18080,
+      18088
+    ],
+    "stopped": true,
+    "final_capture_count": 1
+  },
+  "tcp_ports": {
+    "8088": "no listener",
+    "18080": "no listener",
+    "18088": "no listener"
+  },
+  "other_emulator_untouched": true
+}

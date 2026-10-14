@@ -1,0 +1,9 @@
+{
+  "version_name": "0.8.0-beta.1",
+  "version_code": 22,
+  "apk": "mobile/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk",
+  "sha256": "1745fc41486ecf1d7dfee47592517a9d4cf1b88daccee5b3375e39651738e774",
+  "bytes": 52563774,
+  "kind": "debug local verification, not published",
+  "abi": "arm64-v8a"
+}

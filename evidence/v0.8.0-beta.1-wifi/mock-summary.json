@@ -1,0 +1,15 @@
+{
+  "mock_only": true,
+  "capture_count": 1,
+  "capture_paths": [
+    "/cam.cgi?mode=camcmd&value=capture"
+  ],
+  "http_requests": 1181,
+  "original_bytes": 2252,
+  "original_sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+  "fixture_sd_sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+  "original_equals_fixture_sd": true,
+  "getstate_count": 291,
+  "browse_count": 5,
+  "download_count": 1
+}
