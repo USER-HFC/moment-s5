@@ -1,0 +1,199 @@
+{
+  "baseline": "32e7012",
+  "branch": "murder/scan-bugfix",
+  "apk": "mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk",
+  "apkSha256": "c75e98cb731ab7198cbf2f011698e1e32cff11c4199fc0077aa4fbd40e8e234a",
+  "package": "cn.moment.lumix",
+  "avd": "moment_s5_task_e_api35",
+  "checks": {
+    "jest": {
+      "suites": 8,
+      "tests": 46,
+      "passed": true
+    },
+    "tsc": true,
+    "core": 51,
+    "deletion": 6,
+    "lutImport": 11,
+    "scopes": 97,
+    "nativeHost": 65,
+    "releaseBuild": true
+  },
+  "screens": [
+    {
+      "file": "album-index.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "album-landscape.png",
+      "width": 2400,
+      "height": 1080
+    },
+    {
+      "file": "album-list.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "album-playing.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "album-viewer-controls.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "demo-portrait.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "large-font13-portrait.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "lut-list.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "lut-page-two.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "lut-selected.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "release-landscape.png",
+      "width": 2400,
+      "height": 1080
+    },
+    {
+      "file": "release-scopes-and-lut.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "release-start.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "release-timer-fixed.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "scopes-drag-clamped.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "scopes-portrait.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "scopes-selected.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "scopes-vector-medium.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "small-font13-album-index.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-album-landscape.png",
+      "width": 1440,
+      "height": 720
+    },
+    {
+      "file": "small-font13-album.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-landscape.png",
+      "width": 1440,
+      "height": 720
+    },
+    {
+      "file": "small-font13-lut-selected.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-lut-top.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-lut.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-portrait.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-scopes-lut.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-scopes-sheet.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-scopes.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-start.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font13-timer.png",
+      "width": 720,
+      "height": 1440
+    },
+    {
+      "file": "small-font30-album-landscape.png",
+      "width": 1440,
+      "height": 720
+    },
+    {
+      "file": "timer-countdown.png",
+      "width": 1080,
+      "height": 2400
+    },
+    {
+      "file": "timer-sheet.png",
+      "width": 1080,
+      "height": 2400
+    }
+  ],
+  "cleanup": {
+    "emulatorStopped": true,
+    "overridesRestored": true,
+    "metroStarted": false
+  }
+}

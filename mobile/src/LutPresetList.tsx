@@ -1,28 +1,49 @@
 import React from 'react';
-import {StyleSheet} from 'react-native';
-import {Button, Text} from 'react-native-paper';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {Text} from 'react-native-paper';
 import {LutItem} from './native';
-import {theme} from './theme';
+import {ui} from './theme';
+import CameraIcon from './CameraIcon';
 
-type Props = {
-  luts: LutItem[];
-  activeName: string | null;
-  disabled: boolean;
-  onSelect: (id: string) => Promise<void>;
+export const lutDisplayName = (name: string) => name.replace(/^(?:内置 · )?Fuji 风格 · /, '');
+const STRIPS: Record<string, string[]> = {
+  off: ['#E2D3B1', '#97AF99', '#4B7676', '#294343'],
+  acros: ['#F0F0EB', '#ACACA7', '#686862', '#282823'],
+  eterna: ['#CBC2A7', '#A4A995', '#5F7771', '#3A4948'],
+  velvia: ['#EFBA77', '#B4C65C', '#439283', '#254F63'],
+  astia: ['#EBD4BD', '#B7BBA2', '#7A9F9C', '#445B68'],
+  'classic-chrome': ['#DCC6A5', '#AEA997', '#7E9295', '#404D5A'],
+  'classic-negative': ['#E1B58D', '#A3AB85', '#698E91', '#344856'],
+  'pro-neg': ['#DDC5B3', '#B7B59D', '#829E97', '#4E656A'],
 };
+function strip(id: string) {return Object.entries(STRIPS).find(([key]) => id.includes(key))?.[1] || ['#D8C5A2', '#A5AA88', '#6E8D8C', '#374F5C'];}
+type Props = {luts: LutItem[]; activeName: string | null; disabled: boolean; onSelect: (id: string) => Promise<void>};
 
 export default function LutPresetList({luts, activeName, disabled, onSelect}: Props) {
-  return <>
-    {luts.some(lut => lut.builtIn) && <Text style={styles.note}>内置 Fuji 风格为非官方近似效果，适用于 SDR sRGB / Rec.709，建议使用相机标准照片风格。</Text>}
-    {luts.map(lut => <Button key={lut.id} contentStyle={styles.touch} disabled={disabled}
-      mode={activeName === lut.name ? 'contained-tonal' : 'text'}
-      accessibilityLabel={`选择 LUT ${lut.builtIn ? '内置 · ' : ''}${lut.name}`}
-      accessibilityHint={lut.builtIn ? '内置只读预设，作用于监看与渲染照片' : undefined}
-      onPress={() => onSelect(lut.id)}>{lut.builtIn ? '内置 · ' : ''}{lut.name}</Button>)}
-  </>;
+  const groups = [
+    {title: '原色', items: [{id: 'off', name: '原色', size: 0}] as LutItem[]},
+    {title: '内置 Fuji 风格（非官方）', items: luts.filter(lut => lut.builtIn)},
+    {title: '已导入', items: luts.filter(lut => !lut.builtIn)},
+  ];
+  return <>{groups.map(group => group.items.length > 0 && <View key={group.title} style={styles.group}>
+    {group.title !== '原色' && <Text style={styles.section}>{group.title}</Text>}
+    {group.items.map(lut => {
+      const selected = lut.id === 'off' ? !activeName : activeName === lut.name;
+      return <Pressable key={lut.id} accessibilityRole="button" accessibilityLabel={`选择 LUT ${lutDisplayName(lut.name)}`}
+        accessibilityHint={lut.builtIn ? '内置只读预设，作用于监看与渲染照片' : undefined}
+        accessibilityState={{selected, disabled}} disabled={disabled} onPress={() => onSelect(lut.id)}
+        style={({pressed}) => [styles.row, selected && styles.selected, pressed && styles.pressed, disabled && styles.disabled]}>
+        <View accessible={false} style={styles.swatch}>{strip(lut.id).map((color, index) => <View key={index} style={[styles.color, {backgroundColor: color}]}/>)}</View>
+        <Text style={[styles.name, selected && styles.active]}>{lutDisplayName(lut.name)}</Text>
+        {selected && <CameraIcon name="check" active/>}
+      </Pressable>;
+    })}
+  </View>)}{luts.some(lut => lut.builtIn) && <Text style={styles.note}>非官方近似 · SDR sRGB / Rec.709 · 建议相机使用标准照片风格。色条仅示意。</Text>}</>;
 }
-
 const styles = StyleSheet.create({
-  touch: {minHeight: 48},
-  note: {color: theme.colors.onSurfaceVariant},
+  group: {gap: ui.space.xs}, section: {...ui.type.caption, color: ui.color.muted, marginTop: ui.space.md, marginBottom: ui.space.xs},
+  row: {minHeight: 56, padding: ui.space.sm, borderRadius: ui.radius.small, flexDirection: 'row', alignItems: 'center', gap: ui.space.md},
+  selected: {backgroundColor: ui.color.selected}, pressed: {backgroundColor: ui.color.raised}, disabled: {opacity: .45},
+  swatch: {width: 48, height: 32, borderRadius: ui.space.xs, flexDirection: 'row', overflow: 'hidden'}, color: {flex: 1},
+  name: {...ui.type.body, color: ui.color.text, flex: 1}, active: {color: ui.color.accent}, note: {...ui.type.caption, color: ui.color.muted, marginTop: ui.space.md},
 });

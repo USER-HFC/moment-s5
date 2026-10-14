@@ -2,7 +2,6 @@ import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {AppState, NativeModules, View} from 'react-native';
-import {Button} from 'react-native-paper';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
@@ -81,6 +80,20 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => appStateChanged('active'));
     expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
   });
+  it('keeps the empty-state action clear and restores selected scopes when the feed returns', () => {
+    const state = {active: false, busy: false, ready: false, demo: false, lut: null};
+    const props = {state, buffered: 0, luts: [], onLut: async () => {}, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
+    act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    act(() => tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 278, height: 416}}}));
+    expect(tree!.root.findByProps({accessibilityLabel: '体验演示'})).toBeTruthy();
+    expect(tree!.root.findAllByProps({testID: 'scope-panel-waveform'})).toHaveLength(0);
+    expect(mockHandlers.size).toBe(0);
+    act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: true, ready: true}} preview="data:image/jpeg;base64,frame"/>));
+    expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
+    expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
+    act(() => tree!.update(<CameraWorkspace {...props}/>));
+    expect(mockHandlers.size).toBe(0);
+  });
   it('preserves the session when leaving the camera and applies the new preview orientation on return', () => {
     act(() => {tree = renderer.create(<Harness/>);changeScopePanel({type: 'toggle', kind: 'parade'});changeScopePanel({type: 'toggle', kind: 'vectorscope'});});
     act(() => tree!.unmount());tree = undefined;
@@ -107,7 +120,7 @@ describe('scope overlays and native subscription lifecycle', () => {
       {id: 'builtin:acros', name: 'Fuji 风格 · Acros', size: 970721, builtIn: true, readOnly: true},
       {id: 'imported.cube', name: '我的 LUT', size: 1024},
     ];
-    const props = {state, buffered: 3, luts, onLut, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
+    const props = {state, preview: 'data:image/jpeg;base64,frame', buffered: 3, luts, onLut, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
     act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
     act(() => tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 375, height: 560}}}));
     act(() => tree!.root.findByProps({accessibilityLabel: '示波器'}).props.onPress());
@@ -115,7 +128,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.root.findByProps({accessibilityLabel: 'LUT 风格'}).props.onPress());
     const before = api.setScopesEnabled.mock.calls.length;
     for (const lut of luts) {
-      const button = tree!.root.findAllByType(Button).find(node => node.props.accessibilityLabel === `选择 LUT ${lut.builtIn ? '内置 · ' : ''}${lut.name}`)!;
+      const button = tree!.root.findByProps({accessibilityLabel: `选择 LUT ${lut.name.replace('Fuji 风格 · ', '')}`});
       await act(async () => {await button.props.onPress();});
       expect(onLut).toHaveBeenLastCalledWith(lut.id);
       act(() => tree!.update(<CameraWorkspace {...props} state={{...state, lut: lut.name}}/>));

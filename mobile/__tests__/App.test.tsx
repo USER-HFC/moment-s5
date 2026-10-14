@@ -32,7 +32,7 @@ it('keeps the camera workspace usable at phone portrait and landscape sizes', as
     expect(tree!.root.findByProps({accessibilityLabel: '定时'})).toBeTruthy();
     expect(tree!.root.findByProps({accessibilityLabel: '自动对焦'})).toBeTruthy();
     expect(tree!.root.findByProps({testID: 'preview-frame'})).toBeTruthy();
-    expect(tree!.root.findAllByProps({testID: 'camera-modes'})).toHaveLength(0);
+    expect(tree!.root.findByProps({testID: 'camera-modes'})).toBeTruthy();
     expect(tree!.root.findByProps({testID: 'camera-dock'})).toBeTruthy();
     const bodyStyle = StyleSheet.flatten(tree!.root.findByProps({testID: 'camera-body'}).props.style);
     if (size.width > size.height) expect(bodyStyle.flexDirection).toBe('row');

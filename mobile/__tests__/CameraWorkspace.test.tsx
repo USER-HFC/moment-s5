@@ -43,6 +43,13 @@ it('does not move the countdown when the wall clock changes', () => {
   tick(100); expect(camera!.remoteShutter).toHaveBeenCalledTimes(1);
 });
 
+it('still cancels immediately when the timer control is pressed during a countdown', () => {
+  press('定时'); press('开始倒计时'); tick(5000); press('定时'); tick(6000);
+  expect(camera!.remoteShutter).not.toHaveBeenCalled();
+  expect(camera!.capture).not.toHaveBeenCalled();
+  expect(tree.root.findByProps({accessibilityLabel: '拍照到相机'})).toBeTruthy();
+});
+
 it.each([{busy: true}, {active: false}])('cancels the countdown when capture becomes unavailable: %j', update => {
   press('定时'); press('开始倒计时'); tick(5000);
   act(() => tree.update(<CameraWorkspace {...props} state={{...state, ...update}}/>)); tick(6000);
@@ -77,4 +84,13 @@ it('restores the native audio preference and switches it off without another per
   act(() => tree.update(<CameraWorkspace {...props} state={{...state, audio: true}}/>));
   await act(async () => tree.root.findByProps({accessibilityLabel: '环境声'}).props.onPress());
   expect(requestMicrophonePermission).not.toHaveBeenCalled(); expect(camera!.setAudio).toHaveBeenCalledWith(false);
+});
+
+it('hides the AF reticle until a feed is available and separates capture modes', () => {
+  expect(tree.root.findAllByProps({accessibilityLabel: '中央自动对焦'})).toHaveLength(0);
+  act(() => tree.update(<CameraWorkspace {...props} preview="data:image/jpeg;base64,frame"/>));
+  expect(tree.root.findByProps({accessibilityLabel: '中央自动对焦'})).toBeTruthy();
+  press('动态照片'); press('机身照片'); press('拍照到相机');
+  expect(camera!.remoteShutter).toHaveBeenCalledTimes(1);
+  expect(camera!.capture).not.toHaveBeenCalled();
 });
