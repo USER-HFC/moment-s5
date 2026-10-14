@@ -1,0 +1,722 @@
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] discover --ssdp-port 60580 --ssdp-seconds 0.2
+exit=0
+{
+  "camera_ip": "127.0.0.1",
+  "unicast_ssdp": true,
+  "ssdp": [
+    {
+      "location": "http://127.0.0.1:65394/Lumix/Server0/ddd",
+      "st": "urn:schemas-upnp-org:device:MediaServer:1"
+    }
+  ],
+  "devices": [
+    {
+      "description_url": "http://127.0.0.1:65394/Lumix/Server0/ddd",
+      "model": "MOCK-DC-S5",
+      "model_number": "fixture",
+      "serial_number": "[redacted]",
+      "udn": "[redacted]",
+      "friendlyName": "[redacted]",
+      "manufacturer": "Self-authored fixture",
+      "firmware": "mock-1",
+      "services": [
+        {
+          "serviceType": "urn:schemas-upnp-org:service:ContentDirectory:1",
+          "serviceId": "urn:upnp-org:serviceId:ContentDirectory",
+          "controlURL": "http://127.0.0.1:65394/Server0/CDS_control",
+          "SCPDURL": "http://127.0.0.1:65394/cds.xml"
+        }
+      ]
+    }
+  ],
+  "getstate": {
+    "format": "xml",
+    "result": "ok",
+    "values": {
+      "cammode": [
+        "recmode"
+      ]
+    },
+    "ok": true
+  },
+  "errors": [],
+  "recorded_utc": "2026-10-14T09:45:44.246021+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] auth --flow legacy
+exit=0
+{
+  "camera_ip": "127.0.0.1",
+  "flow": "legacy",
+  "replies": [
+    {
+      "format": "xml",
+      "result": "ok",
+      "values": {},
+      "ok": true
+    }
+  ],
+  "status": "accepted; confirm on camera if prompted",
+  "session_received": false,
+  "recorded_utc": "2026-10-14T09:45:44.426686+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] probe
+exit=0
+{
+  "camera_ip": "127.0.0.1",
+  "requests": [
+    {
+      "mode": "getstate",
+      "type": null,
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "cammode": [
+            "recmode"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getinfo",
+      "type": "capability",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "model": [
+            "MOCK-DC-S5"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getinfo",
+      "type": "allmenu",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "model": [
+            "MOCK-DC-S5"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getinfo",
+      "type": "curmenu",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "model": [
+            "MOCK-DC-S5"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getinfo",
+      "type": "lens",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "model": [
+            "MOCK-DC-S5"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getsetting",
+      "type": "iso",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "iso": [
+            "fixture"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getsetting",
+      "type": "focal",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "focal": [
+            "fixture"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getsetting",
+      "type": "shtrspeed",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "shtrspeed": [
+            "fixture"
+          ]
+        },
+        "ok": true
+      }
+    },
+    {
+      "mode": "getsetting",
+      "type": "liveviewsize",
+      "reply": {
+        "format": "xml",
+        "result": "ok",
+        "values": {
+          "liveviewsize": [
+            "fixture"
+          ]
+        },
+        "ok": true
+      }
+    }
+  ],
+  "recorded_utc": "2026-10-14T09:45:44.615712+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] liveview --seconds 5 --port 0
+exit=0
+{
+  "duration_seconds": 5.006479167,
+  "complete_frames": 72,
+  "complete_fps": 14.38136414799946,
+  "unique_frames": 72,
+  "unique_fps": 14.38136414799946,
+  "max_gap_ms": 72.37379099999997,
+  "last_frame_age_ms": 7.6219169999998115,
+  "last_3s_gate": {
+    "window_seconds": 3.0,
+    "full_window": true,
+    "complete_frames": 43,
+    "unique_frames": 43,
+    "unique_fps": 14.333333333333334,
+    "max_gap_ms": 72.07970799999997,
+    "last_frame_age_ms": 7.6219169999998115,
+    "target_unique_fps": 10,
+    "max_allowed_gap_ms": 500,
+    "passed": true
+  },
+  "camera_ip": "127.0.0.1",
+  "framing": "datagram",
+  "udp_port": 57495,
+  "packet_sizes": {
+    "362": 72,
+    "361": 1
+  },
+  "dimensions": [
+    {
+      "width": 64,
+      "height": 48,
+      "frames": 73
+    }
+  ],
+  "invalid_datagrams": 0,
+  "dropped_partial_frames": 0,
+  "pending_partial_bytes": 0,
+  "foreign_packets_ignored": 0,
+  "errors": [],
+  "rolling_3s_windows": [
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 43,
+      "unique_frames": 43,
+      "unique_fps": 14.333333333333334,
+      "max_gap_ms": 72.37379099999997,
+      "last_frame_age_ms": 40.38729200000013,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.1357920000001,
+      "last_frame_age_ms": 48.33858300000004,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.1357920000001,
+      "last_frame_age_ms": 52.17291700000004,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.07970799999997,
+      "last_frame_age_ms": 61.54812499999984,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 43,
+      "unique_frames": 43,
+      "unique_fps": 14.333333333333334,
+      "max_gap_ms": 72.07970799999997,
+      "last_frame_age_ms": 1.1427499999996371,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    }
+  ],
+  "all_measured_windows_passed": true,
+  "loss_rate": null,
+  "loss_rate_note": "No known S5 sequence format; packet/frame loss rate not inferred",
+  "validation": "JPEG marker/SOF/SOS envelope; entropy decoding is not performed",
+  "recorded_utc": "2026-10-14T09:45:49.871993+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] catalog --page-size 1
+exit=0
+{
+  "camera_ip": "127.0.0.1",
+  "control_url": "http://127.0.0.1:65394/Server0/CDS_control",
+  "object_id": "0",
+  "complete": true,
+  "items": [
+    {
+      "kind": "item",
+      "id": "fixture-0000",
+      "parent_id": "0",
+      "slot": null,
+      "title": "fixture-0000.JPG",
+      "resources": [
+        {
+          "url": "http://127.0.0.1:65394/thumb/fixture-0000.JPG",
+          "protocolInfo": "http-get:*:image/jpeg:PANASONIC.COM_PN=CAM_LRGTN",
+          "size": 500,
+          "resolution": null,
+          "transport": "http-get",
+          "mime": "image/jpeg",
+          "attributes": {
+            "PANASONIC.COM_PN": "CAM_LRGTN"
+          },
+          "flag": "CAM_LRGTN",
+          "original_filename": null
+        },
+        {
+          "url": "http://127.0.0.1:65394/original/fixture-0000.JPG",
+          "protocolInfo": "http-get:*:application/octet-stream;PANASONIC.COM_PN=CAM_ORG;OriginalFileName='fixture-0000.JPG'",
+          "size": 2252,
+          "resolution": "512x384",
+          "transport": "http-get",
+          "mime": "application/octet-stream",
+          "attributes": {
+            "PANASONIC.COM_PN": "CAM_ORG",
+            "OriginalFileName": "fixture-0000.JPG"
+          },
+          "flag": "CAM_ORG",
+          "original_filename": "fixture-0000.JPG"
+        }
+      ]
+    }
+  ],
+  "containers": [],
+  "recorded_utc": "2026-10-14T09:45:50.053095+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] shoot --yes --baseline s5-field-runs/mock-20261014-174543-858084/baseline.json --download --prebuffer-seconds 5 --post-seconds 0.2 --port 0 --settle-seconds 0.2 --poll-interval 0.1
+exit=0
+{
+  "duration_seconds": 5.211801458,
+  "complete_frames": 74,
+  "complete_fps": 14.198545473448847,
+  "unique_frames": 74,
+  "unique_fps": 14.198545473448847,
+  "max_gap_ms": 72.09445899999966,
+  "last_frame_age_ms": 61.09479099999948,
+  "last_3s_gate": {
+    "window_seconds": 3.0,
+    "full_window": true,
+    "complete_frames": 42,
+    "unique_frames": 42,
+    "unique_fps": 14.0,
+    "max_gap_ms": 72.09445899999966,
+    "last_frame_age_ms": 61.09479099999948,
+    "target_unique_fps": 10,
+    "max_allowed_gap_ms": 500,
+    "passed": true
+  },
+  "camera_ip": "127.0.0.1",
+  "framing": "datagram",
+  "udp_port": 61255,
+  "packet_sizes": {
+    "362": 74,
+    "361": 1
+  },
+  "dimensions": [
+    {
+      "width": 64,
+      "height": 48,
+      "frames": 75
+    }
+  ],
+  "invalid_datagrams": 0,
+  "dropped_partial_frames": 0,
+  "pending_partial_bytes": 0,
+  "foreign_packets_ignored": 0,
+  "errors": [],
+  "rolling_3s_windows": [
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 43,
+      "unique_frames": 43,
+      "unique_fps": 14.333333333333334,
+      "max_gap_ms": 72.00125000000001,
+      "last_frame_age_ms": 36.65883300000017,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.00125000000001,
+      "last_frame_age_ms": 38.561917,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.09445899999966,
+      "last_frame_age_ms": 47.372792,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.09445899999966,
+      "last_frame_age_ms": 54.95979200000001,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.09445899999966,
+      "last_frame_age_ms": 60.186124999999535,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    }
+  ],
+  "all_measured_windows_passed": true,
+  "loss_rate": null,
+  "loss_rate_note": "No known S5 sequence format; packet/frame loss rate not inferred",
+  "validation": "JPEG marker/SOF/SOS envelope; entropy decoding is not performed",
+  "recorded_utc": "2026-10-14T09:45:55.477615+00:00"
+}
+{
+  "camera_ip": "127.0.0.1",
+  "capture_dispatches": 1,
+  "status": "unique original candidate downloaded; SD comparison required",
+  "prebuffer": {
+    "duration_seconds": 5.0035525000000005,
+    "complete_frames": 71,
+    "complete_fps": 14.189918063216084,
+    "unique_frames": 71,
+    "unique_fps": 14.189918063216084,
+    "max_gap_ms": 72.09445899999966,
+    "last_frame_age_ms": 63.73862500000005,
+    "last_3s_gate": {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.09445899999966,
+      "last_frame_age_ms": 63.73862500000005,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    }
+  },
+  "freeze_monotonic": 5.182935458,
+  "capture_dispatch_monotonic": 5.183038833,
+  "capture_utc": "2026-10-14T09:45:55.253928+00:00",
+  "capture_reply": {
+    "format": "xml",
+    "result": "ok",
+    "values": {},
+    "ok": true
+  },
+  "capture_reply_monotonic": 5.186363208,
+  "liveview": {
+    "duration_seconds": 5.211801458,
+    "complete_frames": 74,
+    "complete_fps": 14.198545473448847,
+    "unique_frames": 74,
+    "unique_fps": 14.198545473448847,
+    "max_gap_ms": 72.09445899999966,
+    "last_frame_age_ms": 61.09479099999948,
+    "last_3s_gate": {
+      "window_seconds": 3.0,
+      "full_window": true,
+      "complete_frames": 42,
+      "unique_frames": 42,
+      "unique_fps": 14.0,
+      "max_gap_ms": 72.09445899999966,
+      "last_frame_age_ms": 61.09479099999948,
+      "target_unique_fps": 10,
+      "max_allowed_gap_ms": 500,
+      "passed": true
+    },
+    "camera_ip": "127.0.0.1",
+    "framing": "datagram",
+    "udp_port": 61255,
+    "packet_sizes": {
+      "362": 74,
+      "361": 1
+    },
+    "dimensions": [
+      {
+        "width": 64,
+        "height": 48,
+        "frames": 75
+      }
+    ],
+    "invalid_datagrams": 0,
+    "dropped_partial_frames": 0,
+    "pending_partial_bytes": 0,
+    "foreign_packets_ignored": 0,
+    "errors": [],
+    "rolling_3s_windows": [
+      {
+        "window_seconds": 3.0,
+        "full_window": true,
+        "complete_frames": 43,
+        "unique_frames": 43,
+        "unique_fps": 14.333333333333334,
+        "max_gap_ms": 72.00125000000001,
+        "last_frame_age_ms": 36.65883300000017,
+        "target_unique_fps": 10,
+        "max_allowed_gap_ms": 500,
+        "passed": true
+      },
+      {
+        "window_seconds": 3.0,
+        "full_window": true,
+        "complete_frames": 42,
+        "unique_frames": 42,
+        "unique_fps": 14.0,
+        "max_gap_ms": 72.00125000000001,
+        "last_frame_age_ms": 38.561917,
+        "target_unique_fps": 10,
+        "max_allowed_gap_ms": 500,
+        "passed": true
+      },
+      {
+        "window_seconds": 3.0,
+        "full_window": true,
+        "complete_frames": 42,
+        "unique_frames": 42,
+        "unique_fps": 14.0,
+        "max_gap_ms": 72.09445899999966,
+        "last_frame_age_ms": 47.372792,
+        "target_unique_fps": 10,
+        "max_allowed_gap_ms": 500,
+        "passed": true
+      },
+      {
+        "window_seconds": 3.0,
+        "full_window": true,
+        "complete_frames": 42,
+        "unique_frames": 42,
+        "unique_fps": 14.0,
+        "max_gap_ms": 72.09445899999966,
+        "last_frame_age_ms": 54.95979200000001,
+        "target_unique_fps": 10,
+        "max_allowed_gap_ms": 500,
+        "passed": true
+      },
+      {
+        "window_seconds": 3.0,
+        "full_window": true,
+        "complete_frames": 42,
+        "unique_frames": 42,
+        "unique_fps": 14.0,
+        "max_gap_ms": 72.09445899999966,
+        "last_frame_age_ms": 60.186124999999535,
+        "target_unique_fps": 10,
+        "max_allowed_gap_ms": 500,
+        "passed": true
+      }
+    ],
+    "all_measured_windows_passed": true,
+    "loss_rate": null,
+    "loss_rate_note": "No known S5 sequence format; packet/frame loss rate not inferred",
+    "validation": "JPEG marker/SOF/SOS envelope; entropy decoding is not performed",
+    "recorded_utc": "2026-10-14T09:45:55.477615+00:00"
+  },
+  "new_item": {
+    "kind": "item",
+    "id": "fixture-0001",
+    "parent_id": "0",
+    "slot": null,
+    "title": "fixture-0001.JPG",
+    "resources": [
+      {
+        "url": "http://127.0.0.1:65394/thumb/fixture-0001.JPG",
+        "protocolInfo": "http-get:*:image/jpeg:PANASONIC.COM_PN=CAM_LRGTN",
+        "size": 500,
+        "resolution": null,
+        "transport": "http-get",
+        "mime": "image/jpeg",
+        "attributes": {
+          "PANASONIC.COM_PN": "CAM_LRGTN"
+        },
+        "flag": "CAM_LRGTN",
+        "original_filename": null
+      },
+      {
+        "url": "http://127.0.0.1:65394/original/fixture-0001.JPG",
+        "protocolInfo": "http-get:*:application/octet-stream;PANASONIC.COM_PN=CAM_ORG;OriginalFileName='fixture-0001.JPG'",
+        "size": 2252,
+        "resolution": "512x384",
+        "transport": "http-get",
+        "mime": "application/octet-stream",
+        "attributes": {
+          "PANASONIC.COM_PN": "CAM_ORG",
+          "OriginalFileName": "fixture-0001.JPG"
+        },
+        "flag": "CAM_ORG",
+        "original_filename": "fixture-0001.JPG"
+      }
+    ]
+  },
+  "item_first_seen_monotonic": 5.418804,
+  "catalog_read_errors": [],
+  "download": {
+    "path": "s5-field-runs/mock-20261014-174543-858084/phone-original.jpg",
+    "size": 2252,
+    "sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+    "dimensions": {
+      "width": 512,
+      "height": 384
+    },
+    "exif": {
+      "make": "FieldFixture",
+      "model": "MOCK-DC-S5",
+      "orientation": 1,
+      "datetime": "2026:10:14 12:00:00",
+      "datetime_original": "2026:10:14 12:00:00"
+    }
+  },
+  "download_complete_monotonic": 5.636444708,
+  "prebuffer_frames_saved": 42,
+  "recorded_utc": "2026-10-14T09:45:55.719858+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] verify --sd s5-field-runs/mock-20261014-174543-858084/sd-copy.jpg --phone s5-field-runs/mock-20261014-174543-858084/phone-original.jpg
+exit=0
+{
+  "sd": {
+    "path": "s5-field-runs/mock-20261014-174543-858084/sd-copy.jpg",
+    "size": 2252,
+    "sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+    "dimensions": {
+      "width": 512,
+      "height": 384
+    },
+    "exif": {
+      "make": "FieldFixture",
+      "model": "MOCK-DC-S5",
+      "orientation": 1,
+      "datetime": "2026:10:14 12:00:00",
+      "datetime_original": "2026:10:14 12:00:00"
+    }
+  },
+  "phone": {
+    "path": "s5-field-runs/mock-20261014-174543-858084/phone-original.jpg",
+    "size": 2252,
+    "sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+    "dimensions": {
+      "width": 512,
+      "height": 384
+    },
+    "exif": {
+      "make": "FieldFixture",
+      "model": "MOCK-DC-S5",
+      "orientation": 1,
+      "datetime": "2026:10:14 12:00:00",
+      "datetime_original": "2026:10:14 12:00:00"
+    }
+  },
+  "comparisons": {
+    "size": true,
+    "sha256": true,
+    "dimensions": true,
+    "exif": true
+  },
+  "passed": true,
+  "recorded_utc": "2026-10-14T09:45:55.898082+00:00"
+}
+
+
+$ python3 -I tools/s5-wifi/s5wifi.py [loopback options] report --source s5-field-runs/mock-20261014-174543-858084 --report-to evidence/s5-wifi-mock/REPORT.redacted.md
+exit=0
+Redacted report: evidence/s5-wifi-mock/REPORT.redacted.md

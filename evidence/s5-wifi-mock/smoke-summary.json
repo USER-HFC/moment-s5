@@ -1,0 +1,108 @@
+{
+  "capture_count": 1,
+  "commands": [
+    {
+      "command": [
+        "discover",
+        "--ssdp-port",
+        "60580",
+        "--ssdp-seconds",
+        "0.2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "auth",
+        "--flow",
+        "legacy"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "probe"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "liveview",
+        "--seconds",
+        "5",
+        "--port",
+        "0"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "catalog",
+        "--page-size",
+        "1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "shoot",
+        "--yes",
+        "--baseline",
+        "s5-field-runs/mock-20261014-174543-858084/baseline.json",
+        "--download",
+        "--prebuffer-seconds",
+        "5",
+        "--post-seconds",
+        "0.2",
+        "--port",
+        "0",
+        "--settle-seconds",
+        "0.2",
+        "--poll-interval",
+        "0.1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "verify",
+        "--sd",
+        "s5-field-runs/mock-20261014-174543-858084/sd-copy.jpg",
+        "--phone",
+        "s5-field-runs/mock-20261014-174543-858084/phone-original.jpg"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "report",
+        "--source",
+        "s5-field-runs/mock-20261014-174543-858084",
+        "--report-to",
+        "evidence/s5-wifi-mock/REPORT.redacted.md"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "framing": "datagram",
+  "liveview_gate": {
+    "complete_frames": 43,
+    "full_window": true,
+    "last_frame_age_ms": 7.6219169999998115,
+    "max_allowed_gap_ms": 500,
+    "max_gap_ms": 72.07970799999997,
+    "passed": true,
+    "target_unique_fps": 10,
+    "unique_fps": 14.333333333333334,
+    "unique_frames": 43,
+    "window_seconds": 3.0
+  },
+  "mock_only": true,
+  "passed": true,
+  "physical_camera_tested": false,
+  "pre_only": true,
+  "prebuffer_frames": 42,
+  "python": "3.9.6",
+  "recorded_utc": "2026-10-14T09:45:56.080699+00:00",
+  "sd_byte_match": true
+}

@@ -11,3 +11,9 @@ local.properties
 evidence/initial.png
 evidence/detail.png
 outputs/*.apk
+
+# Private camera responses, images, packet captures and credentials.
+s5-field-runs/
+tools/s5-wifi/s5-field-runs/
+tools/s5-wifi/private/
+tools/s5-wifi/__pycache__/

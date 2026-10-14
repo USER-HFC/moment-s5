@@ -1,0 +1,120 @@
+{
+  "capture_count": 1,
+  "commands": [
+    {
+      "command": [
+        "discover",
+        "--ssdp-port",
+        "51199",
+        "--ssdp-seconds",
+        "0.2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "auth",
+        "--flow",
+        "legacy"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "probe"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "liveview",
+        "--seconds",
+        "5",
+        "--port",
+        "0",
+        "--framing",
+        "sequence",
+        "--header-bytes",
+        "2",
+        "--sequence-offset",
+        "0"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "catalog",
+        "--page-size",
+        "1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "shoot",
+        "--yes",
+        "--baseline",
+        "s5-field-runs/mock-20261014-174543-857854/baseline.json",
+        "--download",
+        "--prebuffer-seconds",
+        "5",
+        "--post-seconds",
+        "0.2",
+        "--port",
+        "0",
+        "--settle-seconds",
+        "0.2",
+        "--poll-interval",
+        "0.1",
+        "--framing",
+        "sequence",
+        "--header-bytes",
+        "2",
+        "--sequence-offset",
+        "0"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "verify",
+        "--sd",
+        "s5-field-runs/mock-20261014-174543-857854/sd-copy.jpg",
+        "--phone",
+        "s5-field-runs/mock-20261014-174543-857854/phone-original.jpg"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "report",
+        "--source",
+        "s5-field-runs/mock-20261014-174543-857854",
+        "--report-to",
+        "s5-field-runs/mock-sequence-final/REPORT.redacted.md"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "framing": "sequence",
+  "liveview_gate": {
+    "complete_frames": 42,
+    "full_window": true,
+    "last_frame_age_ms": 60.92362500000004,
+    "max_allowed_gap_ms": 500,
+    "max_gap_ms": 75.70929199999998,
+    "passed": true,
+    "target_unique_fps": 10,
+    "unique_fps": 14.0,
+    "unique_frames": 42,
+    "window_seconds": 3.0
+  },
+  "mock_only": true,
+  "passed": true,
+  "physical_camera_tested": false,
+  "pre_only": true,
+  "prebuffer_frames": 43,
+  "python": "3.9.6",
+  "recorded_utc": "2026-10-14T09:45:56.080696+00:00",
+  "sd_byte_match": true
+}
