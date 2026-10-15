@@ -81,8 +81,16 @@ python3 -I tools/s5-wifi/check_mock_motion.py --media evidence/v0.8.0-beta.2/wif
 
 使用原有 `~/.android/debug.keystore`；已实际下载 beta.1 APK 并分别运行 apksigner。两者证书 SHA-256 同为 `85e000b6b35fd5ad95072cbc359992a808b752aca653c8f723b187777f77c565`，见 [beta.1 证书](beta1-signature.txt)、[本次证书](apk-signature.txt)。**beta.1 可直接覆盖升级，不需要卸载。** v0.7.0 的不同签名警告仍适用：先导出并确认照片，再卸载 v0.7.0；卸载会清除 App 内照片与导入 LUT，SD 卡和系统相册副本保留。
 
-预发布地址：[v0.8.0-beta.2](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2)。发布流程仅推送现有 `feat/s5-wifi-beta` 分支和新的 annotated tag，不改 main、不 force、不覆盖既有 tag / release；上传上述已验证的同一 APK，使用 `--prerelease --latest=false`，v0.7.0 保持最新稳定版。远端发布后核对记录单独补充，APK 不再重建。
+预发布地址：[v0.8.0-beta.2](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2)。发布流程仅推送现有 `feat/s5-wifi-beta` 分支和新的 annotated tag，不改 main、不 force、不覆盖既有 tag / release；上传上述已验证的同一 APK，使用 `--prerelease --latest=false`，v0.7.0 保持最新稳定版。远端发布核对已完成；以下为发布后的证据补充，APK 未重建。
 
 ## 未解决的硬件验证范围
 
 没有真实 S5 或 Find X8。真实 USB / Wi-Fi 握手、S5 固件 2.9 的 UDP 分包、相机新 JPEG 事件 / 双卡 / 长曝光、SD 卡原片实际字节比对、镜头控制、双 STA / 蜂窝共存、持续采样功耗 / 热稳定性、音画同步、ColorOS 原生 Motion Photo 识别均待实体设备验证。Wi-Fi 继续明确标记实验性，USB 仍为默认与推荐方式；本次模拟器与主机检查不替代这些验收。
+
+## 远端核对（发布后证据）
+
+已发布 [v0.8.0-beta.2](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2)，GitHub release ID `413894611`，`prerelease:true`、`draft:false`；`/releases/latest` 仍返回 `v0.7.0`。新 annotated tag 的对象为 `b417864136cd040805e702d0ff18450bdc6910cd`，解引用到代码 / 构建 / 测试提交 **`a0b369b38905393b486423a2ab8daaf2b47bb253`**。
+
+远端唯一资产 `moment-lumix-v0.8.0-beta.2-arm64.apk` 为 32,305,881 字节，GitHub digest `sha256:56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2`。又从 GitHub 重新下载一次，字节数与 SHA-256 均和模拟器安装的 release APK 匹配，见 [完整远端核对](remote-release.json)。
+
+本节与该 JSON 是独立的发布后证据提交；tag 保持在上述已验证的代码提交，不移动 tag、不覆盖资产，也没有重新构建 APK。仅把证据补充继续推送至原有 `feat/s5-wifi-beta` 分支。

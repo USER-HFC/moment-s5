@@ -1,0 +1,24 @@
+{
+  "release_url": "https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2",
+  "release_id": 413894611,
+  "tag": "v0.8.0-beta.2",
+  "prerelease": true,
+  "draft": false,
+  "published_at": "2026-10-15T14:14:30Z",
+  "latest_stable": "v0.7.0",
+  "release_source_sha": "a0b369b38905393b486423a2ab8daaf2b47bb253",
+  "annotated_tag_remote_refs": [
+    "b417864136cd040805e702d0ff18450bdc6910cd\trefs/tags/v0.8.0-beta.2",
+    "a0b369b38905393b486423a2ab8daaf2b47bb253\trefs/tags/v0.8.0-beta.2^{}"
+  ],
+  "asset": {
+    "id": 644085571,
+    "name": "moment-lumix-v0.8.0-beta.2-arm64.apk",
+    "size": 32305881,
+    "digest": "sha256:56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2",
+    "state": "uploaded",
+    "url": "https://github.com/USER-HFC/moment-s5/releases/download/v0.8.0-beta.2/moment-lumix-v0.8.0-beta.2-arm64.apk"
+  },
+  "downloaded_asset_sha256": "56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2",
+  "downloaded_asset_exact": true
+}
