@@ -1,0 +1,11 @@
+warning: unknown enum constant Mode.LOCAL
+  reason: class file for com.facebook.infer.annotation.Nullsafe$Mode not found
+warning: unknown enum constant AnnotationRetention.RUNTIME
+  reason: class file for kotlin.annotation.AnnotationRetention not found
+warning: unknown enum constant AnnotationTarget.CLASS
+  reason: class file for kotlin.annotation.AnnotationTarget not found
+warning: unknown enum constant AnnotationRetention.RUNTIME
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+PASS 132 native bugfix checks (Android doubles, no camera)

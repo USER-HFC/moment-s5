@@ -27,6 +27,8 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
   const videoRef = useRef<VideoRef>(null);
   const imageOpacity = useRef(new Animated.Value(1)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
+  const hasMotion = (moment: MomentItem) => moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete;
+  const canExport = (moment: MomentItem) => moment.complete || (moment.captureMode === 'photo' && !!moment.imageUri);
   const selected = moments.find((moment) => moment.id === selectedId) || moments[0];
 
   useEffect(() => {
@@ -47,42 +49,42 @@ export default function MotionAlbum({moments, onBack, onExport, onDelete}: Props
   }, [imageOpacity, videoOpacity]);
   const pinch = Gesture.Pinch().runOnJS(true).onBegin(() => { pinchStart.current = scale; }).onUpdate((event) => { setScale(Math.min(3, Math.max(1, pinchStart.current * event.scale))); }).onEnd(() => { if (scale < 1.05) setScale(1); });
 
-  if (!selected) return <View style={styles.empty}><Text variant="titleLarge">还没有动态照片</Text><Text style={styles.muted}>拍摄一张动态照片后，它会在这里直接预览。</Text><CameraControl icon="back" label="返回" onPress={onBack} accessibilityLabel="返回拍照页面"/></View>;
+  if (!selected) return <View style={styles.empty}><Text variant="titleLarge">还没有照片</Text><CameraControl icon="back" label="返回" onPress={onBack} accessibilityLabel="返回拍照页面"/></View>;
 
   const fadeToVideo = () => { imageOpacity.stopAnimation(); videoOpacity.stopAnimation(); Animated.parallel([Animated.timing(imageOpacity, {toValue: 0, duration: 180, useNativeDriver: true}), Animated.timing(videoOpacity, {toValue: 1, duration: 220, useNativeDriver: true})]).start(); };
   const fadeToImage = () => Animated.parallel([Animated.timing(videoOpacity, {toValue: 0, duration: 220, useNativeDriver: true}), Animated.timing(imageOpacity, {toValue: 1, duration: 320, useNativeDriver: true})]).start();
-  const startPlayback = () => { if (!selected.videoUri || !selected.complete) return; setScale(1); setPlaying(true); if (videoReady) { videoRef.current?.seek(0); fadeToVideo(); } };
+  const startPlayback = () => { if (!hasMotion(selected)) return; setScale(1); setPlaying(true); if (videoReady) { videoRef.current?.seek(0); fadeToVideo(); } };
   const finishPlayback = () => { setPlaying(false); fadeToImage(); };
-  const askDelete = (id: string) => Alert.alert('删除这张动态照片？', '只删除 App 内副本；相机 SD 卡原片和已导出到系统相册的副本会保留。', [{text: '取消', style: 'cancel'}, {text: '删除', style: 'destructive', onPress: () => { void onDelete(id); }}]);
+  const askDelete = (id: string) => Alert.alert('删除这张照片？', '只删除 App 内副本；相机 SD 卡原片和已导出到系统相册的副本会保留。', [{text: '取消', style: 'cancel'}, {text: '删除', style: 'destructive', onPress: () => { void onDelete(id); }}]);
 
   if (showList) return <View style={styles.root}>
     <View style={styles.listHeader}><CameraControl icon="back" accessibilityLabel="返回最近照片预览" onPress={() => {setShowList(false); setControlsVisible(true);}}/><Text style={styles.headerTitle}>相册</Text><View style={styles.headerSpacer}/></View>
-    <ScrollView contentContainerStyle={styles.list} accessibilityLabel="动态照片列表">
+    <ScrollView contentContainerStyle={styles.list} accessibilityLabel="照片列表">
       {moments.map((moment) => <View key={moment.id} style={[styles.listItem, moment.id === selected.id && styles.listItemSelected]}>
-        <Pressable onPress={() => { setSelectedId(moment.id); setShowList(false); }} accessibilityRole="button" accessibilityLabel={'打开' + (moment.source || '动态照片')} style={({pressed}) => [styles.listSelect, pressed && styles.listItemPressed]}>
+        <Pressable onPress={() => { setSelectedId(moment.id); setShowList(false); }} accessibilityRole="button" accessibilityLabel={'打开' + (moment.source || '照片')} style={({pressed}) => [styles.listSelect, pressed && styles.listItemPressed]}>
           <View>
             {moment.imageUri ? <Image source={{uri: moment.imageUri}} style={styles.thumb}/> : <View style={[styles.thumb, styles.thumbEmpty]}/>}
-            {moment.videoUri && moment.complete && <Text maxFontSizeMultiplier={1.3} style={styles.liveThumb}>LIVE</Text>}
+            {hasMotion(moment) && <Text maxFontSizeMultiplier={1.3} style={styles.liveThumb}>LIVE</Text>}
           </View>
-          <View style={styles.listCopy}><Text variant="titleMedium" numberOfLines={1}>{moment.source || '动态照片'}</Text><Text style={styles.muted}>{formatMomentDate(moment.createdAt)}</Text><Text style={[styles.muted, moment.error && styles.error]}>{moment.complete ? (moment.lut ? 'LUT · ' + moment.lut : '已合成') : moment.error ? '失败：' + moment.error : '合成中'}</Text></View>
+          <View style={styles.listCopy}><Text variant="titleMedium" numberOfLines={1}>{moment.source || '照片'}</Text><Text style={styles.muted}>{formatMomentDate(moment.createdAt)}</Text><Text style={[styles.muted, moment.error && styles.error]}>{moment.complete ? (moment.lut ? 'LUT · ' + moment.lut : moment.captureMode === 'photo' ? '已保存' : '已合成') : moment.error ? '失败：' + moment.error : '合成中'}</Text></View>
         </Pressable>
-        <View style={styles.listActions}>{moment.complete && <CameraControl icon="save" label="保存" accessibilityLabel={`保存到系统相册 ${moment.source || moment.id}`} onPress={() => {void onExport(moment.id);}}/>}<CameraControl icon="delete" label="删除" destructive accessibilityLabel={`删除动态照片 ${moment.source || moment.id}`} onPress={() => askDelete(moment.id)}/></View>
+        <View style={styles.listActions}>{canExport(moment) && <CameraControl icon="save" label="保存" accessibilityLabel={`${moment.complete ? '保存到系统相册' : '保存原片到系统相册'} ${moment.source || moment.id}`} onPress={() => {void onExport(moment.id);}}/>}<CameraControl icon="delete" label="删除" destructive accessibilityLabel={`删除照片 ${moment.source || moment.id}`} onPress={() => askDelete(moment.id)}/></View>
       </View>)}
     </ScrollView>
   </View>;
 
   const mediaStyle = [styles.media, {opacity: imageOpacity, transform: [{scale}]}];
   return <View style={styles.root} testID="motion-viewer">
-    {controlsVisible && <ScrollView style={styles.viewerHeader} contentContainerStyle={styles.viewerHeaderContent}><CameraControl icon="back" accessibilityLabel="返回拍照页面" onPress={onBack}/><View style={styles.viewerTitle}><Text style={styles.headerTitle}>最近照片</Text><Text style={styles.date}>{formatMomentDate(selected.createdAt)}</Text>{selected.experimentalWifi && <ExperimentalWifiBadge state={{transport: 'wifi'}}/>}</View><CameraControl icon="list" accessibilityLabel="查看相册列表" onPress={() => setShowList(true)}/></ScrollView>}
+    {controlsVisible && <ScrollView style={styles.viewerHeader} contentContainerStyle={styles.viewerHeaderContent}><CameraControl icon="back" accessibilityLabel="返回拍照页面" onPress={onBack}/><View style={styles.viewerTitle}><Text style={styles.headerTitle}>最近照片</Text><Text style={styles.date}>{formatMomentDate(selected.createdAt)}</Text>{selected.demo && <Text style={styles.date}>DEMO</Text>}{selected.experimentalWifi && <ExperimentalWifiBadge state={{transport: 'wifi'}}/>}</View><CameraControl icon="list" accessibilityLabel="查看相册列表" onPress={() => setShowList(true)}/></ScrollView>}
     <GestureDetector gesture={pinch}><View style={styles.viewer}>
-      <Pressable style={styles.mediaHit} delayLongPress={240} onLongPress={startPlayback} onPressOut={finishPlayback} onPress={() => setControlsVisible((value) => !value)} accessibilityRole="button" accessibilityLabel={selected.videoUri && selected.complete ? '单击显示或隐藏操作，双指缩放，长按播放动态照片' : '单击显示或隐藏操作，双指缩放查看照片'}>
+      <Pressable style={styles.mediaHit} delayLongPress={240} onLongPress={startPlayback} onPressOut={finishPlayback} onPress={() => setControlsVisible((value) => !value)} accessibilityRole="button" accessibilityLabel={hasMotion(selected) ? '单击显示或隐藏操作，双指缩放，长按播放动态照片' : '单击显示或隐藏操作，双指缩放查看照片'}>
         {selected.imageUri && <Animated.Image source={{uri: selected.imageUri}} style={mediaStyle} resizeMode="contain" />}
-        {selected.videoUri && selected.complete && <Animated.View pointerEvents="none" style={[styles.videoLayer, {opacity: videoOpacity, transform: [{scale}]}]}><Video key={selected.id} ref={videoRef} source={{uri: selected.videoUri}} style={styles.media} resizeMode="contain" paused={!playing} repeat={false} muted={false} onLoad={() => { if (playing) videoRef.current?.seek(0); }} onReadyForDisplay={() => { setVideoReady(true); if (playing) fadeToVideo(); }} onEnd={finishPlayback} onError={() => { setPlaying(false); fadeToImage(); }} /></Animated.View>}
+        {hasMotion(selected) && <Animated.View pointerEvents="none" style={[styles.videoLayer, {opacity: videoOpacity, transform: [{scale}]}]}><Video key={selected.id} ref={videoRef} source={{uri: selected.videoUri}} style={styles.media} resizeMode="contain" paused={!playing} repeat={false} muted={false} onLoad={() => { if (playing) videoRef.current?.seek(0); }} onReadyForDisplay={() => { setVideoReady(true); if (playing) fadeToVideo(); }} onEnd={finishPlayback} onError={() => { setPlaying(false); fadeToImage(); }} /></Animated.View>}
       </Pressable>
-      {selected.videoUri && selected.complete && <View pointerEvents="none" style={styles.liveBadge}><Text maxFontSizeMultiplier={1.3} style={styles.liveText}>LIVE</Text></View>}
+      {hasMotion(selected) && <View pointerEvents="none" style={styles.liveBadge}><Text maxFontSizeMultiplier={1.3} style={styles.liveText}>LIVE</Text></View>}
       {controlsVisible && <ScrollView style={styles.viewerControls} contentContainerStyle={styles.controlsContent}>
-        {!playing && <View pointerEvents="none"><Text style={styles.viewerHint}>{selected.videoUri && selected.complete ? '长按播放动态 · 双指缩放' : '双指缩放查看'}</Text></View>}
-        <View style={styles.actionRow}>{selected.complete && <CameraControl icon="save" label="保存" accessibilityLabel="保存到系统相册" onPress={() => {void onExport(selected.id);}}/>}<CameraControl icon="delete" label="删除" destructive accessibilityLabel="删除动态照片" onPress={() => askDelete(selected.id)}/></View>
+        {!!selected.error && <Text accessibilityLiveRegion="polite" style={styles.error}>{selected.error}</Text>}
+        <View style={styles.actionRow}>{canExport(selected) && <CameraControl icon="save" label="保存" accessibilityLabel={selected.complete ? '保存到系统相册' : '保存原片到系统相册'} onPress={() => {void onExport(selected.id);}}/>}<CameraControl icon="delete" label="删除" destructive accessibilityLabel="删除照片" onPress={() => askDelete(selected.id)}/></View>
       </ScrollView>}
     </View></GestureDetector>
   </View>;

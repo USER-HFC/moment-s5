@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "demo": true,
+  "createdAt": 1792072338310,
+  "captureMode": "photo",
+  "mediaType": "photo",
+  "lutRequested": null,
+  "lut": null,
+  "lutApplied": false,
+  "complete": true,
+  "frames": 0,
+  "durationUs": 0,
+  "audio": false,
+  "hasPostFrames": false,
+  "transport": "demo",
+  "experimentalWifi": false,
+  "source": "DEMO.jpg",
+  "maxGapMs": 0,
+  "shutterTimeBasis": "button-tap request; camera exposure time is approximate"
+}

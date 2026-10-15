@@ -47,7 +47,7 @@ it('opens the latest photo as the primary album view', () => {
 it('reveals the full list through the explicit list action', () => {
   const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} />);
   act(() => tree.root.findByProps({accessibilityLabel: '查看相册列表'}).props.onPress());
-  expect(tree.root.findByProps({accessibilityLabel: '动态照片列表'})).toBeTruthy();
+  expect(tree.root.findByProps({accessibilityLabel: '照片列表'})).toBeTruthy();
   expect(tree.root.findByProps({accessibilityLabel: '返回最近照片预览'})).toBeTruthy();
   act(() => tree.unmount());
 });
@@ -108,8 +108,33 @@ it('can delete a failed app-private record while export stays unavailable', () =
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={failed} onBack={jest.fn()} onExport={exportMock} onDelete={remove} />); });
   expect(tree!.root.findAllByProps({accessibilityLabel: '保存到系统相册'})).toHaveLength(0);
-  act(() => tree!.root.findByProps({accessibilityLabel: '删除动态照片'}).props.onPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '删除照片'}).props.onPress());
   const buttons = alert.mock.calls[0][2]!;
   act(() => buttons[1].onPress!()); expect(remove).toHaveBeenCalledWith('M1');
   act(() => tree!.unmount()); alert.mockRestore();
+});
+
+it.each([null, 'Classic Chrome'])('shows and exports a static photo without LIVE or a video: %s', async lut => {
+  const onExport = jest.fn(async (_id: string) => {});
+  let tree: renderer.ReactTestRenderer;
+  const photo = {...moments[0], captureMode: 'photo' as const, lut, videoUri: undefined};
+  act(() => {tree = renderer.create(<MotionAlbum moments={[photo]} onBack={jest.fn()} onExport={onExport} onDelete={exportMock}/>);});
+  expect(tree!.root.findAllByProps({testID: 'motion-video'})).toHaveLength(0);
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('LIVE');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('长按播放');
+  await act(async () => {await tree!.root.findByProps({accessibilityLabel: '保存到系统相册'}).props.onPress();});
+  expect(onExport).toHaveBeenCalledWith('M1');
+  act(() => tree!.root.findByProps({accessibilityLabel: '查看相册列表'}).props.onPress());
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('LIVE');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('已合成');
+  act(() => tree!.unmount());
+});
+
+it('shows LUT failure honestly and offers the preserved original for a failed static photo', () => {
+  let tree: renderer.ReactTestRenderer;
+  act(() => {tree = renderer.create(<MotionAlbum moments={[{...moments[0], captureMode: 'photo', complete: false, error: 'LUT 处理失败，原片已保留', videoUri: undefined}]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);});
+  expect(JSON.stringify(tree!.toJSON())).toContain('LUT 处理失败，原片已保留');
+  expect(tree!.root.findByProps({accessibilityLabel: '保存原片到系统相册'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'motion-video'})).toHaveLength(0);
+  act(() => tree!.unmount());
 });

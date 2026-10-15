@@ -140,15 +140,19 @@ public final class CaptureEngine {
         if(frame!=null) {byte[] bytes=frame.jpeg();LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}synchronized(this){if(!active || busy || filter!=lut)return;ring.add(frame.receivedUs(),bytes);listener.frame(bytes,ring.durationUs(),demo);}}
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
-    public synchronized void capture() {
+    public void capture() {capture(true);}
+    /** Retrieve this shutter's JPEG without requiring preview frames or creating video. */
+    public void captureStill() {capture(false);}
+    private synchronized void capture(boolean motion) {
         // Freeze the button boundary before queueing any work. The worker may be
         // delayed by a prior USB operation, but the clip must remain pre-tap.
         long shutterUs=now();
         CameraTransport cameraAtTap=camera;
         boolean demoAtTap=demo;
+        LutEngine filter=lut;
         long captureEpoch=sessionEpoch.get();
-        List<FrameRing.Frame> pre=ring.preCaptureWindow(shutterUs);
-        if(!active || busy || shuttingDown || (!demoAtTap && cameraAtTap==null) || pre.isEmpty()) {listener.status("请等待预缓存填满，并确认取景持续更新",false);return;}
+        List<FrameRing.Frame> pre=motion?ring.preCaptureWindow(shutterUs):Collections.emptyList();
+        if(!active || busy || shuttingDown || (!demoAtTap && cameraAtTap==null) || (motion && pre.isEmpty())) {listener.status(motion?"请等待预缓存填满，并确认取景持续更新":"相机未连接或正在处理拍摄",false);return;}
         CameraTransport.Baseline baseline=preparedHandles;
         busy=true;
         worker.execute(()-> {
@@ -158,7 +162,7 @@ public final class CaptureEngine {
                 List<FrameRing.Frame> fs=pre;
                 long from=shutterUs-FrameRing.PRE_CAPTURE_US,to=shutterUs;
                 short[] capturedAudio=null;
-                AudioRing recording=microphone;
+                AudioRing recording=motion?microphone:null;
                 // Snapshot audio before the shutter command can block or age out the ring.
                 if(recording!=null)try{capturedAudio=recording.slice(from,to);}catch(IOException e){log(e.getMessage());}
                 short[] audioSamples=capturedAudio;
@@ -166,36 +170,57 @@ public final class CaptureEngine {
                 if(!demoAtTap && cameraAtTap.freshBaselineRequired())captureBaseline=cameraAtTap.prepareCaptureBaseline();
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap))throw new IOException("相机已断开，尚未触发快门");
                 if(!demoAtTap) cameraAtTap.clearCaptureEvents();
-                listener.status("正在拍摄 · 已保留快门前 3 秒",false);
+                listener.status(motion?"正在拍摄 · 已保留快门前 3 秒":"正在拍摄照片",false);
                 if(!demoAtTap) cameraAtTap.shutter();
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
-                dir=store.create();meta.put("demo",demoAtTap);
+                dir=store.create();meta.put("schema",1);meta.put("demo",demoAtTap);
+                meta.put("createdAt",System.currentTimeMillis());meta.put("captureMode",motion?"pre-only":"photo");
+                meta.put("mediaType",motion?"motion":"photo");meta.put("lutRequested",filter==null?JSONObject.NULL:filter.title);
+                meta.put("lut",JSONObject.NULL);meta.put("lutApplied",false);meta.put("complete",false);
+                meta.put("frames",pre.size());meta.put("durationUs",motion?FrameRing.PRE_CAPTURE_US:0);meta.put("audio",false);meta.put("hasPostFrames",false);
+                meta.put("transport",demoAtTap?"demo":cameraAtTap.kind());
+                meta.put("experimentalWifi",!demoAtTap && cameraAtTap.kind().equals("wifi"));
                 String filename;
                 File original=new File(dir,"original.jpg");
                 if(demoAtTap) {Files.write(original.toPath(),demoFrame(shutterUs,2400,1600));filename="DEMO.jpg";}
                 else {
-                    listener.status("动态已缓存 · 正在接收原尺寸照片",false);
+                    listener.status(motion?"动态已缓存 · 正在接收原尺寸照片":"正在接收原尺寸照片",false);
                     CameraTransport.Original source=cameraAtTap.awaitNewJpeg(captureBaseline,()->sameSession(captureEpoch,cameraAtTap,false));filename=source.filename();
-                    cameraAtTap.downloadOriginal(source,original);
+                    meta.put("source",filename);MomentStore.metadata(dir,meta);
+                    File part=new File(dir,"original.jpg.part");
+                    try {
+                        cameraAtTap.downloadOriginal(source,part);
+                        Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                    } finally {Files.deleteIfExists(part.toPath());}
                     // Refresh the next button boundary after this transfer. This
                     // USB index read is deliberately after the shutter and can
                     // never delay the current capture.
                     try {preparedHandles=cameraAtTap.prepareCaptureBaseline();}
                     catch(IOException e) {preparedHandles=null;log("下一次拍摄的照片索引暂不可用："+e.getMessage());}
                 }
-                LutEngine filter=lut;
+                meta.put("source",filename);MomentStore.metadata(dir,meta);
                 // Keep the camera bytes immutable; rendered.jpg is an explicit derivative.
                 boolean lutApplied=false;
                 if(filter!=null){
                     byte[] still=Files.readAllBytes(original.toPath());
-                    Files.write(new File(dir,"original-camera.jpg").toPath(),still);
-                    try { Files.write(new File(dir,"rendered.jpg").toPath(),filter.applyJpeg(still)); lutApplied=true; }
-                    catch(IOException e) { log("LUT 原片套用失败，保留相机原片："+e.getMessage()); }
+                    if(motion)Files.write(new File(dir,"original-camera.jpg").toPath(),still);
+                    File part=new File(dir,"rendered.jpg.part");
+                    try {
+                        Files.write(part.toPath(),filter.applyJpeg(still));
+                        Files.move(part.toPath(),new File(dir,"rendered.jpg").toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        lutApplied=true;
+                    }
+                    catch(IOException e) {if(!motion)throw new IOException("LUT 处理失败，原片已保留："+e.getMessage(),e);log("LUT 原片套用失败，保留相机原片："+e.getMessage());}
+                    finally {Files.deleteIfExists(part.toPath());}
                 }
                 meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
-                meta.put("createdAt",System.currentTimeMillis());meta.put("frames",fs.size());meta.put("maxGapMs",Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000);
-                meta.put("captureMode","pre-only");meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis","button-tap pre-shutter buffer snapshot; exposure time is approximate");
+                meta.put("frames",fs.size());meta.put("maxGapMs",motion?Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000:0);
+                meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis",motion?"button-tap pre-shutter buffer snapshot; exposure time is approximate":"button-tap request; camera exposure time is approximate");
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
+                if(!motion) {
+                    meta.put("durationUs",0);meta.put("complete",true);meta.remove("error");MomentStore.metadata(dir,meta);
+                    ring.clear();busy=false;listener.saved(dir);listener.status("照片已保存",false);return;
+                }
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
                 meta.put("stillUs",stillUs);meta.put("shutterOffsetUs",shutterUs-from);meta.put("durationUs",to-from);
@@ -227,7 +252,7 @@ public final class CaptureEngine {
         });
     }
     private void saveFailure(File dir,JSONObject meta,Exception error) {
-        try {meta.put("complete",false);meta.put("error",error.getMessage());MomentStore.metadata(dir,meta);} catch(Exception ex) {log("失败记录写入失败："+ex.getMessage());}
+        try {meta.put("complete",false);meta.put("error",error.getMessage()==null?"照片处理失败，已接收的原片保留":error.getMessage());MomentStore.metadata(dir,meta);} catch(Exception ex) {log("失败记录写入失败："+ex.getMessage());}
     }
     private boolean sameSession(long epoch,CameraTransport expected,boolean expectedDemo) {
         return active && sessionEpoch.get()==epoch && (expectedDemo ? demo : expected!=null && camera==expected && !expected.closed());

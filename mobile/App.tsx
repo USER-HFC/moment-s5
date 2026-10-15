@@ -44,8 +44,8 @@ export default function App() {
         setBuffered(e.bufferedUs / 1_000_000);
         setState((s) => ({...s, demo: !!e.demo, exposure: e.exposure ?? s.exposure, ready: e.ready ?? e.bufferedUs >= 3_000_000}));
       }),
-      cameraEvents.addListener('cameraSaved', () => { setSnack('动态照片已保存'); void refresh(); }),
-      cameraEvents.addListener('cameraFailed', (e) => { setSnack('动态照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
+      cameraEvents.addListener('cameraSaved', () => { setSnack('照片已保存'); void refresh(); }),
+      cameraEvents.addListener('cameraFailed', (e) => { setSnack('照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
     ];
     const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
@@ -59,7 +59,7 @@ export default function App() {
   }, [page]);
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
-  const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setSnack(id === 'off' ? '监看与照片 LUT 已关闭' : '监看与照片会使用此 LUT，原片仍会保留'); } catch (e) { setSnack(errorText(e)); } };
+  const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setSnack(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { setSnack(errorText(e)); } };
   const importLut = async () => {
     if (!camera) return setSnack('当前平台没有相机桥');
     try { const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]}); const item = await camera.importLut(file.uri, file.name || 'imported.cube'); await refresh(); await setLut(item.id); }
@@ -68,7 +68,7 @@ export default function App() {
   const exportMoment = async (id: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
-      await camera.exportMoment(id); setSnack('动态照片已保存到系统相册');
+      await camera.exportMoment(id); setSnack('照片已保存到 DCIM/MomentS5');
     } catch (e) { setSnack(errorText(e)); }
   };
   const deleteMoment = async (id: string) => {

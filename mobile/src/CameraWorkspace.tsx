@@ -10,12 +10,10 @@ import useCaptureCountdown from './useCaptureCountdown';
 import {requestMicrophonePermission} from './microphonePermission';
 import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
-import {SCOPE_KINDS} from './scopes/panelState';
 import {useScopePanels} from './scopes/useScopes';
 import ExperimentalWifiBadge from './connection/ExperimentalWifiBadge';
 import LutPresetList, {lutDisplayName} from './LutPresetList';
 
-type FocusMode = 'auto' | 'far' | 'near';
 type Panel = 'lut' | 'delay' | null;
 type Props = {
   onAlbum: () => void; latestPhoto?: string;
@@ -35,11 +33,9 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const audioPending = useRef(false);
   const [motionEnabled, setMotionEnabled] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
-  const [focusMode, setFocusMode] = useState<FocusMode>('auto');
   const [ratioMode, setRatioMode] = useState<'3:2' | '16:9'>('3:2');
   const [delay, setDelay] = useState(10);
   const [working, setWorking] = useState(false);
-  const [captureMark, setCaptureMark] = useState(false);
   const [finderSize, setFinderSize] = useState({width: 0, height: 0});
   const [workspaceSize, setWorkspaceSize] = useState({width: 0, height: 0});
   const [previewSlots, setPreviewSlots] = useState<PreviewSlots>([undefined, undefined]);
@@ -47,11 +43,9 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const activeSlotRef = useRef(0);
   const pendingSlotRef = useRef<number | null>(null);
   const slotUrisRef = useRef<PreviewSlots>([undefined, undefined]);
-  const captureMarkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hudTopHeight, setHudTopHeight] = useState(64);
   const [hudBottomHeight, setHudBottomHeight] = useState(88);
   const hasFeed = !!preview && state.active;
-  const scopesOpen = SCOPE_KINDS.some(kind => scopePanels[kind].open);
   const {waiting, seconds, start: startCountdown, cancel: cancelCountdown} = useCaptureCountdown(captureNow, state.active && !state.busy);
   const sourceRatio = ratioMode === '3:2' ? 1.5 : 16 / 9;
   const previewRatio = landscape ? sourceRatio : 1 / sourceRatio;
@@ -70,7 +64,6 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   } : StyleSheet.absoluteFillObject;
 
   useEffect(() => { if (state.audio !== undefined) setAudio(state.audio); }, [state.audio]);
-  useEffect(() => () => { if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current); }, []);
   useEffect(() => {
     if (!preview) return;
     const nextSlot = (1 - activeSlotRef.current) as 0 | 1;
@@ -85,11 +78,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
 
   function captureNow() {
     if (!state.active || state.busy || (motionEnabled && !state.ready)) return;
-    setCaptureMark(true);
-    if (captureMarkTimer.current) clearTimeout(captureMarkTimer.current);
-    captureMarkTimer.current = setTimeout(() => setCaptureMark(false), 700);
     if (motionEnabled) { if (state.ready) camera?.capture(); }
-    else camera?.remoteShutter();
+    else camera?.captureStill();
   }
   const fire = () => {
     if (waiting) { cancelCountdown(); return; }
@@ -98,7 +88,6 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
     captureNow();
   };
   const chooseLut = async (id: string) => { setWorking(true); try { await onLut(id); } finally { setWorking(false); } };
-  const chooseFocus = (mode: FocusMode, direction: number) => { setFocusMode(mode); camera?.focus(direction); };
   const toggleTimer = () => {
     if (waiting) {cancelCountdown(); setTimerEnabled(false); return;}
     if (timerEnabled) setPanel('delay'); else setTimerEnabled(true);
@@ -112,11 +101,9 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
       camera.setAudio(enabled); setAudio(enabled);
     } finally { audioPending.current = false; }
   };
-  const captureLabel = waiting ? '取消倒计时' : motionEnabled ? '拍摄动态照片' : timerEnabled ? '开始倒计时' : '拍照到相机';
+  const captureLabel = waiting ? '取消倒计时' : motionEnabled ? '拍摄动态照片' : timerEnabled ? '开始倒计时' : '拍摄照片';
   const disabled = !waiting && (!state.active || state.busy || (motionEnabled && !state.ready));
   const canAutofocus = state.transport !== 'wifi' || !!state.autofocus;
-  const canManualFocus = state.transport !== 'wifi' || !!state.manualFocus;
-  const focusLabel = !canAutofocus && !canManualFocus ? '机身对焦' : focusMode === 'auto' ? 'AFS' : 'MF';
   const connectionLabel = state.active ? state.demo ? '演示' : state.transport === 'wifi' ? 'Wi-Fi' : 'USB' : '连接';
   const commitPreview = (slot: 0 | 1, uri: string) => {
     if (pendingSlotRef.current !== slot || slotUrisRef.current[slot] !== uri) return;
@@ -143,29 +130,22 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
             <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
             <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
           </View>}
-          {hasFeed && !waiting && canAutofocus && <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" onPress={() => chooseFocus('auto', 0)} style={styles.focusTarget}>
+          {hasFeed && !waiting && canAutofocus && <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" onPress={() => camera?.focus(0)} style={styles.focusTarget}>
             <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/>
             <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/><View pointerEvents="none" style={styles.focusDot}/>
           </Pressable>}
           {!hasFeed && <ScrollView style={[styles.emptyViewport, {top: hudTopHeight + ui.space.lg, bottom: hudBottomHeight + ui.space.lg}]} contentContainerStyle={[styles.empty, landscape && styles.emptyLandscape]}>
-            <View style={[styles.emptyCopy, landscape && styles.emptyCopyLandscape]}><Text style={styles.emptyTitle}>等待相机取景</Text><Text style={styles.muted}>连接 USB 或 Wi-Fi（实验）开始监看</Text></View>
+            <View style={[styles.emptyCopy, landscape && styles.emptyCopyLandscape]}><Text style={styles.emptyTitle}>等待相机取景</Text></View>
             <Button textColor={ui.color.text} mode="outlined" accessibilityLabel="体验演示" contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button>
           </ScrollView>}
           {hasFeed && <ScopesOverlay panels={scopePanels} bounds={{...(previewFrame || finderSize), insets: {top: hudTopHeight + ui.space.lg, bottom: hudBottomHeight + ui.space.lg, left: ui.space.gutter, right: ui.space.gutter}}} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
           <View pointerEvents="none" testID="hud-top" style={styles.hudTop} onLayout={event => setHudTopHeight(event.nativeEvent.layout.height)}>
-            <ExperimentalWifiBadge state={state}/><View style={styles.hudStatusRow}>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text numberOfLines={1} style={[styles.hud, styles.lutBadge]}>{lutDisplayName(state.lut)}</Text>}<View style={styles.hudSpacer}/>{state.transport !== 'wifi' && <><Text style={styles.hud}>CAM {state.demo ? '82%' : '—'}</Text><Text style={styles.hud}>PHONE {state.demo ? '96%' : '—'}</Text></>}</View>
-            {scopesOpen && <Text style={[styles.hud, styles.scopeSource]}>{hasFeed ? `示波器 · ${state.demo ? '演示 · ' : ''}LUT 后 · 约10 Hz` : '示波器 · 等待取景'}</Text>}
+            <ExperimentalWifiBadge state={state}/><View style={styles.hudStatusRow}>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text numberOfLines={1} style={[styles.hud, styles.lutBadge]}>{lutDisplayName(state.lut)}</Text>}<View style={styles.hudSpacer}/></View>
           </View>
           <View pointerEvents="box-none" testID="hud-bottom" style={styles.hudBottom} onLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}>
-            {(canAutofocus || canManualFocus) && <View style={styles.focusCluster}>
-              {canAutofocus && <CameraControl label="AF" accessibilityLabel="自动对焦" icon="focus" active={focusMode === 'auto'} onPress={() => chooseFocus('auto', 0)}/>}
-              {canManualFocus && <CameraControl label="近" accessibilityLabel="近对焦" icon="near" active={focusMode === 'near'} onPress={() => chooseFocus('near', -1)}/>}
-              {canManualFocus && <CameraControl label="远" accessibilityLabel="远对焦" icon="far" active={focusMode === 'far'} onPress={() => chooseFocus('far', 1)}/>}
-            </View>}
-            <View pointerEvents="none" style={styles.hudBadgeRow}><Text style={styles.hud}>{focusLabel}</Text>{motionEnabled && <Text style={styles.hud}>{buffered.toFixed(1)}s</Text>}<View style={styles.hudSpacer}/>{(state.demo ? ['F2.8', '1/125', 'ISO 400'] : []).map(value => <Text key={value} style={styles.hud}>{value}</Text>)}</View>
+            <View pointerEvents="none" style={styles.hudBadgeRow}>{motionEnabled && <Text style={styles.hud}>{buffered.toFixed(1)}s</Text>}<View style={styles.hudSpacer}/></View>
           </View>
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
-          {captureMark && <View pointerEvents="none" style={styles.captureMark}><View style={styles.captureMarkCircle}><CameraIcon name="check" active/></View></View>}
         </View>
       </View>
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]}>
@@ -182,7 +162,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
           </View>
         </View>
         <View testID="camera-modes" accessibilityRole="radiogroup" style={[styles.modes, landscape && styles.modesLandscape]}>
-          <Pressable accessibilityRole="radio" accessibilityLabel="机身照片" accessibilityHint="照片保存在相机内" accessibilityState={{checked: !motionEnabled}} onPress={() => setMotionEnabled(false)} style={[styles.mode, !motionEnabled && styles.modeSelected]}><CameraIcon name="photo" active={!motionEnabled}/><Text style={[styles.modeLabel, !motionEnabled && styles.activeLabel]}>照片</Text></Pressable>
+          <Pressable accessibilityRole="radio" accessibilityLabel="普通照片" accessibilityHint="下载本次原片并将所选 LUT 保存到 App 相册" accessibilityState={{checked: !motionEnabled}} onPress={() => setMotionEnabled(false)} style={[styles.mode, !motionEnabled && styles.modeSelected]}><CameraIcon name="photo" active={!motionEnabled}/><Text style={[styles.modeLabel, !motionEnabled && styles.activeLabel]}>照片</Text></Pressable>
           <Pressable accessibilityRole="radio" accessibilityLabel="动态照片" accessibilityHint="保存快门前约三秒动态与原片" accessibilityState={{checked: motionEnabled}} onPress={() => setMotionEnabled(true)} style={[styles.mode, motionEnabled && styles.modeSelected]}><CameraIcon name="motion" active={motionEnabled}/><Text style={[styles.modeLabel, motionEnabled && styles.activeLabel]}>动态</Text></Pressable>
         </View>
       </View>
@@ -218,10 +198,9 @@ const styles = StyleSheet.create({
   hudStatusRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: ui.space.xs}, lutBadge: {maxWidth: '35%', flexShrink: 1}, hudSpacer: {flexGrow: 1}, scopeSource: {alignSelf: 'flex-start', color: ui.color.muted},
   hudBottom: {position: 'absolute', zIndex: 1000, bottom: ui.space.gutter, left: ui.space.gutter, right: ui.space.gutter, gap: ui.space.sm},
   hudBadgeRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: ui.space.xs},
-  focusCluster: {flexDirection: 'row', alignSelf: 'center', gap: ui.space.xs, padding: ui.space.xs, borderRadius: ui.radius.sheet, backgroundColor: ui.color.badge},
   focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: ui.color.accent},
   focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
-  countdown: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'}, captureMark: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'}, captureMarkCircle: {width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.badge},
+  countdown: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'},
   dock: {padding: ui.space.gutter, gap: ui.space.sm}, dockLandscape: {width: 120, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm},
   captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flexDirection: 'row'},
   shutter: {width: 76, height: 76, flexShrink: 0, borderRadius: 38, borderWidth: 2, borderColor: ui.color.text, alignItems: 'center', justifyContent: 'center'}, shutterCore: {width: 64, height: 64, borderRadius: 32, backgroundColor: ui.color.text}, shutterDisabled: {opacity: .45}, shutterCounting: {width: 24, height: 24, borderRadius: ui.radius.small, backgroundColor: ui.color.accent},

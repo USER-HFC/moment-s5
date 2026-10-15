@@ -31,14 +31,17 @@ public final class MomentStore {
         catch(org.json.JSONException e) {throw new IOException(e);}
     }
     public static Uri export(Context context,File dir) throws Exception {
-        File motion=new File(dir,"MOMENT_MP.jpg"); if(!motion.isFile()) throw new IOException("没有可导出的实况照片");
+        JSONObject meta=metadata(dir);
+        boolean photo="photo".equals(meta.optString("captureMode"));
+        File media=new File(dir,photo?(meta.optBoolean("lutApplied",false)?"rendered.jpg":"original.jpg"):"MOMENT_MP.jpg");
+        if(!media.isFile() || media.length()==0) throw new IOException("没有可导出的照片");
         ContentValues v=new ContentValues();
-        v.put(MediaStore.Images.Media.DISPLAY_NAME,dir.getName()+"_MP.jpg");v.put(MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
+        v.put(MediaStore.Images.Media.DISPLAY_NAME,dir.getName()+(photo?".jpg":"_MP.jpg"));v.put(MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
         v.put(MediaStore.Images.Media.RELATIVE_PATH,Environment.DIRECTORY_DCIM+"/MomentS5");v.put(MediaStore.Images.Media.IS_PENDING,1);
         ContentResolver r=context.getContentResolver();Uri uri=r.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,v);
         if(uri==null) throw new IOException("系统相册创建失败");
         try {
-            try(OutputStream out=r.openOutputStream(uri)) {if(out==null) throw new IOException("无法写入相册");Files.copy(motion.toPath(),out);}
+            try(OutputStream out=r.openOutputStream(uri)) {if(out==null) throw new IOException("无法写入相册");Files.copy(media.toPath(),out);}
             v.clear();v.put(MediaStore.Images.Media.IS_PENDING,0);if(r.update(uri,v,null,null)!=1)throw new IOException("系统相册发布失败");return uri;
         } catch(Exception e) {try{r.delete(uri,null,null);}catch(Exception cleanup){e.addSuppressed(cleanup);}throw e;}
     }

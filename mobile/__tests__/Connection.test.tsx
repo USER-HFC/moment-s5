@@ -87,13 +87,13 @@ it('shows the native status and the experimental badge only for Wi-Fi', () => {
   act(() => tree.update(<ExperimentalWifiBadge state={{...state, transport: 'wifi', exposure: 'ISO 400'}}/>));
   expect(tree.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
 });
-it('hides only undeclared Wi-Fi focus controls, preserving USB and demo controls', () => {
+it('removes all three focus controls on every transport while respecting reticle capability', () => {
   const workspace = {buffered: 0, luts: [], onAlbum: jest.fn(), onLut: async () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
   act(() => tree.update(<CameraWorkspace {...workspace} state={{...state, transport: 'wifi', autofocus: false, manualFocus: false}}/>));
   for (const label of ['自动对焦', '近对焦', '远对焦', '中央自动对焦']) expect(tree.root.findAllByProps({accessibilityLabel: label})).toHaveLength(0);
   act(() => tree.update(<CameraWorkspace {...workspace} state={{...state, transport: 'wifi', autofocus: true, manualFocus: false}}/>));
-  expect(tree.root.findByProps({accessibilityLabel: '自动对焦'})).toBeTruthy();
+  expect(tree.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);
   expect(tree.root.findAllByProps({accessibilityLabel: '远对焦'})).toHaveLength(0);
   act(() => tree.update(<CameraWorkspace {...workspace} state={{...state, transport: 'usb'}}/>));
-  expect(tree.root.findByProps({accessibilityLabel: '远对焦'})).toBeTruthy();
+  expect(tree.root.findAllByProps({accessibilityLabel: '远对焦'})).toHaveLength(0);
 });

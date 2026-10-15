@@ -1,0 +1,21 @@
+{
+  "fixture_only": true,
+  "mode": "photo",
+  "demo": true,
+  "transport": "demo",
+  "lut": "Fuji \u98ce\u683c \u00b7 Classic Chrome",
+  "original_dimensions": [
+    2400,
+    1600
+  ],
+  "original_sha256": "c7032461cd8c99eef868f147865e2c2b1d486e2b4834bd72208cbfa1ba82c129",
+  "export_sha256": "94dbbd6087fdb29eadee7c8a723f2ec90962e1d653410714b3f85f81ba8fc46d",
+  "original_equals_mock_sd": false,
+  "mean_pixel_delta_rgb": [
+    3.5475322916666667,
+    8.765331510416667,
+    7.472171354166667
+  ],
+  "export_exact": true,
+  "no_video_or_motion_container": true
+}

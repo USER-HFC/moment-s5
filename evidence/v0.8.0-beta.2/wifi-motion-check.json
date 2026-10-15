@@ -1,0 +1,21 @@
+{
+  "mock_only": true,
+  "capture_count": 1,
+  "original_equals_mock_sd": true,
+  "original_sha256": "fb283583284b84bf32dbcb320d81f3a9927c68bb1088f21957e85eee44adc409",
+  "original_dimensions": {
+    "width": 512,
+    "height": 384
+  },
+  "primary_jpeg_unchanged": true,
+  "embedded_mp4_unchanged": true,
+  "export_unchanged": true,
+  "video_codec": "avc1",
+  "video_width": 64,
+  "video_height": 48,
+  "video_samples": 45,
+  "video_duration_seconds": 3.0,
+  "pre_frames": 40,
+  "max_gap_ms": 143,
+  "still_us": 2933333
+}

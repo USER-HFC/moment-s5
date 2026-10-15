@@ -1,0 +1,1 @@
+{"mock_only": true, "release_fixture": true, "base": "http://10.0.2.2:18080", "dlna_port": 60606, "description_model": "DC-S5"}

@@ -55,7 +55,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
           disabled={pending || state.busy} accessibilityLabel={item.accessibilityLabel} accessibilityState={{selected: mode === item.value}}
           onPress={() => {setMode(item.value); setError('');}}>{item.label}</Button>)}</View>
         {mode === 'usb' && <Text style={styles.detail}>推荐方式。使用数据线与 OTG，机身选择 PC(Tether)。</Text>}
-        {mode === 'demo' && <Text style={styles.detail}>使用明确标记的合成画面，体验取景、示波器、LUT 和动态照片。演示不会连接相机。</Text>}
+        {mode === 'demo' && <Text style={styles.detail}>合成演示素材；不连接相机。</Text>}
         {mode === 'wifi' && <>
           <Text style={styles.experimental}>实验性 · 未经真机验证</Text>
           <Text style={styles.detail}>初代 S5 固件 2.9 的无线协议尚未实机确认。请关闭其他遥控 App，在相机开启 Wi-Fi；推荐继续使用 USB。</Text>
@@ -65,7 +65,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
           {debugAllowed && <><View style={styles.row}><Text style={styles.rowLabel}>模拟相机调试（仅 debug）</Text><Switch accessibilityLabel="模拟相机调试" value={form.debug} onValueChange={value => set('debug', value)}/></View>{form.debug && <><TextInput mode="outlined" label="调试主机:端口" accessibilityLabel="调试主机:端口" autoCapitalize="none" autoCorrect={false} value={form.debugEndpoint} onChangeText={value => set('debugEndpoint', value)}/><TextInput mode="outlined" label="UDP 接收端口" accessibilityLabel="UDP 接收端口" keyboardType="number-pad" value={form.udpPort} onChangeText={value => set('udpPort', value)}/><Text style={styles.detail}>使用本项目 mock。模拟器须单独配置 UDP 端口转发。</Text></>}</>}
         </>}
         {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" style={[styles.detail, error && styles.error]}>{error || status}</Text>}
-        {state.active && state.transport === 'wifi' && mode === 'wifi' && <Text style={styles.detail}>{state.ready ? '取景预缓存已就绪 · 可拍动态照片' : '等待连续 3 秒取景，最长帧间隔须不超过 500 ms'}</Text>}
+
         <Button mode="contained" contentStyle={styles.touch} accessibilityLabel={submitLabel} loading={pending} disabled={pending || state.busy} onPress={() => {void submit();}}>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi（实验）' : '体验演示'}</Button>
         {state.active && <Button contentStyle={styles.touch} disabled={pending || state.busy} onPress={onDisconnect}>{state.demo ? '结束演示' : '断开相机'}</Button>}
   </CameraSheet>;

@@ -1,0 +1,723 @@
+{
+  "capture_count": 1,
+  "capture_paths": [
+    "/cam.cgi?mode=camcmd&value=capture"
+  ],
+  "description_model": "DC-S5",
+  "mock_only": true,
+  "release_fixture": true,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=accctrl&type=req_acc&value=0&value2=Moment+S5+Wi-Fi+beta"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=setsetting&type=device_name&value=Moment+S5+Wi-Fi+beta"
+    },
+    {
+      "method": "GET",
+      "path": "/Lumix/Server0/ddd"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getinfo&type=capability"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getinfo&type=allmenu"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=camcmd&value=recmode"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=startstream&value=49152"
+    },
+    {
+      "method": "POST",
+      "path": "/Server0/CDS_control"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "POST",
+      "path": "/Server0/CDS_control"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=camcmd&value=capture"
+    },
+    {
+      "method": "POST",
+      "path": "/Server0/CDS_control"
+    },
+    {
+      "method": "POST",
+      "path": "/Server0/CDS_control"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/original/fixture-0001.JPG"
+    },
+    {
+      "method": "POST",
+      "path": "/Server0/CDS_control"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getstate"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=iso"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=focal"
+    },
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=getsetting&type=shtrspeed"
+    }
+  ]
+}

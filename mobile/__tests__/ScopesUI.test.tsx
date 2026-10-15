@@ -1,7 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {AppState, NativeModules, View} from 'react-native';
+import {AppState, NativeModules, StyleSheet, View} from 'react-native';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
@@ -65,6 +65,27 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.root.findByProps({testID: 'scope-close-waveform'}).props.onPress());
     expect(mockHandlers.size).toBe(0);
     expect(api.setScopesEnabled).toHaveBeenLastCalledWith(false, true, 1.5);
+  });
+  it('uses transparent chart overlays with independent resize, accessible move and close controls', () => {
+    act(() => {tree = renderer.create(<Harness/>);changeScopePanel({type: 'toggle', kind: 'histogram'});changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    const panel = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-histogram'}).props.style);
+    const waveform = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-waveform'}).props.style);
+    const before = panel(), other = waveform();
+    expect(before.backgroundColor).toBeUndefined();expect(before.borderWidth).toBeUndefined();
+    act(() => tree!.root.findByProps({testID: 'scope-resize-histogram'}).props.onPress());
+    expect(panel().width).toBeGreaterThan(before.width);
+    expect(waveform().width).toBe(other.width);expect(waveform().height).toBe(other.height);
+    expect(tree!.root.findByProps({accessibilityLabel: '缩小RGB 直方图'})).toBeTruthy();
+    const handle = tree!.root.findByProps({testID: 'scope-move-histogram'});
+    const touch = StyleSheet.flatten(handle.props.style);expect(touch.width).toBeGreaterThanOrEqual(48);expect(touch.height).toBeGreaterThanOrEqual(48);
+    act(() => handle.props.onAccessibilityAction({nativeEvent: {actionName: 'down'}}));
+    const resize = tree!.root.findByProps({testID: 'scope-resize-histogram'});
+    expect(StyleSheet.flatten(resize.props.style).height).toBeGreaterThanOrEqual(48);
+    act(() => resize.props.onPress());expect(panel().width).toBe(before.width);
+    act(() => tree!.root.findByProps({testID: 'scope-close-histogram'}).props.onPress());
+    expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
+    expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
+    expect(JSON.stringify(tree!.toJSON())).not.toContain('RGB 触底');
   });
   it('decodes portrait frames, marks stalled frames and suspends analysis in the background', () => {
     act(() => {tree = renderer.create(<Harness/>);changeScopePanel({type: 'toggle', kind: 'waveform'});});

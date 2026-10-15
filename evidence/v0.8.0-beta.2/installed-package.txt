@@ -1,0 +1,3 @@
+    versionCode=23 minSdk=33 targetSdk=35
+    versionName=0.8.0-beta.2
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]

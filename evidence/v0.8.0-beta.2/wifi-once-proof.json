@@ -1,0 +1,13 @@
+{
+  "mock_only": true,
+  "capture_count": 1,
+  "capture_paths": [
+    "/cam.cgi?mode=camcmd&value=capture"
+  ],
+  "capture_requests": [
+    {
+      "method": "GET",
+      "path": "/cam.cgi?mode=camcmd&value=capture"
+    }
+  ]
+}

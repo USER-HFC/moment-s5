@@ -1,0 +1,170 @@
+[
+  {
+    "file": "01-release-start.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "8e433d4a771faaea955b48727055e27f304de75a1d24363607b796fe22e0344a"
+  },
+  {
+    "file": "03-demo-static-album.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "274f54c3c1b98192fb22185c7c23f84ee22535b440fb4ade41b6ece2f37f898b"
+  },
+  {
+    "file": "03a-demo-static-no-lut.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "50c7c80c1df2fe501ca6645b7d8e1a5a5e26ba0eed48b568e694e26e4a180d4c"
+  },
+  {
+    "file": "05-scopes-portrait.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "4fecef0dc100e8bdd119dbfee64e6b160c56b21fed812e14d5cb767528fda8d3"
+  },
+  {
+    "file": "06-scope-independent-enlarge.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "6b3c6f0c397b6aca6d76b179224aa205e9e723a017c02cf42cbab8da8315c13d"
+  },
+  {
+    "file": "07-scope-drag-clamped.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "f40d4f65d7e0de2867fdc9124d3458c35cd839757ca53282532a9350aaaad3be"
+  },
+  {
+    "file": "08-scope-independent-close.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "3c2d92dcd21386d6a062a460cf93567ddae03a9c81e1a78298071e2a209a2eeb"
+  },
+  {
+    "file": "08a-scope-independent-shrink.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "e869fd3256b33254419be0a746add251c89a6c856c1aa5cd7bf8e28ff8e77f05"
+  },
+  {
+    "file": "09-scopes-landscape.png",
+    "size": [
+      2400,
+      1080
+    ],
+    "sha256": "df5bd00a9f861e10556a2de723550d7529ae808b3e4b1570dc6af9804baab70d"
+  },
+  {
+    "file": "10-scopes-360dp-font13.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "af0774ea5b401adf2b338a3dd92c06c9a4a328e03f3058596a2cadc50afc61af"
+  },
+  {
+    "file": "11-scopes-360dp-font13-landscape.png",
+    "size": [
+      2400,
+      1080
+    ],
+    "sha256": "044cc02525d7b54c03b6347f857de466f09d9c48381972a80a8daa32e403f317"
+  },
+  {
+    "file": "12-static-album-font13.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "fcba91f1f7d8692f57da1a07214460e852519d8de0944a4eae565bd01669a318"
+  },
+  {
+    "file": "13-scopes-360dp-font30.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "58f6789b021cbd79a8aee561b05db93462a7731c064927203c25c1359efb6825"
+  },
+  {
+    "file": "14-scopes-360dp-font30-landscape.png",
+    "size": [
+      2400,
+      1080
+    ],
+    "sha256": "46a7a42b897956fefbc76c0202f50af8e6ab594c3538186a742b5df9f83b4517"
+  },
+  {
+    "file": "15-wifi-release-settings.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "abdbc3ed77a79ee3d26f9a9d6204f0856651d2f6cca0ffc7fe7a9273443011d7"
+  },
+  {
+    "file": "16-wifi-connected.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "4d56742b2000872d577651152f026bd1f1d194b7dca459f1753a62c24c165961"
+  },
+  {
+    "file": "17-wifi-static-album.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "3bcbaea5fa1281d9d353c90e357cb5b4aea155c6fc3134c9294ad4465abde075"
+  },
+  {
+    "file": "18-wifi-static-export.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "0153a26626f9c004b0cdfa1984c0c9e1155e8eeddec7268b764e934c76881c48"
+  },
+  {
+    "file": "19-wifi-motion-ready.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "9df8dd7224fcbe66f100eb3f16ef1c04253b808c46c9dc4877b804c4437cd269"
+  },
+  {
+    "file": "20-wifi-motion-album.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "d4ec7cc7ed9a4a2c3fe8f267260bc086e5d95346a18461268485c7086ea465a5"
+  },
+  {
+    "file": "21-wifi-motion-playing.png",
+    "size": [
+      1080,
+      2400
+    ],
+    "sha256": "e2af7682886607b0f0faab7e66f8528bd76072b65dd08d30e97b7d150423401e"
+  }
+]

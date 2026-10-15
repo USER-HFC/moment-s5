@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "demo": false,
+  "createdAt": 1792073221102,
+  "captureMode": "pre-only",
+  "mediaType": "motion",
+  "lutRequested": null,
+  "lut": null,
+  "lutApplied": false,
+  "complete": true,
+  "frames": 40,
+  "durationUs": 3000000,
+  "audio": false,
+  "hasPostFrames": false,
+  "transport": "wifi",
+  "experimentalWifi": true,
+  "source": "fixture-0001.JPG",
+  "maxGapMs": 143,
+  "shutterTimeBasis": "button-tap pre-shutter buffer snapshot; exposure time is approximate",
+  "stillUs": 2933333,
+  "shutterOffsetUs": 3000000,
+  "motionQuality": "experimental unverified Wi-Fi preview, not camera-recorded video"
+}

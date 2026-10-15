@@ -177,12 +177,93 @@ public final class NativeBugfixChecks {
     }
     private static void storeChecks(Path root)throws Exception {
         Context context=new Context(root.toFile());File dir=new MomentStore(context).create();byte[] bytes={1,2,3};Files.write(new File(dir,"MOMENT_MP.jpg").toPath(),bytes);
+        MomentStore.metadata(dir,new org.json.JSONObject().put("captureMode","pre-only").put("complete",true));
         ContentResolver resolver=new ContentResolver();context.resolver=resolver;MomentStore.export(context,dir);
         check(Arrays.equals(resolver.output.toByteArray(),bytes),"successful MediaStore export preserves bytes");
         resolver=new ContentResolver();resolver.updated=0;resolver.failDelete=true;context.resolver=resolver;
         try{MomentStore.export(context,dir);throw new AssertionError("unpublished MediaStore row accepted");}
         catch(IOException expected){check(expected.getMessage().contains("发布失败") && expected.getSuppressed().length==1,"publish failure remains primary when cleanup also fails");}
         check(resolver.deleted==1,"failed MediaStore publication deletes pending row");
+    }
+    private static final class StillCamera implements CameraTransport {
+        final Baseline baseline=new Baseline(){};
+        final byte[] jpeg={-1,-40,12,34,-1,-39};
+        final List<String> calls=new ArrayList<>();
+        final boolean wifi;boolean closed,failDownload;int shutters;
+        StillCamera(boolean wifi){this.wifi=wifi;}
+        public String kind(){return wifi?"wifi":"usb";}
+        public void open(){}public Preview preview(){return null;}
+        public Capabilities capabilities(){return new Capabilities(false,false,false);}
+        public void autofocus(){}public void focus(boolean far){}public String exposure(){return "";}
+        public boolean freshBaselineRequired(){return wifi;}
+        public Baseline prepareCaptureBaseline(){calls.add("baseline");return baseline;}
+        public void clearCaptureEvents(){calls.add("clear");}
+        public void shutter(){calls.add("shutter");shutters++;}
+        public Original awaitNewJpeg(Baseline before,java.util.function.BooleanSupplier valid)throws IOException{
+            if(before!=baseline || !valid.getAsBoolean())throw new IOException("wrong capture baseline/session");
+            calls.add("await");return new Original(this,"THIS_SHUTTER.JPG",jpeg.length);
+        }
+        public void downloadOriginal(Original original,File destination)throws IOException{
+            if(original.key()!=this)throw new IOException("wrong original");calls.add("download");
+            Files.write(destination.toPath(),jpeg);if(failDownload)throw new IOException("incomplete transfer");
+        }
+        public boolean closed(){return closed;}public void abort(){closed=true;}public void close(){closed=true;}
+    }
+    private static void stillChecks(Path root)throws Exception {
+        Path files=Files.createDirectory(root.resolve("stills"));Context context=new Context(files.toFile());
+        AtomicReference<File> saved=new AtomicReference<>(),failed=new AtomicReference<>();AtomicReference<CaptureEngine> reference=new AtomicReference<>();
+        AtomicBoolean savedBusy=new AtomicBoolean();
+        CaptureEngine engine=new CaptureEngine(context,new CaptureEngine.Listener(){
+            public void status(String text,boolean ready){}public void frame(byte[] jpeg,long buffered,boolean demo){}
+            public void saved(File dir){saved.set(dir);savedBusy.set(reference.get().busy());}
+            public void failed(File dir,String error){failed.set(dir);}public void log(String text){}public void exposure(String text){}
+        });reference.set(engine);
+        try {
+            File cube=files.resolve("shutter.cube").toFile();Files.writeString(cube.toPath(),"TITLE \"Shutter LUT\"\nLUT_3D_SIZE 2\n"+cube(2));
+            LutEngine filter=LutEngine.load(cube);
+            for(boolean wifi:new boolean[]{false,true})for(boolean filtered:new boolean[]{false,true}) {
+                StillCamera camera=new StillCamera(wifi);field(CaptureEngine.class,"camera").set(engine,camera);
+                field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"demo").set(engine,false);
+                field(CaptureEngine.class,"preparedHandles").set(engine,camera.baseline);engine.setLut(filtered?filter:null);
+                check(!engine.ready(),"ordinary still begins with no prebuffer");
+                saved.set(null);CountDownLatch resume=block(engine);engine.captureStill();engine.captureStill();
+                check(engine.busy(),"still task is reserved synchronously");
+                if(filtered){
+                    try{engine.setLut(null);throw new AssertionError("busy LUT change accepted");}catch(IllegalStateException expected){checks++;}
+                    // Simulate a field change after the tap; rendering must still use the frozen reference.
+                    field(CaptureEngine.class,"lut").set(engine,null);
+                }
+                resume.countDown();settle(engine);File dir=saved.get();
+                check(dir!=null && !savedBusy.get() && failed.get()==null,"still completes with busy cleared before notification");
+                check(camera.shutters==1,"duplicate ordinary capture dispatches exactly one shutter");
+                check(camera.calls.indexOf("clear")<camera.calls.indexOf("shutter") && camera.calls.indexOf("shutter")<camera.calls.indexOf("await"),"same hardened event correlation orders clear, shutter, await");
+                check(!wifi || camera.calls.get(0).equals("baseline"),"Wi-Fi still refreshes pre-shutter baseline");
+                check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),camera.jpeg),"original JPEG bytes remain immutable");
+                var meta=MomentStore.metadata(dir);
+                check(meta.getBoolean("complete") && meta.getString("captureMode").equals("photo") && meta.getString("source").equals("THIS_SHUTTER.JPG"),"static metadata records complete shutter source");
+                check(meta.getInt("frames")==0 && meta.getLong("durationUs")==0 && !meta.getBoolean("audio"),"static capture has no frames, audio or video duration");
+                check(meta.getBoolean("lutApplied")==filtered && (filtered?meta.getString("lut").equals("Shutter LUT"):meta.isNull("lut")),"still LUT metadata uses shutter snapshot");
+                check(meta.getString("transport").equals(camera.kind()) && meta.getBoolean("experimentalWifi")==wifi,"still preserves transport provenance");
+                check(!new File(dir,"motion.mp4").exists() && !new File(dir,"MOMENT_MP.jpg").exists(),"ordinary still never creates video or motion container");
+                check(new MomentStore(context).list().contains(dir),"ordinary still is indexed in App album storage");
+                ContentResolver resolver=new ContentResolver();context.resolver=resolver;MomentStore.export(context,dir);
+                byte[] expected=Files.readAllBytes(new File(dir,filtered?"rendered.jpg":"original.jpg").toPath());
+                check(Arrays.equals(resolver.output.toByteArray(),expected),"static system export selects rendered LUT derivative or untouched original");
+            }
+            StillCamera camera=new StillCamera(false);field(CaptureEngine.class,"camera").set(engine,camera);field(CaptureEngine.class,"preparedHandles").set(engine,camera.baseline);
+            engine.setLut(filter);Bitmap.failPixels=true;failed.set(null);engine.captureStill();settle(engine);Bitmap.failPixels=false;
+            File dir=failed.get();check(dir!=null && !MomentStore.metadata(dir).getBoolean("complete"),"LUT failure remains visibly incomplete");
+            check(MomentStore.metadata(dir).getString("lutRequested").equals("Shutter LUT") && !MomentStore.metadata(dir).getBoolean("lutApplied"),"LUT failure retains requested LUT without claiming it applied");
+            check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),camera.jpeg) && !new File(dir,"rendered.jpg").exists() && !new File(dir,"rendered.jpg.part").exists(),"LUT failure preserves original and removes partial derivative");
+            context.resolver=new ContentResolver();MomentStore.export(context,dir);check(Arrays.equals(context.resolver.output.toByteArray(),camera.jpeg),"failed LUT still can explicitly export preserved original");
+            camera=new StillCamera(true);camera.failDownload=true;field(CaptureEngine.class,"camera").set(engine,camera);failed.set(null);engine.setLut(null);engine.captureStill();settle(engine);dir=failed.get();
+            check(dir!=null && !new File(dir,"original.jpg").exists() && !new File(dir,"original.jpg.part").exists(),"incomplete download never becomes a usable original");
+            File unavailable=dir;expectIo(()->MomentStore.export(context,unavailable),"incomplete JPEG exported");
+            camera=new StillCamera(false);field(CaptureEngine.class,"camera").set(engine,camera);CountDownLatch resume=block(engine);engine.captureStill();engine.disconnect();resume.countDown();settle(engine);
+            check(camera.shutters==0 && !engine.busy(),"disconnect before queued static capture sends no shutter");
+            field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"demo").set(engine,true);saved.set(null);engine.captureStill();settle(engine);
+            check(saved.get()!=null && MomentStore.metadata(saved.get()).getBoolean("demo"),"demo ordinary still works without prebuffer and carries provenance");
+        }finally{Bitmap.failPixels=false;engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
     }
     private static void codecChecks(Path root)throws Exception {
         MediaCodec.failRelease=true;MediaCodec.released=0;MediaMuxer.released=0;
@@ -193,7 +274,7 @@ public final class NativeBugfixChecks {
     }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();engineChecks(root);storeChecks(root);codecChecks(root);}
+        try {lutChecks(root);audioChecks();usbChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

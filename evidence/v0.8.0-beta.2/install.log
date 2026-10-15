@@ -1,0 +1,9 @@
+Performing Streamed Install
+Success
+Starting: Intent { cmp=cn.moment.lumix/com.moments5rn.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: cn.moment.lumix/com.moments5rn.MainActivity
+TotalTime: 344
+WaitTime: 346
+Complete

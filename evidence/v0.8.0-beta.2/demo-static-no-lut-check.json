@@ -1,0 +1,21 @@
+{
+  "fixture_only": true,
+  "mode": "photo",
+  "demo": true,
+  "transport": "demo",
+  "lut": null,
+  "original_dimensions": [
+    2400,
+    1600
+  ],
+  "original_sha256": "90bf8fa97c5edc7566ef9a469a17b6dc3227dee354aa104795f810879adc2c31",
+  "export_sha256": "90bf8fa97c5edc7566ef9a469a17b6dc3227dee354aa104795f810879adc2c31",
+  "original_equals_mock_sd": false,
+  "mean_pixel_delta_rgb": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "export_exact": true,
+  "no_video_or_motion_container": true
+}

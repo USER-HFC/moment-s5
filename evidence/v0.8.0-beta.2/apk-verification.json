@@ -1,0 +1,16 @@
+{
+  "apk": "moment-lumix-v0.8.0-beta.2-arm64.apk",
+  "bytes": 32305881,
+  "sha256": "56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2",
+  "installed_apk_sha256": "56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2",
+  "installed_exact": true,
+  "versionName": "0.8.0-beta.2",
+  "versionCode": 23,
+  "flags": "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]",
+  "signer_sha256": "85e000b6b35fd5ad95072cbc359992a808b752aca653c8f723b187777f77c565",
+  "beta1_signer_sha256": "85e000b6b35fd5ad95072cbc359992a808b752aca653c8f723b187777f77c565",
+  "beta1_update_compatible": true,
+  "minimum_sdk": 33,
+  "target_sdk": 35,
+  "abi": "arm64-v8a"
+}

@@ -1,0 +1,12 @@
+{
+  "app_stopped": true,
+  "mock_static_exited": true,
+  "mock_motion_exited": true,
+  "owned_nat_rules_removed": true,
+  "adb_reverse": "",
+  "udp_forwarding": "no active redirections\nOK",
+  "metro_started": false,
+  "owned_emulator_exited": true,
+  "fixture_listeners_closed": true,
+  "remaining_adb_devices": "List of devices attached"
+}

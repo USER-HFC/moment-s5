@@ -94,7 +94,7 @@ describe('independent scope panel state', () => {
       for (const [index, layout] of layouts.entries()) {
         expect(layout.y).toBeGreaterThanOrEqual(bounds.insets.top);
         expect(layout.y + layout.height).toBeLessThanOrEqual(bounds.height - bounds.insets.bottom);
-        for (const other of layouts.slice(index + 1)) expect(
+        for (const other of size === 'S' ? layouts.slice(index + 1) : []) expect(
           layout.x + layout.width <= other.x || other.x + other.width <= layout.x ||
           layout.y + layout.height <= other.y || other.y + other.height <= layout.y,
         ).toBe(true);
@@ -129,4 +129,18 @@ describe('independent scope panel state', () => {
     expect(after.histogram.position).toEqual(before.histogram.position);
     expect(after.histogram.open).toBe(before.histogram.open);
   });
+});
+
+it('resizes one chart without moving or resizing the others, then restores its compact size', () => {
+  const before = createScopePanelState();
+  let after = updateScopePanelState(before, {type: 'resize', kind: 'waveform', size: 'M'});
+  expect(after.waveform.size).toBe('M');
+  for (const kind of SCOPE_KINDS.filter(kind => kind !== 'waveform')) expect(after[kind]).toBe(before[kind]);
+  const bounds = {width: 360, height: 540, insets: {top: 72, bottom: 40, left: 16, right: 16}};
+  const small = scopePanelLayout(bounds, before.waveform.position, 'S', 1, 4);
+  const large = scopePanelLayout(bounds, after.waveform.position, 'M', 1, 4);
+  expect(large.width).toBeGreaterThan(small.width);
+  expect(large.height).toBeGreaterThan(small.height);
+  after = updateScopePanelState(after, {type: 'resize', kind: 'waveform', size: 'S'});
+  expect(after.waveform.size).toBe('S');
 });

@@ -38,7 +38,7 @@ export default function LutPresetList({luts, activeName, disabled, onSelect}: Pr
         {selected && <CameraIcon name="check" active/>}
       </Pressable>;
     })}
-  </View>)}{luts.some(lut => lut.builtIn) && <Text style={styles.note}>非官方近似 · SDR sRGB / Rec.709 · 建议相机使用标准照片风格。色条仅示意。</Text>}</>;
+  </View>)}{luts.some(lut => lut.builtIn) && <Text style={styles.note}>非官方近似 · SDR sRGB / Rec.709</Text>}</>;
 }
 const styles = StyleSheet.create({
   group: {gap: ui.space.xs}, section: {...ui.type.caption, color: ui.color.muted, marginTop: ui.space.md, marginBottom: ui.space.xs},
