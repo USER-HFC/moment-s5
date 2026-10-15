@@ -1,0 +1,21 @@
+{
+  "demo": false,
+  "schema": 1,
+  "source": "fixture-0001.JPG",
+  "createdAt": 1792036331394,
+  "frames": 38,
+  "maxGapMs": 145,
+  "captureMode": "pre-only",
+  "hasPostFrames": false,
+  "audio": false,
+  "shutterTimeBasis": "button-tap pre-shutter buffer snapshot; exposure time is approximate",
+  "lut": null,
+  "lutApplied": false,
+  "stillUs": 2933333,
+  "shutterOffsetUs": 3000000,
+  "durationUs": 3000000,
+  "transport": "wifi",
+  "experimentalWifi": true,
+  "motionQuality": "experimental unverified Wi-Fi preview, not camera-recorded video",
+  "complete": true
+}

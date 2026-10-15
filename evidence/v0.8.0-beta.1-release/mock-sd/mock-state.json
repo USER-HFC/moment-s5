@@ -1,0 +1,15 @@
+{
+  "mock_only": true,
+  "release_fixture": true,
+  "description_model": "DC-S5",
+  "capture_count": 1,
+  "capture_paths": [
+    "/cam.cgi?mode=camcmd&value=capture"
+  ],
+  "requestCounts": {
+    "GET /cam.cgi": 367,
+    "GET /Lumix/Server0/ddd": 1,
+    "POST /Server0/CDS_control": 5,
+    "GET /original/fixture-0001.JPG": 1
+  }
+}

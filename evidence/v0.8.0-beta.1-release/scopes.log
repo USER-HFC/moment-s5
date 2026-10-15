@@ -1,0 +1,1 @@
+PASS 97 scope checks; 240 x 160 math mean 0.75 ms (desktop JVM, excludes JPEG decoding/bridge)

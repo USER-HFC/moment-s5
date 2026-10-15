@@ -1,0 +1,3 @@
+
+> MomentLumix@0.8.0-beta.1 lint
+> eslint . --format json --output-file ../evidence/v0.8.0-beta.1-release/eslint.json

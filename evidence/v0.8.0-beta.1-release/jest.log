@@ -1,0 +1,19 @@
+
+> MomentLumix@0.8.0-beta.1 test
+> jest --runInBand
+
+PASS __tests__/ScopesUI.test.tsx (6.924 s)
+PASS __tests__/CameraWorkspace.test.tsx
+PASS __tests__/Connection.test.tsx
+PASS __tests__/AppEvents.test.tsx
+PASS __tests__/App.test.tsx
+PASS __tests__/MotionAlbum.test.tsx
+PASS __tests__/LutPresetList.test.tsx
+PASS __tests__/Scopes.test.ts
+PASS __tests__/microphonePermission.test.ts
+
+Test Suites: 9 passed, 9 total
+Tests:       56 passed, 56 total
+Snapshots:   0 total
+Time:        17.213 s
+Ran all test suites.

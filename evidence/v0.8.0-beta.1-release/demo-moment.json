@@ -1,0 +1,22 @@
+{
+  "demo": true,
+  "schema": 1,
+  "source": "DEMO.jpg",
+  "createdAt": 1792036163490,
+  "frames": 31,
+  "maxGapMs": 107,
+  "captureMode": "pre-only",
+  "hasPostFrames": false,
+  "audio": false,
+  "shutterTimeBasis": "button-tap pre-shutter buffer snapshot; exposure time is approximate",
+  "lut": "Fuji 风格 · Classic Chrome",
+  "lutApplied": true,
+  "stillUs": 2933333,
+  "shutterOffsetUs": 3000000,
+  "durationUs": 3000000,
+  "transport": "demo",
+  "experimentalWifi": false,
+  "motionQuality": "synthetic demo",
+  "complete": true,
+  "evidenceMomentId": "M1792036163244_8d6f4ad2"
+}

@@ -1,0 +1,14 @@
+{
+  "errors": 0,
+  "warnings": 166,
+  "rules": {
+    "curly": 82,
+    "no-void": 13,
+    "@typescript-eslint/no-shadow": 4,
+    "no-bitwise": 14,
+    "no-floating-decimal": 27,
+    "semi-spacing": 19,
+    "react-native/no-inline-styles": 6,
+    "react/no-unstable-nested-components": 1
+  }
+}

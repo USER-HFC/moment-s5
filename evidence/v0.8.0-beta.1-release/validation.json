@@ -1,0 +1,33 @@
+{
+  "typescript": "passed",
+  "jest": {
+    "suites": 9,
+    "tests": 56,
+    "passed": true
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 166,
+    "rules": {
+      "curly": 82,
+      "no-void": 13,
+      "@typescript-eslint/no-shadow": 4,
+      "no-bitwise": 14,
+      "no-floating-decimal": 27,
+      "semi-spacing": 19,
+      "react-native/no-inline-styles": 6,
+      "react/no-unstable-nested-components": 1
+    }
+  },
+  "core": 51,
+  "momentDeletion": 6,
+  "lutImport": 11,
+  "nativeHost": 66,
+  "wifiHost": 76,
+  "scopes": 97,
+  "bundledLuts": 1258,
+  "lutBitmap": 66,
+  "pythonWifi": 41,
+  "lutReproducibility": 8,
+  "assembleRelease": "passed"
+}
