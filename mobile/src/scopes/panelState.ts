@@ -38,18 +38,19 @@ export function updateScopePanelState(state: ScopePanelState, action: ScopePanel
 }
 
 /** Tile compact charts; enlarged charts can overlap, but never leave the HUD-safe area. */
-export function scopePanelLayout(bounds: ScopeBounds, position: ScopePosition, size: ScopeSize = 'S', slot?: number, _panelCount = 4) {
+export function scopePanelLayout(bounds: ScopeBounds, position: ScopePosition, size: ScopeSize = 'S', slot?: number, panelCount = 4) {
   const inset = bounds.insets || {top: 8, bottom: 8, left: 8, right: 8};
   const minX = Math.min(bounds.width, inset.left), minY = Math.min(bounds.height, inset.top);
   const freeWidth = Math.max(0, bounds.width - minX - inset.right);
   const freeHeight = Math.max(0, bounds.height - minY - inset.bottom);
-  const columns = bounds.width > bounds.height && freeWidth >= 360 ? 4 : 2;
-  const rows = 4 / columns, gap = 8;
-  const tile = slot;
+  // A selected chart needs three distinct 48dp targets; never compress / overlap them.
+  const columns = bounds.width > bounds.height && freeWidth >= 4 * 144 + 3 * 8 ? 4 : freeWidth >= 2 * 144 + 8 ? 2 : 1;
+  const rows = columns === 1 && panelCount === 1 ? 1 : 4 / columns, gap = 8;
+  const tile = slot === undefined ? undefined : Math.min(slot, columns * rows - 1);
   const width = Math.max(0, size === 'M' ? Math.min(280, freeWidth) : Math.min(184, (freeWidth - gap * (columns - 1)) / columns));
   const height = Math.max(0, size === 'M' ? Math.min(220, freeHeight) : Math.min(160, (freeHeight - gap * (rows - 1)) / rows));
   const travelX = Math.max(0, freeWidth - width), travelY = Math.max(0, freeHeight - height);
-  const x = tile === undefined ? minX + clampPosition(position.x) * travelX : minX + (tile % columns) * (travelX / (columns - 1));
+  const x = tile === undefined ? minX + clampPosition(position.x) * travelX : minX + (columns === 1 ? 0 : (tile % columns) * (travelX / (columns - 1)));
   const y = tile === undefined ? minY + clampPosition(position.y) * travelY : minY + Math.floor(tile / columns) * (rows === 1 ? 0 : travelY / (rows - 1));
   return {width, height, travelX, travelY, minX, minY, columns, rows, x, y};
 }

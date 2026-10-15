@@ -10,6 +10,7 @@ import CameraWorkspace from './src/CameraWorkspace';
 import MotionAlbum from './src/MotionAlbum';
 import ConnectionSheet from './src/connection/ConnectionSheet';
 import {WifiConnectionOptions} from './src/connection/model';
+import useCameraReadings from './src/hud/useCameraReadings';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -26,6 +27,7 @@ export default function App() {
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('');
   const lastPreviewAt = useRef(-Infinity);
+  useCameraReadings(state, setState, page === 'camera');
   const refresh = useCallback(async () => {
     if (!camera) return;
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
@@ -42,8 +44,10 @@ export default function App() {
           lastPreviewAt.current = now; setPreview('data:image/jpeg;base64,' + e.jpegBase64);
         }
         setBuffered(e.bufferedUs / 1_000_000);
-        setState((s) => ({...s, demo: !!e.demo, exposure: e.exposure ?? s.exposure, ready: e.ready ?? e.bufferedUs >= 3_000_000}));
+        setState((s) => ({...s, demo: !!e.demo, exposure: e.exposure ?? s.exposure, exposureAgeMs: e.exposureAgeMs, ready: e.ready ?? e.bufferedUs >= 3_000_000}));
       }),
+      cameraEvents.addListener('cameraExposure', (e) => setState(s => ({...s, exposure: e.value, exposureAgeMs: e.exposureAgeMs}))),
+      cameraEvents.addListener('phoneBattery', (e) => setState(s => ({...s, phoneBattery: e}))),
       cameraEvents.addListener('cameraSaved', () => { setSnack('照片已保存'); void refresh(); }),
       cameraEvents.addListener('cameraFailed', (e) => { setSnack('照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
     ];

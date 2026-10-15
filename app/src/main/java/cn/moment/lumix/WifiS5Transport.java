@@ -28,7 +28,7 @@ public final class WifiS5Transport implements CameraTransport {
     private volatile boolean closed,streaming;
     private volatile String terminalError,exposure="曝光参数暂不可读 · 可用机身调整";
     private volatile Capabilities capabilities=new Capabilities(false,false,false);
-    private volatile long streamStarted,lastFrame;
+    private volatile long streamStarted,lastFrame,exposureUpdatedAt;
     private volatile DatagramSocket udp;
     private Thread receiver;
     private URL cds;
@@ -114,7 +114,7 @@ public final class WifiS5Transport implements CameraTransport {
     private static String setting(WifiS5Protocol.Reply reply,String field){String value=reply.first(field);if(value==null)value=reply.first("value");return value==null||value.isEmpty()?null:value.substring(0,Math.min(64,value.length()));}
     private void readExposure() throws IOException {
         List<String> values=new ArrayList<>();for(String field:exposureFields){WifiS5Protocol.Reply reply=command("getsetting",field,null,null);String value=setting(reply,field);if(reply.result().equalsIgnoreCase("ok") && value!=null)values.add((field.equals("iso")?"ISO ":field.equals("focal")?"f/":"快门 ")+value);}
-        if(!values.isEmpty())exposure=String.join("     ",values);
+        if(!values.isEmpty()){exposure=String.join("     ",values);exposureUpdatedAt=clock.getAsLong();}
     }
     private void startStream() throws IOException {streamStarted=clock.getAsLong();lastFrame=0;frames.clear();ok("startstream",null,Integer.toString(udp.getLocalPort()),null);streaming=true;}
     private void receive() {
@@ -139,6 +139,7 @@ public final class WifiS5Transport implements CameraTransport {
     public void autofocus() throws IOException {if(!capabilities.autofocus())throw new IOException("相机未声明 Wi-Fi AF 支持");ok("camcmd",null,"oneshot_af",null);}
     public void focus(boolean far) throws IOException {if(!capabilities.manualFocus())throw new IOException("相机未声明 Wi-Fi MF 步进支持");ok("camctrl","focus",far?"tele-slow":"wide-slow",null);}
     public String exposure(){return exposure;}
+    public long exposureUpdatedAtUs(){return exposureUpdatedAt;}
     public boolean freshBaselineRequired(){return true;}
     public void clearCaptureEvents(){}
     public Baseline prepareCaptureBaseline() throws Exception {

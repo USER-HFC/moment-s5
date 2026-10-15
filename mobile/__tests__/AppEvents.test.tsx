@@ -23,7 +23,11 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
   const listeners: Map<string, Function> = (cameraEvents as any).listeners;
-  expect(listeners.size).toBe(4);
+  expect(listeners.size).toBe(6);
+  act(() => listeners.get('phoneBattery')!({percent: 37, charging: true}));
+  expect(tree!.root.findByType(CameraWorkspace).props.state.phoneBattery).toEqual({percent: 37, charging: true});
+  act(() => listeners.get('cameraExposure')!({value: 'ISO AUTO     f/4.0     1/80', exposureAgeMs: 50}));
+  expect(tree!.root.findByType(CameraWorkspace).props.state.exposure).toBe('ISO AUTO     f/4.0     1/80');
   await act(async () => listeners.get('cameraStatus')!({message: '未找到本次 JPEG', ready: false}));
   expect(tree!.root.findByType(Snackbar).props.children).toBe('未找到本次 JPEG');
   act(() => tree!.unmount()); expect(listeners.size).toBe(0);

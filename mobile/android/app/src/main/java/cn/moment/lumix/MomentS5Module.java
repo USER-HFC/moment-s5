@@ -14,17 +14,18 @@ import java.util.*;
 /** Shared JS contract; Android owns USB/PTP and LUT pixels, iOS can implement the same methods later. */
 public final class MomentS5Module extends ReactContextBaseJavaModule {
     private static final String USB_PERMISSION="cn.moment.lumix.RN_USB_PERMISSION";
-    private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private final ScopeEmitter scopes;private CaptureEngine engine;private BroadcastReceiver receiver;private final CameraLifecycle lifecycle;private final WifiConnectionManager wifi;
+    private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private final ScopeEmitter scopes;private CaptureEngine engine;private BroadcastReceiver receiver;private final CameraLifecycle lifecycle;private final WifiConnectionManager wifi;private final PhoneBatteryMonitor battery;
     public MomentS5Module(ReactApplicationContext context){super(context);this.context=context;usb=(UsbManager)context.getSystemService(Context.USB_SERVICE);lutDir=new File(context.getFilesDir(),"luts");if(!lutDir.isDirectory())lutDir.mkdirs();
         scopes=new ScopeEmitter(context);
         engine=new CaptureEngine(context,new CaptureEngine.Listener(){
             @Override public void status(String s,boolean ready){WritableMap m=Arguments.createMap();m.putString("message",s);m.putBoolean("ready",ready);emit("cameraStatus",m);}
-            @Override public void frame(byte[] b,long duration,boolean demo){WritableMap m=Arguments.createMap();m.putString("jpegBase64",Base64.encodeToString(b,Base64.NO_WRAP));m.putDouble("bufferedUs",duration);m.putBoolean("ready",engine.ready());m.putBoolean("demo",demo);m.putString("exposure",engine.exposureValue());emit("cameraFrame",m);scopes.offer(b,demo);}
+            @Override public void frame(byte[] b,long duration,boolean demo){WritableMap m=Arguments.createMap();m.putString("jpegBase64",Base64.encodeToString(b,Base64.NO_WRAP));m.putDouble("bufferedUs",duration);m.putBoolean("ready",engine.ready());m.putBoolean("demo",demo);m.putString("exposure",engine.exposureValue());putExposureAge(m);emit("cameraFrame",m);scopes.offer(b,demo);}
             @Override public void saved(File d){WritableMap m=Arguments.createMap();m.putString("directory",d.getAbsolutePath());emit("cameraSaved",m);}
             @Override public void failed(File d,String error){WritableMap m=Arguments.createMap();m.putString("directory",d.getAbsolutePath());m.putString("error",error==null?"动态照片处理失败":error);emit("cameraFailed",m);}
             @Override public void log(String s){WritableMap m=Arguments.createMap();m.putString("message",s);emit("cameraLog",m);}
-            @Override public void exposure(String s){WritableMap m=Arguments.createMap();m.putString("value",s);emit("cameraExposure",m);}
+            @Override public void exposure(String s){WritableMap m=Arguments.createMap();m.putString("value",s);putExposureAge(m);emit("cameraExposure",m);}
         });
+        battery=new PhoneBatteryMonitor(context,reading->emit("phoneBattery",batteryMap(reading)));context.addLifecycleEventListener(battery);
         lifecycle=new CameraLifecycle(engine,this::connectDevice);context.addLifecycleEventListener(lifecycle);
         wifi=new WifiConnectionManager(context,message->{engine.disconnect();status(message);});context.addLifecycleEventListener(wifi);
         receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){UsbDevice d=intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(USB_PERMISSION.equals(intent.getAction())){boolean granted=intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false);if(lifecycle.permission(d,granted)&&!granted)status("USB 访问未授权");}else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())&&d!=null&&UsbS5.candidate(d)){lifecycle.cancel();engine.detach();}}};
@@ -79,10 +80,14 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     }
     @ReactMethod public void activeLut(Promise promise){promise.resolve(engine.lutTitle());}
     @ReactMethod public void diagnostics(Promise promise){promise.resolve(engine.diagnostics());}
-    @ReactMethod public void getState(Promise promise){WritableMap m=Arguments.createMap();m.putBoolean("active",engine.active());m.putBoolean("busy",engine.busy());m.putBoolean("ready",engine.ready());m.putBoolean("demo",engine.demoMode());m.putBoolean("audio",engine.audioEnabled());m.putString("lut",engine.lutTitle());m.putString("transport",engine.transportKind());m.putString("exposure",engine.exposureValue());m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());promise.resolve(m);}
+    @ReactMethod public void getState(Promise promise){WritableMap m=Arguments.createMap();m.putBoolean("active",engine.active());m.putBoolean("busy",engine.busy());m.putBoolean("ready",engine.ready());m.putBoolean("demo",engine.demoMode());m.putBoolean("audio",engine.audioEnabled());m.putString("lut",engine.lutTitle());m.putString("transport",engine.transportKind());m.putString("exposure",engine.exposureValue());putExposureAge(m);m.putMap("phoneBattery",batteryMap(battery.latest()));
+        // Neither implemented transport exposes a verified camera-battery property.
+        m.putNull("cameraBattery");m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());promise.resolve(m);}
     @ReactMethod public void addListener(String name) {}
     @ReactMethod public void removeListeners(double count) {}
-    @Override public void invalidate(){scopes.close();wifi.close();context.removeLifecycleEventListener(wifi);lifecycle.cancel();context.removeLifecycleEventListener(lifecycle);if(receiver!=null){try{context.unregisterReceiver(receiver);}catch(Exception ignored){}}if(engine!=null)engine.shutdown();super.invalidate();}
+    @Override public void invalidate(){battery.close();context.removeLifecycleEventListener(battery);scopes.close();wifi.close();context.removeLifecycleEventListener(wifi);lifecycle.cancel();context.removeLifecycleEventListener(lifecycle);if(receiver!=null){try{context.unregisterReceiver(receiver);}catch(Exception ignored){}}if(engine!=null)engine.shutdown();super.invalidate();}
+    private void putExposureAge(WritableMap map){long age=engine.exposureAgeMs();if(age<0)map.putNull("exposureAgeMs");else map.putDouble("exposureAgeMs",age);}
+    private static WritableMap batteryMap(PhoneBatteryMonitor.Reading reading){WritableMap map=Arguments.createMap();if(reading.percent()==null)map.putNull("percent");else map.putInt("percent",reading.percent());map.putBoolean("charging",reading.charging());return map;}
     private File safeFile(String id)throws IOException{String name=cleanName(id);File f=new File(lutDir,name);if(!f.getCanonicalFile().getParentFile().equals(lutDir.getCanonicalFile()))throw new IOException("非法 LUT 路径");return f;}
     private File momentDir(String id)throws IOException {if(id==null||!id.equals(new File(id).getName()))throw new IOException("非法动态照片路径");for(File dir:new MomentStore(context).list())if(dir.getName().equals(id))return dir;throw new IOException("动态照片不存在");}
     private File uniqueFile(String name)throws IOException {File f=safeFile(name);if(!f.exists())return f;String stem=name.replaceFirst("(?i)\\.cube$","");for(int i=2;i<10000;i++){f=safeFile(stem+"-"+i+".cube");if(!f.exists())return f;}throw new IOException("LUT 仓库已存在太多同名文件");}

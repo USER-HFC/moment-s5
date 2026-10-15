@@ -29,6 +29,7 @@ public final class CaptureEngine {
     private volatile CameraTransport camera;
     private volatile String transport="usb";
     private volatile String exposureValue="";
+    private volatile long exposureReadUs;
     private volatile AudioRing microphone;
     private volatile boolean audioEnabled;
     private volatile boolean demo,busy,shuttingDown;
@@ -55,7 +56,14 @@ public final class CaptureEngine {
     public String transportKind() {return demo?"demo":transport;}
     public boolean supportsAutofocus() {return camera!=null && camera.capabilities().autofocus();}
     public boolean supportsManualFocus() {return camera!=null && camera.capabilities().manualFocus();}
-    public String exposureValue() {CameraTransport current=camera;return current!=null && "wifi".equals(current.kind())?current.exposure():exposureValue;}
+    public String exposureValue() {if(!active)return "";if(demo)return "演示素材 · 无相机连接";CameraTransport current=camera;return current!=null && "wifi".equals(current.kind())?current.exposure():exposureValue;}
+    /** Cached reads only: neither a JS state request nor a preview event issues camera I/O. */
+    public long exposureAgeMs() {
+        if(!active || demo)return -1;
+        CameraTransport current=camera;
+        long sampled=current!=null && "wifi".equals(current.kind())?current.exposureUpdatedAtUs():exposureReadUs;
+        return sampled<=0?-1:Math.max(0,now()-sampled)/1000;
+    }
     public boolean active() {return active;}
     public synchronized void setLut(LutEngine value) {if(busy)throw new IllegalStateException("拍摄处理中，请稍后再切换 LUT");lut=value;ring.clear();log(value==null?"LUT 已关闭，正在重建预缓存":"LUT 已启用："+value.title+"，正在重建预缓存");}
     public String lutTitle() {LutEngine value=lut;return value==null?null:value.title;}
@@ -115,7 +123,7 @@ public final class CaptureEngine {
                 }
                 if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("相机会话已失效或连接已取消，请重新连接相机");
                 camera.clearCaptureEvents();
-                active=true;demo=false;exposureValue=camera.exposure();listener.exposure(exposureValue);
+                active=true;demo=false;exposureValue=camera.exposure();exposureReadUs=now();listener.exposure(exposureValue);
                 if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("相机连接已取消");
                 startPolling();
             }
@@ -261,10 +269,17 @@ public final class CaptureEngine {
         if(!active || busy || demo) return;
         worker.execute(()-> {try {if(camera!=null) {if(direction==0) camera.autofocus();else camera.focus(direction>0);}} catch(Exception e) {fail(e);}});
     }
-    public void refreshExposure() {if(active && !busy && camera!=null) worker.execute(()-> {if(camera!=null){exposureValue=camera.exposure();listener.exposure(exposureValue);}});}
+    public void refreshExposure() {
+        CameraTransport current=camera;long epoch=sessionEpoch.get();
+        if(active && !busy && current!=null && !worker.isShutdown())worker.execute(()-> {
+            if(busy || !sameSession(epoch,current,false))return;
+            String value=current.exposure();
+            if(sameSession(epoch,current,false)){exposureValue=value;exposureReadUs=now();listener.exposure(value);}
+        });
+    }
     public void disconnect() {
         // Invalidate queued shutters and unblock USB reads before waiting for the worker.
-        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;
+        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;exposureValue="";exposureReadUs=0;
         CameraTransport c=camera;if(c!=null)c.abort();stopAudio();
         if(!worker.isShutdown())worker.execute(()->disconnectNow(false));
     }
@@ -274,7 +289,7 @@ public final class CaptureEngine {
     }
     private void disconnectNow(boolean invalidate) {
         stopAudio();
-        if(invalidate)sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;if(polling!=null) polling.cancel(false);polling=null;
+        if(invalidate)sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;exposureValue="";exposureReadUs=0;if(polling!=null) polling.cancel(false);polling=null;
         if(camera!=null) camera.close();camera=null;ring.clear();
     }
     private void fail(Exception e) {log(e.getClass().getSimpleName()+": "+e.getMessage());listener.status(e.getMessage()==null?"发生错误，请查看连接诊断":e.getMessage(),false);}

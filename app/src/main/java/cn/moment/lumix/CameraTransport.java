@@ -17,6 +17,8 @@ public interface CameraTransport extends AutoCloseable {
     void autofocus() throws IOException;
     void focus(boolean far) throws IOException;
     String exposure();
+    /** Monotonic timestamp of a cached exposure sample, or zero when unavailable. */
+    default long exposureUpdatedAtUs() {return 0;}
     Baseline prepareCaptureBaseline() throws Exception;
     default boolean freshBaselineRequired() {return false;}
     void clearCaptureEvents();

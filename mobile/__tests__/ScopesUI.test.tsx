@@ -1,7 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {AppState, NativeModules, StyleSheet, View} from 'react-native';
+import {AppState, NativeModules, PanResponder, StyleSheet, View} from 'react-native';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
@@ -58,6 +58,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
     expect(api.setScopesEnabled).toHaveBeenCalledWith(true, true, 1.5);
     const before = api.setScopesEnabled.mock.calls.length;
+    act(() => tree!.root.findByProps({testID: 'scope-move-histogram'}).props.onPress());
     act(() => tree!.root.findByProps({testID: 'scope-close-histogram'}).props.onPress());
     expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
     expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
@@ -72,6 +73,12 @@ describe('scope overlays and native subscription lifecycle', () => {
     const waveform = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-waveform'}).props.style);
     const before = panel(), other = waveform();
     expect(before.backgroundColor).toBeUndefined();expect(before.borderWidth).toBeUndefined();
+    expect(tree!.root.findAllByProps({testID: 'scope-resize-histogram'})).toHaveLength(0);
+    act(() => tree!.root.findByProps({testID: 'scope-move-histogram'}).props.onAccessibilityAction({nativeEvent: {actionName: 'activate'}}));
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'}).props.accessibilityState.selected).toBe(true);
+    expect(tree!.root.findAllByProps({testID: 'scope-close-waveform'})).toHaveLength(0);
+    const glyph = tree!.root.findByProps({testID: 'scope-icon-enlarge'});
+    expect(glyph.props.width).toBe(20);expect(glyph.props.xml).toContain('stroke-width="1.4"');
     act(() => tree!.root.findByProps({testID: 'scope-resize-histogram'}).props.onPress());
     expect(panel().width).toBeGreaterThan(before.width);
     expect(waveform().width).toBe(other.width);expect(waveform().height).toBe(other.height);
@@ -101,6 +108,28 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => appStateChanged('active'));
     expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
   });
+  it('clamps an actual move gesture and keeps the other chart unchanged', () => {
+    const gestures: any[] = [];
+    const create = PanResponder.create;
+    jest.spyOn(PanResponder, 'create').mockImplementation(config => {gestures.push(config);return create(config);});
+    act(() => {tree = renderer.create(<Harness/>);changeScopePanel({type: 'toggle', kind: 'histogram'});changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    const panel = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-histogram'}).props.style);
+    const other = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-waveform'}).props.style);
+    const before = other();
+    const drag = gestures[0];
+    expect(drag.onMoveShouldSetPanResponder({}, {dx: 10, dy: 0})).toBe(true);
+    expect(drag.onMoveShouldSetPanResponderCapture({}, {dx: 10, dy: 0})).toBe(true);
+    // Pressable owns its responder handlers. Drag capture must live on a parent View.
+    expect(typeof tree!.root.findByProps({testID: 'scope-move-histogram'}).parent!.props.onMoveShouldSetResponderCapture).toBe('function');
+    act(() => drag.onPanResponderGrant());
+    act(() => drag.onPanResponderMove({}, {dx: 10_000, dy: 10_000}));
+    act(() => drag.onPanResponderRelease({}, {dx: 10_000, dy: 10_000}));
+    const style = panel();
+    expect(style.transform[0].translateX.__getValue() + style.width).toBeLessThanOrEqual(367);
+    expect(style.transform[1].translateY.__getValue() + style.height).toBeLessThanOrEqual(552);
+    expect(other().width).toBe(before.width);expect(other().height).toBe(before.height);
+    expect(other().transform[0].translateX.__getValue()).toBe(before.transform[0].translateX.__getValue());
+  });
   it('keeps the empty-state action clear and restores selected scopes when the feed returns', () => {
     const state = {active: false, busy: false, ready: false, demo: false, lut: null};
     const props = {state, buffered: 0, luts: [], onLut: async () => {}, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
@@ -114,6 +143,22 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
     act(() => tree!.update(<CameraWorkspace {...props}/>));
     expect(mockHandlers.size).toBe(0);
+  });
+  it('reserves actual HUD measurements for scopes and retains all four corners after the last scope closes', () => {
+    const state = {active: true, busy: false, ready: true, demo: false, lut: null, exposure: 'ISO 640     f/4.0     1/80', phoneBattery: {percent: 37}};
+    const props = {state, preview: 'data:image/jpeg;base64,frame', buffered: 3, luts: [], onLut: async () => {}, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
+    act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
+    act(() => {
+      tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 360, height: 540}}});
+      tree!.root.findByProps({testID: 'hud-top'}).props.onLayout({nativeEvent: {layout: {height: 60}}});
+      tree!.root.findByProps({testID: 'hud-bottom'}).props.onLayout({nativeEvent: {layout: {height: 80}}});
+      changeScopePanel({type: 'toggle', kind: 'waveform'});
+    });
+    expect(tree!.root.findByType(ScopesOverlay).props.bounds.insets).toEqual({top: 84, bottom: 104, left: 16, right: 16});
+    act(() => tree!.root.findByProps({testID: 'scope-close-waveform'}).props.onPress());
+    expect(tree!.root.findAllByProps({testID: 'scopes-overlay'})).toHaveLength(0);
+    for (const testID of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree!.root.findByProps({testID})).toBeTruthy();
+    expect(JSON.stringify(tree!.toJSON())).toContain('ISO 640');
   });
   it('preserves the session when leaving the camera and applies the new preview orientation on return', () => {
     act(() => {tree = renderer.create(<Harness/>);changeScopePanel({type: 'toggle', kind: 'parade'});changeScopePanel({type: 'toggle', kind: 'vectorscope'});});

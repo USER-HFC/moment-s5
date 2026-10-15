@@ -1,0 +1,11 @@
+{
+  "avd": "moment_s5_hud_e43_api35",
+  "serial": "emulator-5588",
+  "apk": "mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk",
+  "bytes": 32309557,
+  "sha256": "b70fc771f7c18099e89ccda0ec70f8c1315020a12fe6068195c7020217b4027f",
+  "installed_sha256": "b70fc771f7c18099e89ccda0ec70f8c1315020a12fe6068195c7020217b4027f",
+  "versionName": "0.8.0-beta.2",
+  "versionCode": "23",
+  "debuggable": false
+}

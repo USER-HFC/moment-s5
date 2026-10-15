@@ -1,0 +1,43 @@
+{
+  "tsc": {
+    "exit": 0
+  },
+  "jest": {
+    "exit": 0,
+    "suites": 11,
+    "tests": 76
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 244
+  },
+  "native_host": {
+    "exit": 0,
+    "checks": 152,
+    "kind": "Android doubles, no physical camera"
+  },
+  "native_scopes": {
+    "exit": 0,
+    "checks": 97
+  },
+  "native_wifi": {
+    "exit": 0,
+    "checks": 80,
+    "kind": "self-authored fixtures"
+  },
+  "native_core": {
+    "exit": 0,
+    "core": 51,
+    "deletion": 6,
+    "lut_import": 11
+  },
+  "assembleRelease": {
+    "exit": 0,
+    "jdk": "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
+    "sdk": "/opt/homebrew/share/android-commandlinetools"
+  },
+  "media": {
+    "exit": 0,
+    "command": "python3 evidence/ui-hud-followup/verify_media.py"
+  }
+}

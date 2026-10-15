@@ -1,0 +1,21 @@
+{
+  "fixture_only": true,
+  "demo": true,
+  "lut": "Fuji \u98ce\u683c \u00b7 Classic Chrome",
+  "capture_mode": "pre-only",
+  "duration_seconds": 3.0,
+  "codec": "avc1",
+  "video_dimensions": [
+    960,
+    640
+  ],
+  "samples": 45,
+  "pre_frames": 32,
+  "max_gap_ms": 99,
+  "still_us": 2933333,
+  "camera_original_preserved": true,
+  "primary_matches_lut_rendered_jpeg": true,
+  "embedded_video_unchanged": true,
+  "system_export_exact": true,
+  "motion_sha256": "7d699779dbe7bd1d6bb045072b83a9ca6bd3fb04c8218a407b4a9884f9635d4f"
+}

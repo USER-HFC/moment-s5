@@ -109,6 +109,41 @@ public final class NativeBugfixChecks {
         expectIo(camera::shutter,"wrong transaction accepted");check(camera.closed() && manager.connection.closed,"framing error aborts USB transport");
         check(manager.connection.commands.stream().filter(b->(Ptp.le(b).getShort(6)&65535)==0x9404).count()==1,"failed shutter never retried");
     }
+    private static void batteryChecks() {
+        check(PhoneBatteryMonitor.decode(37,100,2,true).equals(new PhoneBatteryMonitor.Reading(37,true)),"phone battery uses Android level / scale and actual charging status");
+        check(PhoneBatteryMonitor.decode(1,4,3,true).equals(new PhoneBatteryMonitor.Reading(25,false)),"non-percent Android scale is converted correctly");
+        check(PhoneBatteryMonitor.decode(0,100,3,true).percent()==0,"zero phone battery is a real reading");
+        for(int[] invalid:new int[][]{{-1,100},{101,100},{50,0},{50,-1}})check(PhoneBatteryMonitor.decode(invalid[0],invalid[1],2,true).percent()==null,"invalid battery values remain unavailable");
+        check(PhoneBatteryMonitor.decode(100,100,5,false).percent()==null,"missing physical battery is not fabricated");
+        class Source implements PhoneBatteryMonitor.Source {
+            int starts,stops;java.util.function.Consumer<PhoneBatteryMonitor.Reading> listener;
+            PhoneBatteryMonitor.Reading value=new PhoneBatteryMonitor.Reading(51,false);
+            public PhoneBatteryMonitor.Reading subscribe(java.util.function.Consumer<PhoneBatteryMonitor.Reading> changed){starts++;listener=changed;return value;}
+            public void unsubscribe(){stops++;}
+        }
+        Source source=new Source();List<PhoneBatteryMonitor.Reading> events=new ArrayList<>();
+        PhoneBatteryMonitor monitor=new PhoneBatteryMonitor(source,events::add);
+        check(monitor.latest().percent()==null && source.starts==0,"battery does not subscribe before foreground");
+        monitor.onHostResume();monitor.onHostResume();
+        check(source.starts==1 && monitor.latest().percent()==51,"one foreground battery subscription, initialized from sticky intent");
+        source.listener.accept(new PhoneBatteryMonitor.Reading(37,true));
+        check(monitor.latest().percent()==37 && events.size()==2,"battery broadcast updates cached state without a poll");
+        monitor.onHostPause();monitor.onHostPause();int count=events.size();
+        source.listener.accept(new PhoneBatteryMonitor.Reading(99,false));
+        check(source.stops==1 && monitor.latest().percent()==null && events.size()==count,"pause unsubscribes once and rejects late broadcasts / stale battery");
+        source.value=new PhoneBatteryMonitor.Reading(32,false);monitor.onHostResume();
+        check(source.starts==2 && monitor.latest().percent()==32,"resume obtains a new sticky reading instead of displaying old percent");
+        monitor.onHostDestroy();source.value=new PhoneBatteryMonitor.Reading(31,false);monitor.onHostResume();
+        check(source.stops==2 && source.starts==3 && monitor.latest().percent()==31,"activity recreation releases and re-subscribes while the React bridge survives");
+        monitor.close();monitor.close();monitor.onHostResume();source.listener.accept(new PhoneBatteryMonitor.Reading(99,false));
+        check(source.stops==3 && source.starts==3 && monitor.latest().percent()==null,"bridge invalidation cleans up permanently and rejects late callbacks");
+        AtomicInteger cleanup=new AtomicInteger();PhoneBatteryMonitor unavailable=new PhoneBatteryMonitor(new PhoneBatteryMonitor.Source(){
+            public PhoneBatteryMonitor.Reading subscribe(java.util.function.Consumer<PhoneBatteryMonitor.Reading> changed){throw new IllegalStateException("host stopping");}
+            public void unsubscribe(){cleanup.incrementAndGet();}
+        },reading->{});
+        unavailable.onHostResume();unavailable.close();
+        check(unavailable.latest().percent()==null && cleanup.get()==1,"registration failure leaves an unavailable reading and no leaked receiver");
+    }
     private static ExecutorService worker(CaptureEngine engine)throws Exception {return (ExecutorService)field(CaptureEngine.class,"worker").get(engine);}
     private static CountDownLatch block(CaptureEngine engine)throws Exception {
         CountDownLatch entered=new CountDownLatch(1),resume=new CountDownLatch(1);
@@ -194,7 +229,8 @@ public final class NativeBugfixChecks {
         public String kind(){return wifi?"wifi":"usb";}
         public void open(){}public Preview preview(){return null;}
         public Capabilities capabilities(){return new Capabilities(false,false,false);}
-        public void autofocus(){}public void focus(boolean far){}public String exposure(){return "";}
+        int exposureReads;
+        public void autofocus(){}public void focus(boolean far){}public String exposure(){exposureReads++;return "";}
         public boolean freshBaselineRequired(){return wifi;}
         public Baseline prepareCaptureBaseline(){calls.add("baseline");return baseline;}
         public void clearCaptureEvents(){calls.add("clear");}
@@ -219,6 +255,14 @@ public final class NativeBugfixChecks {
             public void failed(File dir,String error){failed.set(dir);}public void log(String text){}public void exposure(String text){}
         });reference.set(engine);
         try {
+            StillCamera telemetry=new StillCamera(false);field(CaptureEngine.class,"camera").set(engine,telemetry);
+            field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"exposureValue").set(engine,"ISO AUTO     f/4.0     1/80");field(CaptureEngine.class,"exposureReadUs").set(engine,CaptureEngine.now()-20_000_000);
+            check(engine.exposureValue().equals("ISO AUTO     f/4.0     1/80") && engine.exposureAgeMs()>=20_000,"cached HUD state preserves exposure sample age");
+            check(telemetry.exposureReads==0,"HUD state refresh never schedules / performs serialized USB I/O");
+            field(CaptureEngine.class,"demo").set(engine,true);
+            check(engine.exposureValue().equals("演示素材 · 无相机连接") && engine.exposureAgeMs()==-1,"demo cannot leak previous real exposure or timestamp");
+            engine.disconnect();settle(engine);
+            check(engine.exposureValue().isEmpty() && engine.exposureAgeMs()==-1,"disconnect immediately invalidates cached HUD exposure");
             File cube=files.resolve("shutter.cube").toFile();Files.writeString(cube.toPath(),"TITLE \"Shutter LUT\"\nLUT_3D_SIZE 2\n"+cube(2));
             LutEngine filter=LutEngine.load(cube);
             for(boolean wifi:new boolean[]{false,true})for(boolean filtered:new boolean[]{false,true}) {
@@ -274,7 +318,7 @@ public final class NativeBugfixChecks {
     }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);}
+        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

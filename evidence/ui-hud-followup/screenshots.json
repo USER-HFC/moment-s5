@@ -1,0 +1,255 @@
+[
+  {
+    "file": "01-disconnected-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "77ca3e717ce468bd06d21336b6e393053358b08e302c9615eb51f614188d85a8",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "02-demo-no-scopes-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "beac474a4d8b352d69bfb677b21757ed3e837e81e5163325b112138a3b602ace",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "02a-lut-no-scopes-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "251a4ca26a37a7a60e934a3a0e0175fac64754e4e6bf0ae463bfebc7b3d459c8",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "03-demo-scopes-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "8c3d4c2df76c664ebf152fff81816ad9bd18a56c1768361cafa33001de47d479",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "04-histogram-enlarged.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "ec61979c3c0f0b7d3a8d3e52dd5a1a25bbc69f57eccaf32753456aa623455bfc",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "05-histogram-drag-clamped.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "5829c58cb30cb238289601522fbba78afed6220ebe93646e8f3aa3da6104a522",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "06-histogram-shrunk.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "bba7149000f0f0b20489ad55ccf907cff3f57d0acb603dfcedb95fc8289d92c6",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "07-histogram-closed.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "3a45a31a7c150d95942516dbc54db545f6a82a38431e191e7eed6e990288a58f",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "08-battery-broadcast-updated.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "425ece1b7f26bdfeb898f129efc000d7821dc5b9304027e61851863aaa94ad1c",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "09-scopes-landscape.png",
+    "pixels": [
+      2400,
+      1080
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "d376e44afe60f99fcf66071bf4d9a11e6985d16654f71c4ed11c1f0688e1688d",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "10-no-scopes-landscape.png",
+    "pixels": [
+      2400,
+      1080
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "d636f3a76519e73b65d0a97932eb9d512146b6bf97325f8bb0e13df150cc2a35",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "11-scopes-360dp-font13-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 480,
+    "fontScale": 1.3,
+    "sha256": "b37c0e64ae9e9e769e7137ec58ccc7ecc043ab4882496e624fade2b08c2f3c3d",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "12-no-scopes-360dp-font13-portrait.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 480,
+    "fontScale": 1.3,
+    "sha256": "9f352b6087765b35d3d7d4c17615d1b949de77f5e17f21a0837fd11ba64fe273",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "13-scopes-360dp-font13-landscape.png",
+    "pixels": [
+      2400,
+      1080
+    ],
+    "density": 480,
+    "fontScale": 1.3,
+    "sha256": "1f9d5662517eb8fff4051b2b38af776e16ad5d84212fdef05082b7bc1ca07ee8",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "14-no-scopes-360dp-font13-landscape.png",
+    "pixels": [
+      2400,
+      1080
+    ],
+    "density": 480,
+    "fontScale": 1.3,
+    "sha256": "bd1a4e9525624c8d857d0cd9db5a92e9fd6bae6ca7f517597f8c6101dd15aeee",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "15-battery-resume.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "5ff414e8a6f327f93cdb4a32512ca80ca8a1f98c056a3a5d9e742c603cc89745",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "16-static-lut-album.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "8f826444e1a2c36c275c55e566523cc771e6c56ca4c9a587bac06a300c375ce4",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "16a-static-export.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "9dc326f9532926a7ff711e66c549e6530047344c5773a158e29ea09ed8932302",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "17-motion-buffer-ready.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "bd51b0d038d30c2cbf612c053134b6a4968b28ed250df471e3cf89dc5868cd76",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "18-motion-album.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "b653de76a7550f658917aa8561f92085214686baeecd8b538af53e7dfe5a594b",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "19-static-and-motion-list.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "c78de2e4bb0c39ea4b91521930df157788f882a774e71ec604e9b5d92b078cc4",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "20a-motion-playing.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "5dc6a33e49198148b8d918bbbf538376d62ef5f8dc0ad64ad058871a645411ac",
+    "source": "adb exec-out screencap -p; unedited"
+  },
+  {
+    "file": "20b-motion-playing.png",
+    "pixels": [
+      1080,
+      2400
+    ],
+    "density": 420,
+    "fontScale": 1.0,
+    "sha256": "c3e719ece7b333fbd83a44c4169696ab762b81754a8ffa94f7d5cd0e92c42588",
+    "source": "adb exec-out screencap -p; unedited"
+  }
+]

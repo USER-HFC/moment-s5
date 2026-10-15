@@ -133,6 +133,10 @@ public final class WifiS5Checks {
         }
         try(Fixture fixture=new Fixture(fixtures,101);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
             camera.open();check(fixture.auth.get()==1 && fixture.names.get()==1,"single legacy access and device-name registration");
+            long exposureAt=camera.exposureUpdatedAtUs();check(exposureAt>0,"Wi-Fi exposure records a source-read monotonic timestamp");
+            String rawExposure=camera.exposure();check(rawExposure.contains("ISO 400") && rawExposure.contains("f/400") && rawExposure.contains("快门 400"),"Wi-Fi exposure getter preserves source strings without guessing encoded units");
+            for(int i=0;i<100;i++){camera.exposure();camera.exposureUpdatedAtUs();}
+            check(camera.exposureUpdatedAtUs()==exposureAt,"reading cached Wi-Fi state never fabricates a fresh sample timestamp");
             reject(camera::shutter,"no shutter without baseline");var baseline=camera.prepareCaptureBaseline();check(fixture.browse.get()==2,"catalog paginates beyond first 100");
             check(camera.capabilities().autofocus() && camera.capabilities().manualFocus(),"declared focus controls enabled");camera.autofocus();camera.focus(true);camera.focus(false);
             check(fixture.controls.contains("camcmd:null:oneshot_af") && fixture.controls.contains("camctrl:focus:tele-slow") && fixture.controls.contains("camctrl:focus:wide-slow"),"AF/MF candidate mapping");
@@ -145,6 +149,7 @@ public final class WifiS5Checks {
             fixture.chunked=true;Path target=output.resolve("original.jpg");camera.downloadOriginal(source,target.toFile());check(Arrays.equals(Files.readAllBytes(target),fixture.original),"streamed chunked original preserves exact fixture bytes");
             check(!Files.exists(output.resolve("original.jpg.wifi.part")) && camera.state()==WifiS5Transport.State.READY,"atomic publication removes part and returns ready");
             Thread.sleep(2100);check(fixture.states.get()>=2,"serialized getstate keepalive runs");
+            check(camera.exposureUpdatedAtUs()>exposureAt,"existing Wi-Fi keeper refresh advances exposure source age");
             camera.close();check(camera.closed(),"close releases receiver and keepalive");
         }
         try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {

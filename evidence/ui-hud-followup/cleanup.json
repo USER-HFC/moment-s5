@@ -1,0 +1,13 @@
+{
+  "app_force_stopped": true,
+  "owned_avd": "moment_s5_hud_e43_api35",
+  "serial": "emulator-5588",
+  "stop_method": "adb -s emulator-5588 emu kill",
+  "owned_emulator_process_exit": 0,
+  "adb_devices_after": "List of devices attached",
+  "owned_qemu_processes_after": [],
+  "battery_and_display_overrides_reset": true,
+  "started_metro": false,
+  "started_mock_servers": false,
+  "avd_retained_offline": true
+}

@@ -11,8 +11,9 @@ import {requestMicrophonePermission} from './microphonePermission';
 import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {useScopePanels} from './scopes/useScopes';
-import ExperimentalWifiBadge from './connection/ExperimentalWifiBadge';
-import LutPresetList, {lutDisplayName} from './LutPresetList';
+import LutPresetList from './LutPresetList';
+import CameraHud from './hud/CameraHud';
+import {hudSafeBounds} from './hud/readings';
 
 type Panel = 'lut' | 'delay' | null;
 type Props = {
@@ -138,13 +139,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
             <View style={[styles.emptyCopy, landscape && styles.emptyCopyLandscape]}><Text style={styles.emptyTitle}>等待相机取景</Text></View>
             <Button textColor={ui.color.text} mode="outlined" accessibilityLabel="体验演示" contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button>
           </ScrollView>}
-          {hasFeed && <ScopesOverlay panels={scopePanels} bounds={{...(previewFrame || finderSize), insets: {top: hudTopHeight + ui.space.lg, bottom: hudBottomHeight + ui.space.lg, left: ui.space.gutter, right: ui.space.gutter}}} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
-          <View pointerEvents="none" testID="hud-top" style={styles.hudTop} onLayout={event => setHudTopHeight(event.nativeEvent.layout.height)}>
-            <ExperimentalWifiBadge state={state}/><View style={styles.hudStatusRow}>{state.demo && <Text style={styles.hud}>DEMO</Text>}{state.lut && <Text numberOfLines={1} style={[styles.hud, styles.lutBadge]}>{lutDisplayName(state.lut)}</Text>}<View style={styles.hudSpacer}/></View>
-          </View>
-          <View pointerEvents="box-none" testID="hud-bottom" style={styles.hudBottom} onLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}>
-            <View pointerEvents="none" style={styles.hudBadgeRow}>{motionEnabled && <Text style={styles.hud}>{buffered.toFixed(1)}s</Text>}<View style={styles.hudSpacer}/></View>
-          </View>
+          {hasFeed && <ScopesOverlay panels={scopePanels} bounds={hudSafeBounds(previewFrame || finderSize, hudTopHeight, hudBottomHeight)} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
+          <CameraHud state={state} buffered={buffered} motion={motionEnabled} waiting={waiting} onTopLayout={event => setHudTopHeight(event.nativeEvent.layout.height)} onBottomLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}/>
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
         </View>
       </View>
@@ -193,11 +189,6 @@ const styles = StyleSheet.create({
   emptyLandscape: {flexDirection: 'row', gap: ui.space.lg}, emptyCopy: {alignItems: 'center', gap: ui.space.sm}, emptyCopyLandscape: {flexShrink: 1, alignItems: 'flex-start'},
   emptyTitle: {...ui.type.title}, muted: {...ui.type.body, color: ui.color.muted}, touch: {minHeight: ui.icon.touch},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'},
-  hud: {...ui.type.label, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.xs, borderRadius: ui.space.xs, backgroundColor: ui.color.badge, color: ui.color.text, fontVariant: ['tabular-nums']},
-  hudTop: {position: 'absolute', zIndex: 1000, top: ui.space.gutter, left: ui.space.gutter, right: ui.space.gutter, gap: ui.space.xs},
-  hudStatusRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: ui.space.xs}, lutBadge: {maxWidth: '35%', flexShrink: 1}, hudSpacer: {flexGrow: 1}, scopeSource: {alignSelf: 'flex-start', color: ui.color.muted},
-  hudBottom: {position: 'absolute', zIndex: 1000, bottom: ui.space.gutter, left: ui.space.gutter, right: ui.space.gutter, gap: ui.space.sm},
-  hudBadgeRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: ui.space.xs},
   focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: ui.color.accent},
   focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
   countdown: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'},
