@@ -83,6 +83,45 @@ describe('independent scope panel state', () => {
       }
     }
   });
+  it('tiles all compact and medium cards without covering measured HUD safe zones', () => {
+    for (const bounds of [
+      {width: 360, height: 540, insets: {top: 92, bottom: 112, left: 16, right: 16}},
+      {width: 600, height: 360, insets: {top: 76, bottom: 112, left: 16, right: 16}},
+      {width: 278, height: 416, insets: {top: 126, bottom: 112, left: 16, right: 16}},
+      {width: 472, height: 315, insets: {top: 90, bottom: 114, left: 16, right: 16}},
+    ]) for (const size of ['S', 'M'] as const) {
+      const layouts = [0, 1, 2, 3].map(slot => scopePanelLayout(bounds, {x: 0, y: 0}, size, slot));
+      for (const [index, layout] of layouts.entries()) {
+        expect(layout.y).toBeGreaterThanOrEqual(bounds.insets.top);
+        expect(layout.y + layout.height).toBeLessThanOrEqual(bounds.height - bounds.insets.bottom);
+        for (const other of layouts.slice(index + 1)) expect(
+          layout.x + layout.width <= other.x || other.x + other.width <= layout.x ||
+          layout.y + layout.height <= other.y || other.y + other.height <= layout.y,
+        ).toBe(true);
+      }
+      for (const position of [{x: 0, y: 0}, {x: 1, y: 1}]) {
+        const layout = scopePanelLayout(bounds, position, size);
+        expect(layout.y).toBeGreaterThanOrEqual(bounds.insets.top);
+        expect(layout.y + layout.height).toBeLessThanOrEqual(bounds.height - bounds.insets.bottom);
+      }
+    }
+  });
+  it('places a newly opened panel in a free tile', () => {
+    let state = createScopePanelState();
+    state = updateScopePanelState(state, {type: 'toggle', kind: 'waveform'});
+    state = {...state, waveform: {...state.waveform, slot: 0}};
+    state = updateScopePanelState(state, {type: 'toggle', kind: 'histogram'});
+    expect(state.histogram.slot).not.toBe(state.waveform.slot);
+  });
+  it('expands a lone medium panel on a small preview without covering either HUD row', () => {
+    const bounds = {width: 278, height: 416, insets: {top: 126, bottom: 112, left: 16, right: 16}};
+    const small = scopePanelLayout(bounds, {x: 1, y: 1}, 'S', 3, 1);
+    const medium = scopePanelLayout(bounds, {x: 1, y: 1}, 'M', 3, 1);
+    expect(medium.width).toBeGreaterThan(small.width);
+    expect(medium.height).toBeGreaterThan(small.height);
+    expect(medium.y).toBeGreaterThanOrEqual(bounds.insets.top);
+    expect(medium.y + medium.height).toBeLessThanOrEqual(bounds.height - bounds.insets.bottom);
+  });
   it('raises a dragged panel without closing or moving it', () => {
     const before = createScopePanelState();
     const after = updateScopePanelState(before, {type: 'raise', kind: 'histogram'});

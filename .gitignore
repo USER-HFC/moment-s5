@@ -11,6 +11,7 @@ local.properties
 evidence/initial.png
 evidence/detail.png
 outputs/*.apk
+dist/*.apk
 
 # Private camera responses, images, packet captures and credentials.
 s5-field-runs/

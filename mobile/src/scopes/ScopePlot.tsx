@@ -60,7 +60,7 @@ export default React.memo(function ScopePlot({kind, data}: {kind: ScopeKind; dat
     const size = SCOPE_SHAPE.paradeWidth * SCOPE_SHAPE.levels;
     return [0, 1, 2].map(channel => densityPaths(data.parade.subarray(channel * size, (channel + 1) * size), SCOPE_SHAPE.paradeWidth));
   }, [kind, data]);
-  return <Svg width="100%" height="100%" viewBox="0 0 288 150" accessibilityLabel={`${SCOPE_TITLES[kind]} 实时图表`}>
+  return <Svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox={kind === 'vectorscope' ? '0 0 136 150' : '0 0 288 150'} accessibilityLabel={`${SCOPE_TITLES[kind]} 实时图表`}>
     {kind === 'histogram' && <>
       <Rect x={24} y={6} width={256} height={120} fill="#05090855" stroke={GRID}/>
       {[64, 128, 192].map(bin => <Line key={bin} x1={24 + bin} x2={24 + bin} y1={6} y2={126} stroke={GRID}/>)}
@@ -79,13 +79,13 @@ export default React.memo(function ScopePlot({kind, data}: {kind: ScopeKind; dat
         <SvgText x={24 + (i + .5) * 256 / 3} y={143} textAnchor="middle" fill={color} fontSize={10}>{['R', 'G', 'B'][i]}</SvgText>
       </G>)}
     </>}
-    {kind === 'vectorscope' && <>
+    {kind === 'vectorscope' && <G transform="translate(-76 0)">
       <Circle cx={144} cy={66} r={60} fill="#05090855" stroke={GRID}/>
       <Circle cx={144} cy={66} r={30} fill="none" stroke={GRID}/>
       <Line x1={84} x2={204} y1={66} y2={66} stroke={GRID}/><Line x1={144} x2={144} y1={6} y2={126} stroke={GRID}/>
       <G transform="translate(84 6) scale(1.875)"><Density paths={paths[0]} color={INK}/></G>
       {TARGETS.map(target => <G key={target.name}><Rect x={target.x - 3} y={target.y - 3} width={6} height={6} fill="none" stroke={target.color}/><SvgText x={target.x + 6} y={target.y + 3} fontSize={9} fill={target.color}>{target.name}</SvgText></G>)}
-      <SvgText x={144} y={143} textAnchor="middle" fill={INK} fontSize={9}>Cb → · Cr ↑ · 75% 色标</SvgText>
-    </>}
+      <SvgText x={144} y={143} textAnchor="middle" fill={INK} fontSize={9}>75% 色标</SvgText>
+    </G>}
   </Svg>;
 });

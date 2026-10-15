@@ -4,7 +4,9 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[下载 v0.7.0 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[预发布 v0.8.0-beta.1 · 实验 Wi-Fi](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.1) · [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+
+v0.8.0-beta.1（code 22）加入实时示波器、8 个自生成非官方 Fuji 风格 LUT、统一拍摄 / 相册界面和实验 Wi-Fi。**Wi-Fi 未经实体 S5 验证，USB 仍为默认与推荐方式。beta 签名与 v0.7.0 不同：先把旧版照片保存到系统相册并确认成功，再卸载旧 App、安装 beta。** APK 与 SHA-256 见预发布说明；本次合并版验证见 [发布验证报告](evidence/v0.8.0-beta.1-release/REPORT.md)。
 
 v0.7.0 修复三项拍摄页问题：相册支持双指缩放、单击显隐操作、删除 App 内副本，并直接返回拍照页；动态照片改为按下快门时冻结连续预录队列，不再先录未来 3 秒；相机照片索引在快门前准备，避免慢 USB 索引阻塞快门。相机 SD 卡原片和已导出系统相册副本不会因 App 删除而删除。
 
@@ -16,7 +18,7 @@ v0.5.8 修复 S5 拍摄后 JPEG 索引更新滞后导致的“未找到本次 JP
 
 ## 当前交付
 
-- React Native Android APK，最低 Android 13（API 33）；双向横屏，左侧画面、右侧滚动操作区。`mobile/` 是 RN 工程，产品名为“瞬间 Lumix”。
+- React Native Android APK，最低 Android 13（API 33）；支持竖屏及双向横屏，工具栏、焦点组和快门区随方向重排。`mobile/` 是 RN 工程，产品名为“瞬间 Lumix”。
 - 监看：实时取景、构图网格开关、对焦控制；定时遥控：前台倒计时单张快门，仅保存到机身 SD 卡，不自动下载。
 - Panasonic PTP USB 会话、实时 JPEG 取景、AF、近/远焦步进、曝光参数读取。
 - 手机缓存快门前约 3 秒取景，App 快门触发 S5 拍照，再接收本次原尺寸 JPEG；不采集快门后画面。
@@ -34,13 +36,13 @@ v0.5.8 修复 S5 拍摄后 JPEG 索引更新滞后导致的“未找到本次 JP
 
 ## 在 OPPO 上使用
 
-1. 从 [v0.7.0 Release](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) 下载并安装 arm64 APK。这是开发测试签名，不是商店发行包；与旧版签名一致，可直接覆盖安装。
+1. 下载 [v0.8.0-beta.1 预发布 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.1)，或选择 [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0)。beta 使用新的开发测试签名，无法覆盖安装 v0.7.0；先导出照片并确认系统相册副本，再卸载旧版。
 2. 手机设置搜索“OTG”并开启。使用支持数据的 USB-C to USB-C 线接 S5。
 3. S5 选择 **PC(Tether)**、单张拍摄、JPEG 或 RAW+JPEG，确认 SD 卡可写。先用较短快门测试，例如 1/125s。
-4. 打开 App 直接进入拍摄页，通过“连接相机”允许 USB 访问；顶部可打开动态照片、定时、LUT 和构图网格。
-5. 打开顶部 **动态照片**，等取景缓存显示已就绪后点“拍摄动态照片”。按下快门时 App 会冻结已经缓存的前三秒并立即触发机身快门，不会再等待快门后的画面。在接收这张照片期间不要同时按机身快门或连接其他遥控软件。
+4. 打开 App 直接进入拍摄页，点顶部“连接”选择 USB 并允许访问；同一面板也提供 Wi-Fi（实验）与合成演示。顶部提供网格、LUT 和示波器，对焦组位于取景底部。
+5. 在快门旁选择 **动态**，等取景缓存就绪后点“拍摄动态照片”。按下快门时 App 会冻结已经缓存的前三秒并立即触发机身快门，不会再等待快门后的画面。在接收这张照片期间不要同时按机身快门或连接其他遥控软件。
 6. 在拍摄页打开“相册”会直接预览最近照片；单击显示或隐藏操作，双指缩放，长按照片回放。列表中可切换旧照片；“保存到系统相册”写入 `DCIM/MomentS5`，删除只移除 App 内副本。
-7. 如需声音，在“连接”页开启“录制手机环境声”。离开 App 后停止收音和连接；回来手动重连。
+7. 如需声音，点快门区的“环境声”并授权麦克风。离开 App 后停止收音和连接；回来手动重连。
 
 **定时遥控**：选择延时，点“开始倒计时”，可随时在指令发出前取消。离开页面、退到后台或 USB 拔出会取消尚未到点的任务；不支持后台定时、间隔连拍或自动重试。照片仅保存在机身，请在机身确认结果；本机相册不浏览相机存储卡。
 
@@ -141,4 +143,4 @@ Android 在独立低优先级线程中分析与监看相同的 LUT 后 JPEG（�
 
 debug APK 才显示“模拟相机调试”，也会在原生层拒绝 release 的任意主机设置。独立模拟器可使用 `10.0.2.2:18088`、UDP `49152`，运行 `python3 -I tools/s5-wifi/mock_camera.py --http-port 18088 --ssdp-port 11988 --advertise-host 10.0.2.2`；向指定模拟器执行 `adb -s emulator-5580 emu redir add udp:49152:49152`。mock HTTP 仍只绑定 Mac loopback。详细复现命令在验证报告中。
 
-**安装 beta 前先导出照片。** 本版使用与 v0.7.0 不同的开发签名密钥：原密钥不可用，当前 `~/.android/debug.keystore` 于 2026-10-14 创建。因此不能覆盖安装旧版，须先把 App 内照片保存到系统相册，再卸载旧 App、安装 beta；卸载会删除 App 内照片和导入的 LUT，SD 卡原片和已导出的系统相册副本保留。本分支只准备版本 `0.8.0-beta.1` / code `22`，未推送、打 tag 或发布。
+**安装 beta 前先导出照片。** 本版使用与 v0.7.0 不同的开发签名密钥：原密钥不可用，当前 `~/.android/debug.keystore` 于 2026-10-14 创建。因此不能覆盖安装旧版，须先把 App 内照片保存到系统相册并确认成功，再卸载旧 App、安装 beta；卸载会删除 App 内照片和导入的 LUT，SD 卡原片和已导出的系统相册副本保留。版本 `0.8.0-beta.1` / code `22` 以 GitHub pre-release 提供，v0.7.0 保留为最新稳定版。

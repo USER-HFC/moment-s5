@@ -1,7 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {jest, expect, it} from '@jest/globals';
-import {Alert, Animated} from 'react-native';
+import {Alert, Animated, View} from 'react-native';
 
 jest.mock('react-native-video', () => {
   const React = require('react');
@@ -50,6 +50,15 @@ it('reveals the full list through the explicit list action', () => {
   expect(tree.root.findByProps({accessibilityLabel: '动态照片列表'})).toBeTruthy();
   expect(tree.root.findByProps({accessibilityLabel: '返回最近照片预览'})).toBeTruthy();
   act(() => tree.unmount());
+});
+
+it('never puts raw text in native View children when showing the album list', () => {
+  let tree: renderer.ReactTestRenderer;
+  act(() => {tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);});
+  act(() => tree!.root.findByProps({accessibilityLabel: '查看相册列表'}).props.onPress());
+  const raw = tree!.root.findAllByType(View).flatMap(node => React.Children.toArray(node.props.children)).filter(child => typeof child === 'string');
+  expect(raw).toEqual([]);
+  act(() => tree!.unmount());
 });
 
 it('stops long-press playback when the finger is released', () => {

@@ -299,4 +299,26 @@ python3 -I tools/s5-wifi/run_mock_smoke.py --framing sequence --evidence s5-fiel
 
 mock runner 用 loopback 的随机 HTTP/SSDP/UDP 端口启动相机，实际子进程执行 discover → auth → probe → liveview → catalog → shoot → verify → report，核对服务器 capture_count=1、pre-only manifest、SD 字节一致；把脱敏报告留在 `evidence/s5-wifi-mock/`，私有 JPEG/原始响应在 gitignored 的 run 目录。也可以两个终端手动使用 `python3 -I tools/s5-wifi/mock_camera.py --http-port 18080 --ssdp-port 11900`，客户端加 `--camera-ip 127.0.0.1 --http-port 18080`；discover 加 `--ssdp-port 11900`。Ctrl-C 停 mock，mock SD 文件与 request 计数写入它的 `--out`。
 
+`mock_release_camera.py --out s5-field-runs/release-smoke` 是同一 mock 的 release APK 验证适配器：HTTP 18080、DLNA 60606，仅绑定 Mac loopback，description 的型号字段固定声明 `DC-S5`；制造商、固件和 JPEG EXIF 仍明确是自写 fixture。它不证明型号检测或实体协议兼容。只在独立、可 root 的测试 AVD 使用以下临时规则，App 中选手动 Wi-Fi，IP 填 `10.0.2.2`，无需开启 release 不提供的 debug 选项：
+
+```sh
+adb -s emulator-5580 root
+adb -s emulator-5580 shell svc wifi enable
+adb -s emulator-5580 reverse tcp:18080 tcp:18080
+adb -s emulator-5580 reverse tcp:60606 tcp:60606
+adb -s emulator-5580 shell iptables -t nat -A OUTPUT -d 10.0.2.2 -p tcp --dport 80 -j REDIRECT --to-ports 18080
+adb -s emulator-5580 shell iptables -t nat -A OUTPUT -d 10.0.2.2 -p tcp --dport 18080 -j REDIRECT --to-ports 18080
+adb -s emulator-5580 shell iptables -t nat -A OUTPUT -d 10.0.2.2 -p tcp --dport 60606 -j REDIRECT --to-ports 60606
+adb -s emulator-5580 emu redir add udp:49152:49152
+# 验证后删除自己加入的规则与转发，并用 Ctrl-C 停止 mock：
+adb -s emulator-5580 shell iptables -t nat -D OUTPUT -d 10.0.2.2 -p tcp --dport 80 -j REDIRECT --to-ports 18080
+adb -s emulator-5580 shell iptables -t nat -D OUTPUT -d 10.0.2.2 -p tcp --dport 18080 -j REDIRECT --to-ports 18080
+adb -s emulator-5580 shell iptables -t nat -D OUTPUT -d 10.0.2.2 -p tcp --dport 60606 -j REDIRECT --to-ports 60606
+adb -s emulator-5580 reverse --remove tcp:18080
+adb -s emulator-5580 reverse --remove tcp:60606
+adb -s emulator-5580 emu redir del udp:49152
+```
+
+端口重定向仅属于测试 AVD；release APK 仍使用生产的私有 IPv4 校验、Android Wi-Fi `Network` socket 绑定、前台生命周期和标准 80 / 60606 端口。不得把以上规则用于实体手机或相机。
+
 全部代码、灰阶 JPEG encoder 和最小 XML/CSV/pcap fixtures 为本项目独立编写，沿用仓库 [MIT LICENSE](../../LICENSE)。协议事实来自[本项目研究 §4/§5/§11](../../docs/research/wireless-connection.md)，没有复制 GPL/许可不明项目的实现或抓包，也没有取得 SDK、修改固件或改 App。Gen2 profile 与未知 UDP 格式保持实机验证边界；mock 不能替代实体 S5/Find X8 验收。

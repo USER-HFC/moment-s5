@@ -2,6 +2,7 @@ import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {CameraState} from '../native';
+import {ui} from '../theme';
 
 export default function ExperimentalWifiBadge({state}: {state: Pick<CameraState, 'transport' | 'exposure'>}) {
   if (state.transport !== 'wifi') return null;
@@ -10,4 +11,8 @@ export default function ExperimentalWifiBadge({state}: {state: Pick<CameraState,
     {state.exposure && <Text style={styles.detail}>{state.exposure}</Text>}
   </View>;
 }
-const styles = StyleSheet.create({badge: {backgroundColor: '#161b16e6', borderColor: '#657255', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, maxWidth: 260}, label: {fontSize: 10, lineHeight: 12, color: '#d6e6b6'}, detail: {fontSize: 10, lineHeight: 12, color: '#c9cebf', marginTop: 2}});
+const styles = StyleSheet.create({
+  badge: {alignSelf: 'flex-start', backgroundColor: ui.color.badge, borderColor: ui.color.outline, borderWidth: 1, borderRadius: ui.radius.small, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.xs, maxWidth: '100%'},
+  label: {...ui.type.label, color: ui.color.text},
+  detail: {...ui.type.caption, color: ui.color.muted, marginTop: ui.space.xs},
+});

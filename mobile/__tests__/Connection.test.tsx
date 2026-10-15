@@ -12,7 +12,7 @@ import {connectionOptions, initialConnectionForm} from '../src/connection/model'
 import CameraWorkspace from '../src/CameraWorkspace';
 
 const state = {active: false, busy: false, ready: false, demo: false, lut: null};
-const props = {visible: true, state, status: '', debugAllowed: true, onClose: jest.fn(), onUsb: jest.fn(async () => {}), onWifi: jest.fn(async () => {}), onDisconnect: jest.fn()};
+const props = {visible: true, state, status: '', debugAllowed: true, onClose: jest.fn(), onUsb: jest.fn(async () => {}), onWifi: jest.fn(async () => {}), onDemo: jest.fn(async () => {}), onDisconnect: jest.fn()};
 let tree: renderer.ReactTestRenderer;
 const originalPlatform = Platform.OS;
 beforeEach(() => {Platform.OS = 'android'; jest.useFakeTimers(); jest.clearAllMocks(); act(() => {tree = renderer.create(<ConnectionSheet {...props}/>);});});
@@ -40,6 +40,21 @@ it('validates known SSID and requests permission only for automatic joining', as
   await act(async () => button('连接 Wi-Fi 实验相机').props.onPress());
   expect(request).toHaveBeenCalledTimes(1); expect(props.onWifi).not.toHaveBeenCalled();
   expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toContain('权限未授权');
+});
+it('exposes an independent synthetic demo choice without dispatching a camera connection', async () => {
+  act(() => button('合成演示方式').props.onPress());
+  await act(async () => button('启动合成演示').props.onPress());
+  expect(props.onDemo).toHaveBeenCalledTimes(1);
+  expect(props.onUsb).not.toHaveBeenCalled(); expect(props.onWifi).not.toHaveBeenCalled();
+});
+it('reopens on the active Wi-Fi connection and retains the connection state in the top control', () => {
+  const connected = {...state, active: true, transport: 'wifi' as const};
+  act(() => tree.update(<ConnectionSheet {...props} state={connected}/>));
+  expect(button('Wi-Fi 实验连接方式').props.accessibilityState.selected).toBe(true);
+  expect(JSON.stringify(tree.toJSON())).toContain('Wi-Fi（实验）已连接');
+  act(() => tree.update(<CameraWorkspace state={connected} buffered={0} luts={[]} onAlbum={() => {}} onLut={async () => {}} onImportLut={async () => {}} onRefresh={async () => {}} onConnect={async () => {}}/>));
+  expect(tree.root.findByProps({accessibilityLabel: '相机连接'}).props.accessibilityHint).toContain('Wi-Fi已连接');
+  expect(tree.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
 });
 it('keeps failures readable and suppresses duplicate submits while awaiting native dispatch', async () => {
   let release: () => void = () => {};

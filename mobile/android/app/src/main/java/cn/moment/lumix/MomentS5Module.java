@@ -47,7 +47,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     }
     @Override public Map<String,Object> getConstants(){return Map.of("wifiDebugEnabled",(context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);}
     @ReactMethod public void demo(){wifi.close();lifecycle.cancel();engine.demo();}
-    @ReactMethod public void disconnect(){wifi.close();lifecycle.cancel();engine.disconnect();}
+    @ReactMethod public void disconnect(){wifi.close();lifecycle.cancel();engine.disconnect();status("相机已断开 · 请重新连接");}
     @ReactMethod public void capture(){engine.capture();}
     @ReactMethod public void remoteShutter(){engine.remoteShutter();}
     @ReactMethod public void focus(int direction){engine.focus(direction);}
