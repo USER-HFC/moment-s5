@@ -12,6 +12,9 @@ import java.util.function.Consumer;
 /** Native transport adapted from tethr (see NOTICE.md). All bulk operations are serialized. */
 public final class UsbS5 implements AutoCloseable {
     public static final int PANASONIC_VID=0x04da;
+    static final long EXCHANGE_DEADLINE_MS=15000,SHUTTER_DEADLINE_MS=60000;
+    /** A -1 sooner than this is a transport failure, not a timeout. */
+    static final long FAST_FAILURE_MS=200;
     private final UsbDeviceConnection connection;
     private final UsbInterface iface;
     private final UsbEndpoint in,out,events;
@@ -86,10 +89,19 @@ public final class UsbS5 implements AutoCloseable {
     public byte[] object(int h) throws IOException { Result r=exchange(0x1009,null,64*1024*1024,h);r.ok();return r.data; }
     public synchronized String exposure() {
         try {
-            int iso=property(0x02000020,4),ap=property(0x02000040,2),ss=property(0x02000030,4);
-            String shutter=(ss<0)?String.format(Locale.US,"%.1fs",(ss&0x7fffffff)/1000.0):"1/"+(ss/1000);
-            return "ISO "+(iso<0?"AUTO":iso)+"     f/"+String.format(Locale.US,"%.1f",ap/10.0)+"     "+shutter;
+            // libgphoto2 reads the current ISO and aperture from the *_Param codes;
+            // the list descriptor's value is only a fallback.
+            int iso=current(0x02000021,0x02000020,4),ap=current(0x02000041,0x02000040,2),ss=property(0x02000030,4);
+            if(ss==0) ss=value(0x02000030);
+            return Ptp.isoLabel(iso)+"     "+Ptp.apertureLabel(ap)+"     "+Ptp.shutterLabel(ss);
         } catch(IOException e) {log.accept("参数读取："+e.getMessage());return "曝光参数暂不可读 · 可用机身调整";}
+    }
+    private int current(int param,int list,int size) throws IOException {
+        try {return value(param);}
+        catch(IOException e) {if(closed) throw e;return property(list,size);}
+    }
+    private int value(int prop) throws IOException {
+        Result x=exchange(0x9402,null,65536,prop);x.ok();return Ptp.propertyValue(x.data);
     }
     private int property(int prop,int size) throws IOException {
         Result x=exchange(0x9108,null,65536,prop);x.ok();
@@ -129,7 +141,8 @@ public final class UsbS5 implements AutoCloseable {
         if(!allowed(op)) throw new IOException("指令不在白名单");
         // OpenSession is outside the session and must use transaction zero.
         int tx=op==0x1002?0:transaction++;
-        long deadline=SystemClock.elapsedRealtime()+15000;
+        // The body may answer a release only after metering, AF and the card write.
+        long deadline=SystemClock.elapsedRealtime()+(op==0x9404?SHUTTER_DEADLINE_MS:EXCHANGE_DEADLINE_MS);
         try {
             write(Ptp.command(op,tx,params),deadline);
             if(send!=null) {
@@ -138,8 +151,8 @@ public final class UsbS5 implements AutoCloseable {
             }
             byte[] data=new byte[0];boolean receivedData=false;
             for(int count=0;count<4;count++) {
-                Ptp.Container header=Ptp.container(read(12,deadline),op,tx,limit);
-                byte[] payload=read(header.payloadLength(),deadline);
+                Ptp.Container header=Ptp.container(read(12,deadline,true),op,tx,limit);
+                byte[] payload=read(header.payloadLength(),deadline,false);
                 if(header.type()==2) {if(receivedData)throw new IOException("PTP 收到重复数据容器");data=payload;receivedData=true;continue;}
                 return new Result(op,header.code(),data);
             }
@@ -151,7 +164,7 @@ public final class UsbS5 implements AutoCloseable {
         }
     }
     private static boolean allowed(int op) {
-        return switch(op) {case 0x1001,0x1002,0x1003,0x1007,0x1008,0x1009,0x9102,0x9103,0x9108,0x9404,0x9405,0x9412,0x9416,0x9706 -> true; default -> false;};
+        return switch(op) {case 0x1001,0x1002,0x1003,0x1007,0x1008,0x1009,0x9102,0x9103,0x9108,0x9402,0x9404,0x9405,0x9412,0x9416,0x9706 -> true; default -> false;};
     }
     private void write(byte[] bytes,long deadline) throws IOException {
         for(int p=0;p<bytes.length;) {
@@ -160,12 +173,24 @@ public final class UsbS5 implements AutoCloseable {
         }
     }
     private int remaining(long deadline) throws IOException {long t=deadline-SystemClock.elapsedRealtime();if(t<=0 || closed) throw new IOException("USB 超时或已断开");return (int)Math.min(t,3000);}
-    private byte[] read(int length,long deadline) throws IOException {
-        byte[] result=new byte[length];int p=0,empty=0;
+    /**
+     * Android reports both a timeout and a real failure as -1. A timeout before the
+     * first byte of a container only means the body has not answered yet, so keep
+     * waiting until the exchange deadline. Inside a container the cancelled transfer
+     * may have dropped bytes, which breaks framing, so that stays fatal.
+     */
+    private byte[] read(int length,long deadline,boolean awaitStart) throws IOException {
+        byte[] result=new byte[length];int p=0,empty=0,fast=0;
         while(p<length) {
             if(offset==available) {
-                available=connection.bulkTransfer(in,packet,packet.length,remaining(deadline));offset=0;
-                if(available<0) throw new IOException("USB 读取失败或超时");
+                int timeout=remaining(deadline);long started=SystemClock.elapsedRealtime();
+                available=connection.bulkTransfer(in,packet,packet.length,timeout);offset=0;
+                if(available<0) {
+                    available=0;
+                    boolean timedOut=SystemClock.elapsedRealtime()-started>=Math.min(timeout,FAST_FAILURE_MS);
+                    if(!awaitStart || p>0 || (!timedOut && ++fast>2)) throw new IOException("USB 读取失败或超时");
+                    continue;
+                }
                 if(available==0) {if(++empty>4) throw new IOException("USB 连续空包");continue;}
             }
             int n=Math.min(length-p,available-offset);System.arraycopy(packet,offset,result,p,n);offset+=n;p+=n;

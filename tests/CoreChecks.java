@@ -43,6 +43,19 @@ public final class CoreChecks {
         byte[] live=new byte[190];Ptp.le(live).putInt(0,0x17000001).putInt(4,8).putInt(12,180);live[180]=(byte)255;live[181]=(byte)216;live[182]=(byte)255;
         check(Ptp.liveJpeg(live).length==10,"header JPEG offset");
         Ptp.le(live).putInt(12,Integer.MAX_VALUE);check(Ptp.liveJpeg(live).length==10,"bounded offset fallback");
+        byte[] property=new byte[12];Ptp.le(property).putInt(0,0x02000021).putInt(4,4).putInt(8,800);
+        check(Ptp.propertyValue(property)==800,"GetProperty 4-byte value at offset 8");
+        byte[] shortProperty=new byte[10];Ptp.le(shortProperty).putInt(0,0x02000041).putInt(4,2).putShort(8,(short)56);
+        check(Ptp.propertyValue(shortProperty)==56,"GetProperty 2-byte value at offset 8");
+        Ptp.le(property).putInt(4,3);
+        try{Ptp.propertyValue(property);throw new AssertionError("odd property size accepted");}catch(IOException expected){checks++;}
+        check(Ptp.shutterLabel(125000).equals("1/125"),"fast shutter");
+        check(Ptp.shutterLabel(1300).equals("1/1.3"),"fractional shutter is not truncated to 1/1");
+        check(Ptp.shutterLabel(0x80000000|2500).equals("2.5s") && Ptp.shutterLabel(0x80000000|60000).equals("60s"),"slow shutter seconds");
+        check(Ptp.shutterLabel(0xffffffff).equals("B"),"bulb is not shown as a huge exposure");
+        check(Ptp.shutterLabel(0).equals("快门 --"),"unread shutter is not 1/0");
+        check(Ptp.apertureLabel(40).equals("f/4") && Ptp.apertureLabel(56).equals("f/5.6"),"aperture tenths");
+        check(Ptp.isoLabel(-1).equals("ISO AUTO") && Ptp.isoLabel(3200).equals("ISO 3200"),"ISO auto and value");
         byte[] oi=new byte[70];Ptp.le(oi).putShort(4,(short)0x3801).putInt(8,123456).putInt(26,6000).putInt(30,4000);oi[52]=8;
         byte[] filename="P01.JPG".getBytes(StandardCharsets.UTF_16LE);System.arraycopy(filename,0,oi,53,filename.length);
         Ptp.ObjectInfo object=new Ptp.ObjectInfo(oi);check(object.jpeg() && object.width==6000 && object.height==4000 && object.size==123456,"object info layout");

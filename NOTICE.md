@@ -16,6 +16,10 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+The Panasonic vendor property codes and value layouts used for the USB exposure readout (`0x9402` GetProperty, the `*_Param` codes, shutter encoding) follow **libgphoto2** (`camlibs/ptp2`, LGPL-2.1) as protocol facts; no libgphoto2 code is included.
+
+The Wi-Fi connection order, `accctrl` identity format, GENA subscription, retry budgets, live-view datagram header and DC-S5 quirks in `WifiS5Transport.java` / `WifiS5Protocol.java` follow the protocol notes and real DC-S5 evidence published by **lumix-remote** (MIT): https://github.com/sapoepsilon/lumix-remote . No lumix-remote code is included.
+
 Motion Photo serialization follows Google's public specification: https://developer.android.com/media/platform/motion-photo-format . This project includes no Panasonic SDK DLLs, firmware, fonts, or cloud services. Android SDK/Gradle are build tools and are not shipped inside the app.
 
 ## Gradle Wrapper

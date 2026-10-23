@@ -73,6 +73,25 @@ public final class Ptp {
         }
         public boolean jpeg() { return format == 0x3801 || filename.toLowerCase(java.util.Locale.ROOT).endsWith(".jpg"); }
     }
+    /** Panasonic GetProperty (0x9402): [code][value size][value], as in libgphoto2. */
+    public static int propertyValue(byte[] data) throws IOException {
+        Reader r=new Reader(data);r.skip(4);int size=r.i32();
+        if(size==4) return r.i32();
+        if(size==2) return r.u16();
+        throw new IOException("属性值长度异常 "+size);
+    }
+    public static String isoLabel(int iso) {return "ISO "+(iso<0?"AUTO":Integer.toString(iso));}
+    public static String apertureLabel(int tenths) {
+        return tenths<=0?"f/--":"f/"+(tenths%10==0?Integer.toString(tenths/10):String.format(java.util.Locale.US,"%.1f",tenths/10.0));
+    }
+    /** 0xFFFFFFFF is bulb; the high bit marks whole/tenth seconds, otherwise 1/(value/1000). */
+    public static String shutterLabel(int value) {
+        if(value==0xffffffff) return "B";
+        if(value==0) return "快门 --";
+        int v=value&0x7fffffff;
+        String amount=v%1000==0?Integer.toString(v/1000):String.format(java.util.Locale.US,"%.1f",v/1000.0);
+        return (value&0x80000000)!=0?amount+"s":"1/"+amount;
+    }
     public static byte[] liveJpeg(byte[] data) throws IOException {
         if(data.length<4) return null;
         int jpegOffset=180;

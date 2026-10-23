@@ -56,7 +56,17 @@ public final class WifiS5Checks {
         byte[] packet=new byte[jpeg.length+8];System.arraycopy(jpeg,0,packet,8,jpeg.length);
         check(Arrays.equals(WifiS5Protocol.datagram(packet,packet.length),jpeg),"bounded datagram header accepted");
         check(WifiS5Protocol.datagram(jpeg,jpeg.length-2)==null,"partial JPEG dropped");
-        check(WifiS5Protocol.datagram(Arrays.copyOf(jpeg,jpeg.length+2),jpeg.length+2)==null,"trailing bytes dropped");
+        check(Arrays.equals(WifiS5Protocol.datagram(Arrays.copyOf(jpeg,jpeg.length+2),jpeg.length+2),jpeg),"datagram trailer trimmed at EOI");
+        byte[] s5=new byte[254+jpeg.length+5];s5[0]=(byte)((s5.length>>8)&255);s5[1]=(byte)(s5.length&255);
+        s5[9]=(byte)0xff;s5[10]=(byte)0xd8;s5[11]=(byte)0xff;s5[15]=0;s5[16]=0x21;s5[30]=0;s5[31]=(byte)0xde;System.arraycopy(jpeg,0,s5,254,jpeg.length);
+        check(Arrays.equals(WifiS5Protocol.datagram(s5,s5.length),jpeg),"S5 header offset wins over FF D8 inside the camera MAC");
+        byte[] padded=Arrays.copyOf(jpeg,(jpeg.length/512+1)*512);int[] paddedSize=WifiS5Protocol.jpeg(new ByteArrayInputStream(padded),65535);
+        check(paddedSize[0]==64 && paddedSize[2]==jpeg.length,"512-byte padded original validates through EOI");
+        var events=WifiS5Protocol.events(bytes("<e:propertyset xmlns:e='urn:schemas-upnp-org:event-1-0'><e:property><X_Panasonic_Cam_Sync>mod_Play</X_Panasonic_Cam_Sync></e:property></e:propertyset>"));
+        check(events.get("X_Panasonic_Cam_Sync").equals(List.of("mod_Play")),"GENA propertyset value parsed");
+        Path id=Files.createTempDirectory("wifi-id-").resolve("wifi-client-id");String first=WifiS5Protocol.clientId(id.toFile());
+        check(first.matches("4D454930-0100-1000-8001-[0-9A-F]{12}") && first.equals(WifiS5Protocol.clientId(id.toFile())),"accctrl identity uses LUMIX Sync format and persists");
+        Files.delete(id);Files.delete(id.getParent());
         reject(()->WifiS5Protocol.jpeg(new ByteArrayInputStream(jpeg),16),"JPEG size bound enforced");
         byte[] missingSof=jpeg.clone();for(int i=0;i<missingSof.length-1;i++)if((missingSof[i]&255)==255 && (missingSof[i+1]&255)==0xc0){missingSof[i+1]=(byte)0xe2;break;}
         reject(()->WifiS5Protocol.jpeg(new ByteArrayInputStream(missingSof),65535),"missing SOF rejected");
@@ -69,6 +79,10 @@ public final class WifiS5Checks {
         final AtomicInteger shots=new AtomicInteger(),browse=new AtomicInteger(),states=new AtomicInteger(),names=new AtomicInteger(),auth=new AtomicInteger();
         final List<String> controls=Collections.synchronizedList(new ArrayList<>());final List<String> photoIds=Collections.synchronizedList(new ArrayList<>());
         final byte[] preview,original;final String base;volatile int udpPort;volatile boolean focus=true,noUdp,redirect,truncate,wrongSize,refuseAuth,gen2,refuseShutter,chunked;volatile long captureDelay;
+        // S5 behaviour taken from lumix-remote's published real-body notes, not from our own hardware.
+        final AtomicInteger subscribes=new AtomicInteger(),unsubscribes=new AtomicInteger(),playmodes=new AtomicInteger(),recmodes=new AtomicInteger();
+        final List<String> browsed=Collections.synchronizedList(new ArrayList<>());
+        volatile boolean events=true,browseNeedsPlay,inPlay,folders,pad;volatile String cammode;volatile int underResearch,busyReplies,failStates,busyStates;
         Fixture(Path root,int oldCount) throws Exception {
             preview=Files.readAllBytes(root.resolve("preview.jpg"));original=Files.readAllBytes(root.resolve("original.jpg"));
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);base="http://127.0.0.1:"+server.getAddress().getPort();
@@ -82,25 +96,46 @@ public final class WifiS5Checks {
             try {
                 String path=exchange.getRequestURI().getPath();Map<String,String> query=new HashMap<>();String raw=exchange.getRequestURI().getRawQuery();
                 if(raw!=null)for(String field:raw.split("&")){String[] pair=field.split("=",2);query.put(pair[0],URLDecoder.decode(pair.length==2?pair[1]:"",StandardCharsets.UTF_8));}
-                if(path.equals("/Lumix/Server0/ddd")){send(exchange,"<root><device><modelName>MOCK-DC-S5</modelName><serviceList><service><serviceType>"+WifiS5Protocol.CDS+"</serviceType><controlURL>/CDS_control</controlURL></service></serviceList></device></root>");return;}
+                String cms=events?"<service><serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType><eventSubURL>/Server0/CMS_event</eventSubURL></service>":"";
+                if(path.equals("/Lumix/Server0/ddd")){send(exchange,"<root><device><modelName>MOCK-DC-S5</modelName><serviceList><service><serviceType>"+WifiS5Protocol.CDS+"</serviceType><controlURL>/CDS_control</controlURL></service>"+cms+"</serviceList></device></root>");return;}
+                if(path.equals("/Server0/CMS_event")){gena(exchange);return;}
                 if(path.equals("/CDS_control")){
-                    browse.incrementAndGet();var doc=WifiS5Protocol.xml(exchange.getRequestBody().readAllBytes());int start=Integer.parseInt(WifiS5Protocol.text(doc,"StartingIndex"));List<String> photos;
-                    synchronized(photoIds){photos=new ArrayList<>(photoIds);}StringBuilder items=new StringBuilder();int end=Math.min(start+100,photos.size());
-                    for(int i=start;i<end;i++)items.append(media(photos.get(i),"0","CAM_ORG",base+"/"+(redirect?"redirect":photos.get(i))+".JPG",original.length+(wrongSize?1:0)));
+                    browse.incrementAndGet();var doc=WifiS5Protocol.xml(exchange.getRequestBody().readAllBytes());int start=Integer.parseInt(WifiS5Protocol.text(doc,"StartingIndex"));String object=WifiS5Protocol.text(doc,"ObjectID");browsed.add(object);
+                    if(browseNeedsPlay && !inPlay){exchange.sendResponseHeaders(500,-1);exchange.close();return;}
+                    List<String> photos;synchronized(photoIds){photos=new ArrayList<>(photoIds);}
+                    if(folders && object.equals("0")) {
+                        // A dozen full older folders plus the newest one, as on a real S5 card.
+                        StringBuilder root=new StringBuilder();for(int f=0;f<12;f++)root.append("<container id='F"+(100+f)+"DIR' parentID='0' childCount='960'><title>"+(100+f)+"-0001</title></container>");
+                        root.append("<container id='F112DIR' parentID='0' childCount='"+photos.size()+"'><title>112-0001</title></container>");
+                        send(exchange,soap(root.toString(),13,13));return;
+                    }
+                    if(folders && !object.equals("F112DIR")){send(exchange,soap("",0,0));return;}
+                    String parent=folders?"F112DIR":"0";StringBuilder items=new StringBuilder();int end=Math.min(start+100,photos.size());
+                    int size=pad?(original.length/512+1)*512:original.length+(wrongSize?1:0);
+                    for(int i=start;i<end;i++)items.append(media(photos.get(i),parent,"CAM_ORG",base+"/"+(redirect?"redirect":photos.get(i))+".JPG",size));
                     send(exchange,soap(items.toString(),end-start,photos.size()));return;
                 }
                 if(path.endsWith(".JPG")){
                     if(redirect){exchange.getResponseHeaders().add("Location",base+"/cam.cgi?mode=camcmd&value=capture");exchange.sendResponseHeaders(302,-1);exchange.close();return;}
-                    byte[] image=original.clone();if(truncate)image[image.length-1]=0;
+                    byte[] image=pad?Arrays.copyOf(original,(original.length/512+1)*512):original.clone();if(truncate)image[image.length-1]=0;
                     if(chunked){exchange.sendResponseHeaders(200,0);try(OutputStream out=exchange.getResponseBody()){out.write(image,0,100);out.flush();out.write(image,100,image.length-100);}}else send(exchange,image);return;
                 }
                 if(!path.equals("/cam.cgi")){exchange.sendResponseHeaders(404,-1);exchange.close();return;}
                 String mode=query.get("mode"),kind=query.get("type"),value=query.get("value");controls.add(mode+":"+kind+":"+value);
-                if("accctrl".equals(mode)){auth.incrementAndGet();exchange.getResponseHeaders().set("X-SESSION_ID","self-authored-token");send(exchange,gen2?ok("<challenge>self-authored-envelope</challenge>"):refuseAuth?"<camrply><result>err-reject</result></camrply>":ok(""));return;}
+                if("accctrl".equals(mode) && "req_acc_can".equals(kind)){send(exchange,ok(""));return;}
+                if("accctrl".equals(mode)){auth.incrementAndGet();if(underResearch>0){underResearch--;send(exchange,"ok_under_research,MOCK-DC-S5,remote");return;}
+                    exchange.getResponseHeaders().set("X-SESSION_ID","self-authored-token");send(exchange,gen2?ok("<challenge>self-authored-envelope</challenge>"):refuseAuth?"<camrply><result>err-reject</result></camrply>":ok(""));return;}
                 if("setsetting".equals(mode))names.incrementAndGet();
                 if("getinfo".equals(mode)){send(exchange,ok(focus?"<capability><camcmd>oneshot_af</camcmd><step>focus wide-slow tele-slow</step></capability>":"<capability/>"));return;}
                 if("getsetting".equals(mode)){send(exchange,ok("<setting><"+kind+">400</"+kind+"></setting>"));return;}
-                if("getstate".equals(mode))states.incrementAndGet();
+                if("getstate".equals(mode)){states.incrementAndGet();
+                    if(failStates>0){failStates--;exchange.sendResponseHeaders(500,-1);exchange.close();return;}
+                    if(busyStates>0){busyStates--;send(exchange,"<camrply><result>err_busy</result></camrply>");return;}
+                    send(exchange,ok(cammode==null?"":"<state><cammode>"+cammode+"</cammode></state>"));return;}
+                boolean modeOrStream="startstream".equals(mode) || "camcmd".equals(mode) && ("recmode".equals(value)||"playmode".equals(value));
+                if(modeOrStream && busyReplies>0){busyReplies--;send(exchange,"<camrply><result>err_busy</result></camrply>");return;}
+                if("camcmd".equals(mode) && "recmode".equals(value)){recmodes.incrementAndGet();inPlay=false;}
+                if("camcmd".equals(mode) && "playmode".equals(value)){playmodes.incrementAndGet();inPlay=true;udpPort=0;}
                 if("startstream".equals(mode))udpPort=Integer.parseInt(value);if("stopstream".equals(mode))udpPort=0;
                 if("camcmd".equals(mode) && "capture".equals(value)){
                     int shot=shots.incrementAndGet();if(!refuseShutter)photoIds.add("new-"+shot);
@@ -110,17 +145,39 @@ public final class WifiS5Checks {
                 send(exchange,ok(""));
             }catch(IOException ignored){exchange.close();}
         }
+        /** SUBSCRIBE answers with a SID, then the body pushes mod_Play to the callback like the S5. */
+        private void gena(HttpExchange exchange) throws IOException {
+            String method=exchange.getRequestMethod(),callback=exchange.getRequestHeaders().getFirst("CALLBACK"),sid=exchange.getRequestHeaders().getFirst("SID");
+            if(method.equals("UNSUBSCRIBE")){unsubscribes.incrementAndGet();exchange.sendResponseHeaders(200,-1);exchange.close();return;}
+            if(!method.equals("SUBSCRIBE") || (callback==null && sid==null)){exchange.sendResponseHeaders(412,-1);exchange.close();return;}
+            exchange.getResponseHeaders().set("SID","uuid:fixture-subscription");exchange.getResponseHeaders().set("TIMEOUT","Second-300");exchange.sendResponseHeaders(200,-1);exchange.close();
+            if(callback==null)return;
+            subscribes.incrementAndGet();controls.add("SUBSCRIBE");
+            URI target=URI.create(callback.replaceAll("^<|>$",""));
+            workers.execute(()->{try{Thread.sleep(50);notify(target,"mod_Play");}catch(Exception ignored){}});
+        }
+        void notify(URI target,String value) throws IOException {
+            byte[] body=bytes("<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"><e:property><X_Panasonic_Cam_Sync>"+value+"</X_Panasonic_Cam_Sync></e:property></e:propertyset>");
+            try(Socket socket=new Socket(target.getHost(),target.getPort())){
+                socket.getOutputStream().write(bytes("NOTIFY "+target.getPath()+" HTTP/1.1\r\nHOST: "+target.getAuthority()+"\r\nCONTENT-TYPE: text/xml\r\nNT: upnp:event\r\nNTS: upnp:propchange\r\nSID: uuid:fixture-subscription\r\nSEQ: 0\r\nCONTENT-LENGTH: "+body.length+"\r\n\r\n"));
+                socket.getOutputStream().write(body);socket.getOutputStream().flush();socket.getInputStream().read();
+            }
+        }
         public void close(){stream.shutdownNow();server.stop(0);workers.shutdownNow();}
     }
     private static WifiS5Transport transport(Fixture fixture,List<String> logs) throws IOException {
         return transport(fixture,logs,()->System.nanoTime()/1000);
     }
+    static final String CLIENT="4D454930-0100-1000-8001-0123456789AB";
     private static WifiS5Transport transport(Fixture fixture,List<String> logs,java.util.function.LongSupplier clock) throws IOException {
-        return new WifiS5Transport(new WifiCameraHttp.Route(){
+        WifiS5Transport camera=new WifiS5Transport(new WifiCameraHttp.Route(){
             public Socket connect(String host,int port) throws IOException {Socket socket=new Socket();socket.connect(new InetSocketAddress(host,port),1000);return socket;}
             public void bind(DatagramSocket socket){}
             public void close(){}
-        },"127.0.0.1:"+fixture.server.getAddress().getPort(),0,true,logs::add,clock);
+        },"127.0.0.1:"+fixture.server.getAddress().getPort(),0,true,CLIENT,logs::add,clock);
+        // Same protocol budgets, shortened so the host suite stays fast.
+        camera.pairPollMs=20;camera.settleMs=3000;camera.busyRetryMs=20;camera.exposureEveryMs=1000;
+        return camera;
     }
     private static void transportChecks(Path fixtures,Path output) throws Exception {
         try(Fixture fixture=new Fixture(fixtures,1);WifiCameraHttp http=new WifiCameraHttp(new WifiCameraHttp.Route(){
@@ -179,9 +236,59 @@ public final class WifiS5Checks {
             check(camera.closed(),"failed connection cleans up");
         }
     }
+    private static int count(List<String> controls,String entry){synchronized(controls){return (int)controls.stream().filter(entry::equals).count();}}
+    private static int index(List<String> controls,String prefix){synchronized(controls){for(int i=0;i<controls.size();i++)if(controls.get(i).startsWith(prefix))return i;}return -1;}
+    /** Regressions for the S5 behaviour listed in PROTOCOL_FIXES.md. */
+    private static void protocolFlowChecks(Path fixtures,Path output) throws Exception {
+        List<String> logs=Collections.synchronizedList(new ArrayList<>());
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,logs)) {
+            fixture.underResearch=2;camera.open();
+            check(fixture.auth.get()==3,"ok_under_research is polled until the body approves");
+            check(index(fixture.controls,"accctrl:req_acc:"+CLIENT)==0,"accctrl carries the persistent LUMIX Sync style identity");
+            check(fixture.subscribes.get()==1 && index(fixture.controls,"SUBSCRIBE")<index(fixture.controls,"camcmd:null:recmode"),"GENA SUBSCRIBE happens once, before any mode change");
+            check(logs.stream().anyMatch(l->l.contains("Cam_Sync=mod_Play")),"NOTIFY from the body is received and parsed");
+            Thread.sleep(150);check(camera.preview()!=null,"live view runs after the subscription");
+            camera.close();check(fixture.unsubscribes.get()==1,"close releases the subscription");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.underResearch=1000;camera.pairTimeoutMs=150;reject(camera::open,"pairing never approved accepted");
+            check(index(fixture.controls,"accctrl:req_acc_can:")>=0 && fixture.shots.get()==0 && fixture.subscribes.get()==0,"pairing timeout cancels the request and stops");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.busyReplies=2;camera.open();check(fixture.recmodes.get()==1 && count(fixture.controls,"camcmd:null:recmode")==3,"recmode err_busy is retried, not fatal");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.cammode="rec";camera.open();check(count(fixture.controls,"camcmd:null:recmode")==0,"no recmode when the body already reports rec");
+        }
+        try(Fixture fixture=new Fixture(fixtures,5);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.folders=true;camera.open();var baseline=camera.prepareCaptureBaseline();camera.shutter();var source=camera.awaitNewJpeg(baseline,()->true);
+            check(source.filename().equals("new-1.JPG"),"new original found in the newest folder");
+            check(fixture.browsed.stream().noneMatch(o->o.startsWith("F1") && !o.equals("F112DIR")),"twelve full older folders (11520 items) are never walked");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.browseNeedsPlay=true;camera.open();var baseline=camera.prepareCaptureBaseline();
+            check(fixture.playmodes.get()==1 && fixture.recmodes.get()==2 && !fixture.inPlay,"baseline browses in playback, then returns to rec before the shutter");
+            camera.shutter();var source=camera.awaitNewJpeg(baseline,()->true);
+            check(fixture.playmodes.get()==2 && fixture.inPlay,"locating stays in playback across polls instead of toggling modes");
+            camera.downloadOriginal(source,output.resolve("playback.jpg").toFile());
+            check(fixture.recmodes.get()==3 && !fixture.inPlay && camera.state()==WifiS5Transport.State.READY,"one recmode after the download");
+            Thread.sleep(150);check(camera.preview()!=null,"live view restarts after playback");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.pad=true;camera.open();var baseline=camera.prepareCaptureBaseline();camera.shutter();var source=camera.awaitNewJpeg(baseline,()->true);
+            Path target=output.resolve("padded.jpg");camera.downloadOriginal(source,target.toFile());
+            check(Files.size(target)%512==0 && Files.size(target)>fixture.original.length,"512-byte padded S5 original is accepted byte for byte");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            camera.keepaliveMs=100;camera.open();fixture.failStates=2;fixture.busyStates=0;Thread.sleep(600);
+            check(!camera.closed(),"two failed polls do not end the session");
+            fixture.busyStates=8;Thread.sleep(1000);check(!camera.closed(),"err_busy getstate is not a failure");
+            fixture.failStates=100;Thread.sleep(800);check(camera.closed(),"three failed polls in a row end the session");
+        }
+    }
     public static void main(String[] args) throws Exception {
         Path fixtures=Path.of("tests/fixtures/s5-wifi"),output=Files.createTempDirectory("wifi-checks-");
-        try{parsing(fixtures);transportChecks(fixtures,output);}finally{try(var files=Files.walk(output)){for(Path path:files.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
+        try{parsing(fixtures);transportChecks(fixtures,output);protocolFlowChecks(fixtures,output);}finally{try(var files=Files.walk(output)){for(Path path:files.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" Wi-Fi checks (self-authored host fixtures; DC-S5 unverified)");
     }
 }

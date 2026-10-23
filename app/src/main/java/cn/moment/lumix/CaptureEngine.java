@@ -41,7 +41,9 @@ public final class CaptureEngine {
     private final AtomicLong sessionEpoch=new AtomicLong();
     private ScheduledFuture<?> polling;
     private final List<String> logs=Collections.synchronizedList(new ArrayList<>());
-    public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;}
+    /** Stable accctrl identity, so the body recognises this install after it was approved once. */
+    private final File wifiClientId;
+    public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;wifiClientId=new File(c.getFilesDir(),"wifi-client-id");}
     private void log(String s) {
         synchronized(logs) {logs.add(String.format(Locale.US,"%d %s",SystemClock.elapsedRealtime(),s));if(logs.size()>250) logs.remove(0);}
         listener.log(s);
@@ -97,7 +99,7 @@ public final class CaptureEngine {
         connectTransport(()->new UsbS5Transport(manager,device,this::log),"usb","正在打开 S5 USB 会话…");
     }
     public void connectWifi(WifiCameraHttp.Route route,String endpoint,int port,boolean debug) {
-        connectTransport(()->new WifiS5Transport(route,endpoint,port,debug,this::log,CaptureEngine::now),"wifi","正在连接 Wi-Fi（实验）· 请在机身确认…");
+        connectTransport(()->new WifiS5Transport(route,endpoint,port,debug,WifiS5Protocol.clientId(wifiClientId),this::log,CaptureEngine::now),"wifi","正在连接 Wi-Fi（实验）· 请在机身确认…");
     }
     private interface TransportFactory {CameraTransport create() throws Exception;}
     private void connectTransport(TransportFactory factory,String kind,String message) {

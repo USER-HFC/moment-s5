@@ -3,6 +3,7 @@ package cn.moment.lumix;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
@@ -82,13 +83,32 @@ final class WifiS5Protocol {
         if(!url.getProtocol().equals("http") || !url.getHost().equalsIgnoreCase(base.getHost()) || url.getUserInfo()!=null || url.getRef()!=null || url.getPort()==0 || url.getPort()>65535 || path.toLowerCase(Locale.ROOT).contains("cam.cgi") || path.matches("(?s).*[\r\n\\\\].*") || url.toString().matches("(?s).*[\r\n ].*"))throw new IOException("拒绝非相机或控制指令资源 URL");
         return url;
     }
-    record Description(String model,URL control) {}
+    /** {@code events} is the ConnectionManager GENA URL, or null when the description has none. */
+    record Description(String model,URL control,URL events) {}
     static Description description(byte[] data,URL location) throws IOException {
-        Document doc=xml(data);String model=text(doc,"modelName");
-        for(Element service:elements(doc,"service"))if(CDS.equals(text(service,"serviceType"))){String control=text(service,"controlURL");if(control!=null && !control.isEmpty())return new Description(model,resource(location,control));}
-        throw new IOException("相机未公布 DLNA ContentDirectory 控制地址");
+        Document doc=xml(data);String model=text(doc,"modelName");URL control=null,events=null;
+        for(Element service:elements(doc,"service")) {
+            String type=text(service,"serviceType");if(type==null)continue;
+            if(control==null && CDS.equals(type)){String value=text(service,"controlURL");if(value!=null && !value.isEmpty())control=resource(location,value);}
+            if(events==null && type.contains("ConnectionManager")){String value=text(service,"eventSubURL");if(value!=null && !value.isEmpty())events=resource(location,value);}
+        }
+        if(control==null)throw new IOException("相机未公布 DLNA ContentDirectory 控制地址");
+        return new Description(model,control,events);
     }
-    record Item(String id,String parent,String title,List<Media> originals,boolean container) {String identity(){return parent+"\u001f"+id;}}
+    /** Leaf values of a GENA NOTIFY propertyset, e.g. X_Panasonic_Cam_Sync. */
+    static Map<String,List<String>> events(byte[] data) throws IOException {
+        Map<String,List<String>> values=new LinkedHashMap<>();leafValues(xml(data),values);return values;
+    }
+    /** LUMIX Sync's accctrl identity: fixed prefix plus a per-install seed of 12 hex digits. */
+    static final String CLIENT_PREFIX="4D454930-0100-1000-8001-";
+    static String clientId(File file) throws IOException {
+        if(file.isFile()){String saved=Files.readString(file.toPath(),StandardCharsets.US_ASCII).trim();if(saved.matches("[0-9A-F]{12}"))return CLIENT_PREFIX+saved;}
+        byte[] seed=new byte[6];new java.security.SecureRandom().nextBytes(seed);StringBuilder hex=new StringBuilder();for(byte b:seed)hex.append(String.format(Locale.ROOT,"%02X",b&255));
+        File parent=file.getAbsoluteFile().getParentFile();if(parent!=null && !parent.isDirectory() && !parent.mkdirs())throw new IOException("无法保存 Wi-Fi 设备标识");
+        Files.writeString(file.toPath(),hex,StandardCharsets.US_ASCII);return CLIENT_PREFIX+hex;
+    }
+    /** {@code childCount} is -1 when the camera omits it. */
+    record Item(String id,String parent,String title,List<Media> originals,boolean container,int childCount) {String identity(){return parent+"\u001f"+id;}}
     record Media(String itemKey,URL url,String filename,long size) {String key(){return itemKey+"\u001f"+url+"\u001f"+filename+"\u001f"+size;}}
     record Page(List<Item> items,int returned,int total,String update) {}
     static int integer(Node root,String key) throws IOException {try{int n=Integer.parseInt(text(root,key));if(n<0 || n>10000)throw new NumberFormatException();return n;}catch(NumberFormatException e){throw new IOException("相机目录 "+key+" 无效",e);}}
@@ -109,7 +129,9 @@ final class WifiS5Protocol {
                 long size=0;String declared=res.getAttribute("size");if(!declared.isEmpty())try{size=Long.parseLong(declared);if(size<0||size>MAX_JPEG)throw new NumberFormatException();}catch(NumberFormatException e){throw new IOException("原 JPEG 大小无效或超过 64 MB",e);}
                 originals.add(new Media(key,url,new File(filename).getName(),size));
             }
-            items.add(new Item(id,parent,title,List.copyOf(originals),container));
+            int children=-1;String count=item.getAttribute("childCount");
+            if(container && !count.isEmpty())try{children=Integer.parseInt(count);if(children<0)children=-1;}catch(NumberFormatException e){children=-1;}
+            items.add(new Item(id,parent,title,List.copyOf(originals),container,children));
         }
         int returned=integer(soap,"NumberReturned"),total=integer(soap,"TotalMatches");
         if(returned!=items.size() || returned>total)throw new IOException("相机目录分页数量不一致");
@@ -125,14 +147,18 @@ final class WifiS5Protocol {
         String safeObject=object.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");
         return ("<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><u:Browse xmlns:u=\""+CDS+"\" xmlns:pana=\"urn:schemas-panasonic-com:pana\"><ObjectID>"+safeObject+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>*</Filter><StartingIndex>"+start+"</StartingIndex><RequestedCount>100</RequestedCount><SortCriteria/><pana:X_FromCP>LumixLink2.0</pana:X_FromCP></u:Browse></s:Body></s:Envelope>").getBytes(StandardCharsets.UTF_8);
     }
-    /** Strict marker/segment/scan envelope check, including SOF, SOS and an exact EOI. */
+    /**
+     * Strict marker/segment/scan envelope check up to EOI, including SOF and SOS.
+     * Returns {width, height, bytes through EOI}. Bytes after EOI are allowed: S5
+     * originals are served padded to 512-byte blocks, and MPF images follow EOI.
+     */
     static int[] jpeg(InputStream raw,int limit) throws IOException {
         Counting in=new Counting(raw,limit);if(in.read()!=255 || in.read()!=216)throw new IOException("JPEG 缺少 SOI");boolean scan=false,sawScan=false;int width=0,height=0;
         while(true) {
             int marker;
             if(scan){int b;do{b=in.read();if(b<0)throw new IOException("JPEG 扫描被截断");}while(b!=255);do{marker=in.read();}while(marker==255);if(marker==0 || marker>=0xd0 && marker<=0xd7)continue;scan=false;}
             else {if(in.read()!=255)throw new IOException("JPEG 标记边界无效");do{marker=in.read();}while(marker==255);}
-            if(marker==0xd9){if(!sawScan || width==0 || height==0 || in.read()!=-1)throw new IOException("JPEG 缺少 SOF/SOS 或 EOI 后有多余数据");return new int[]{width,height};}
+            if(marker==0xd9){if(!sawScan || width==0 || height==0)throw new IOException("JPEG 缺少 SOF/SOS");return new int[]{width,height,in.count};}
             if(marker<0 || marker==0 || marker==0xd8 || marker>=0xd0 && marker<=0xd7)throw new IOException("JPEG 标记无效");if(marker==1)continue;
             int a=in.read(),b=in.read();if(a<0||b<0)throw new IOException("JPEG 段被截断");int length=(a<<8|b)-2;if(length<0)throw new IOException("JPEG 段长度无效");
             boolean sof=Set.of(0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf).contains(marker);
@@ -147,9 +173,16 @@ final class WifiS5Protocol {
         final int limit;int count;Counting(InputStream in,int limit){super(in);this.limit=limit;}
         public int read() throws IOException {int b=super.read();if(b>=0 && ++count>limit)throw new IOException("JPEG 超过接收上限");return b;}
     }
+    /**
+     * One live-view frame per datagram. The S5 header stores the JPEG offset as
+     * be16(bytes 30..31) + 32 (254 on fw 2.03); the header also carries the camera
+     * MAC, which can contain FF D8, so a marker search is only the fallback.
+     */
     static byte[] datagram(byte[] packet,int length) {
-        int start=-1;for(int i=0;i<Math.min(length-1,1024);i++)if((packet[i]&255)==255 && (packet[i+1]&255)==216){start=i;break;}
+        int start=-1;
+        if(length>34){int offset=((packet[30]&255)<<8|(packet[31]&255))+32;if(offset+2<length && (packet[offset]&255)==255 && (packet[offset+1]&255)==216 && (packet[offset+2]&255)==255)start=offset;}
+        if(start<0)for(int i=0;i<Math.min(length-2,1024);i++)if((packet[i]&255)==255 && (packet[i+1]&255)==216 && (packet[i+2]&255)==255){start=i;break;}
         if(start<0)return null;byte[] jpeg=Arrays.copyOfRange(packet,start,length);
-        try{int[] size=jpeg(new ByteArrayInputStream(jpeg),2*1024*1024);if((long)size[0]*size[1]>3_000_000)return null;return jpeg;}catch(IOException e){return null;}
+        try{int[] size=jpeg(new ByteArrayInputStream(jpeg),2*1024*1024);if((long)size[0]*size[1]>3_000_000)return null;return size[2]==jpeg.length?jpeg:Arrays.copyOf(jpeg,size[2]);}catch(IOException e){return null;}
     }
 }

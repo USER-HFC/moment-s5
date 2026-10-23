@@ -65,6 +65,25 @@ final class WifiCameraHttp implements AutoCloseable {
             return new Response(socket,status,length,headers,body);
         }catch(IOException|RuntimeException e){sockets.remove(socket);try{socket.close();}catch(IOException ignored){}throw e;}
     }
+    record Incoming(String method,Map<String,String> headers,byte[] body) {}
+    /** One inbound request from the camera (GENA NOTIFY), with a bounded body. */
+    static Incoming incoming(InputStream raw,int limit) throws IOException {
+        InputStream in=new BufferedInputStream(raw);String start=line(in);String[] parts=start.split(" ",3);
+        if(parts.length<3 || !parts[2].startsWith("HTTP/1."))throw new IOException("相机事件请求无效");
+        Map<String,String> headers=new HashMap<>();
+        for(int count=0;;count++) {
+            String value=line(in);if(count>100)throw new IOException("相机事件请求头过多");if(value.isEmpty())break;
+            int colon=value.indexOf(':');if(colon<1)throw new IOException("相机事件请求头无效");
+            headers.put(value.substring(0,colon).trim().toLowerCase(Locale.ROOT),value.substring(colon+1).trim());
+        }
+        InputStream body;String transfer=headers.get("transfer-encoding");
+        if(transfer!=null && transfer.equalsIgnoreCase("chunked"))body=new Chunked(in);
+        else {long length;try{length=Long.parseLong(headers.getOrDefault("content-length","0"));}catch(NumberFormatException e){throw new IOException("相机事件长度无效",e);}
+            if(length<0 || length>limit)throw new IOException("相机事件超过上限");body=new Sized(in,length);}
+        ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int n;
+        while((n=body.read(buffer))!=-1){out.write(buffer,0,n);if(out.size()>limit)throw new IOException("相机事件超过上限");}
+        return new Incoming(parts[0],headers,out.toByteArray());
+    }
     private static String line(InputStream in) throws IOException {
         ByteArrayOutputStream out=new ByteArrayOutputStream();int b;
         while((b=in.read())!=-1){if(b=='\n'){byte[] bytes=out.toByteArray();if(bytes.length==0 || bytes[bytes.length-1]!='\r')throw new IOException("相机 HTTP 换行无效");return new String(bytes,0,bytes.length-1,StandardCharsets.US_ASCII);}out.write(b);if(out.size()>8192)throw new IOException("相机 HTTP 行过长");}
