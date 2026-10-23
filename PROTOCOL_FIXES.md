@@ -15,6 +15,7 @@
 | P1 | 单次 `bulkTransfer` 最多等 3 秒，超时返回 -1 就直接中止会话。外层设置的 15 秒期限实际不起作用 | 机身回复慢于 3 秒（写 SD 卡、AF 搜索、长曝光）就会断开整个 USB 会话 | 在容器的第一个字节到达前，超时会继续等到期限为止；容器中途超时仍然致命，因为被取消的传输可能丢了字节。快门 `0x9404` 的期限放宽到 60 秒。-1 在 200 ms 内返回的算真实故障，连续 3 次就退出 |
 | P2 | 当前 ISO 和光圈取自 ListProperty（`0x9108`）的描述值；libgphoto2 读的是 `ISO_Param 0x02000021` / `Aperture_Param 0x02000041`（GetProperty `0x9402`） | HUD 可能显示过时的值或 0 | 先读 GetProperty `0x9402`，不支持时回退到 ListProperty，并把 `0x9402` 加入白名单 |
 | P3 | 快门值解码错误：`0xFFFFFFFF`（B 门）显示成很大的秒数；1/1.3 被截成 "1/1"；值为 0 时显示 "1/0" | 曝光读数错误 | 新增 `Ptp.shutterLabel()`，规则与 libgphoto2 一致：B 门、整秒/十分之一秒、分数快门 |
+| P5 | `0x9416` ManualFocusDrive 的近/远档位写反：「远」发的是 `0x02`（近 1 档），「近」发的是 `0x03`（远 1 档） | 近焦、远焦按钮方向颠倒，调焦越调越偏 | 按 libgphoto2 修正：近 1 档 = `0x02`、远 1 档 = `0x03`（近 2 档 `0x01`、远 2 档 `0x04` 暂不使用），由 `Ptp.focusStep()` 统一给出 |
 | P4 | OpenSession 未使用事务号 0；响应容器缺少校验 | — | 已在 `feat/s5-wifi-beta` 修复，`main` 分支仍有此问题 |
 
 ## Wi-Fi
@@ -41,7 +42,7 @@
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
-bash tools/check-core.sh   # 61 core checks
+bash tools/check-core.sh   # 62 core checks
 bash tools/check-usb.sh    # 9 USB PTP checks（新增）
 bash tools/check-wifi.sh   # 104 Wi-Fi checks
 ```
