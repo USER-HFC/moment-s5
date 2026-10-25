@@ -11,6 +11,36 @@ import javax.xml.parsers.DocumentBuilderFactory;
 public final class CoreChecks {
     private static int checks;
     private static void check(boolean value,String message) {checks++;if(!value)throw new AssertionError(message);}
+    private static byte[] jpegWithLens(String lens, boolean little) {
+        byte[] text=(lens+"\0").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        boolean inline=text.length<=4;
+        int tiffLength=8+2+12+4+(inline?0:text.length)+2+12+4;
+        if(!inline) tiffLength=8+2+12+4+2+12+4+text.length;
+        byte[] tiff=new byte[tiffLength];
+        tiff[0]=little?(byte)'I':(byte)'M';tiff[1]=tiff[0];
+        put16(tiff,2,42,little);put32(tiff,4,8,little);
+        put16(tiff,8,1,little);
+        put16(tiff,10,0x8769,little);put16(tiff,12,4,little);put32(tiff,14,1,little);
+        int exifAt=8+2+12+4;
+        put32(tiff,18,exifAt,little);
+        put16(tiff,exifAt,1,little);
+        int entry=exifAt+2;
+        put16(tiff,entry,0xA434,little);put16(tiff,entry+2,2,little);put32(tiff,entry+4,text.length,little);
+        if(inline) System.arraycopy(text,0,tiff,entry+8,text.length);
+        else {int stringAt=entry+12+4;put32(tiff,entry+8,stringAt,little);System.arraycopy(text,0,tiff,stringAt,text.length);}
+        byte[] app1=new byte[2+6+tiff.length];
+        int length=app1.length;
+        app1[0]=(byte)((length>>>8)&255);app1[1]=(byte)(length&255);
+        app1[2]='E';app1[3]='x';app1[4]='i';app1[5]='f';
+        System.arraycopy(tiff,0,app1,8,tiff.length);
+        byte[] jpeg=new byte[2+2+app1.length+2];
+        jpeg[0]=(byte)255;jpeg[1]=(byte)216;jpeg[2]=(byte)255;jpeg[3]=(byte)225;
+        System.arraycopy(app1,0,jpeg,4,app1.length);
+        jpeg[jpeg.length-2]=(byte)255;jpeg[jpeg.length-1]=(byte)217;
+        return jpeg;
+    }
+    private static void put16(byte[] out,int at,int value,boolean little){if(little){out[at]=(byte)value;out[at+1]=(byte)(value>>>8);}else{out[at]=(byte)(value>>>8);out[at+1]=(byte)value;}}
+    private static void put32(byte[] out,int at,int value,boolean little){if(little){out[at]=(byte)value;out[at+1]=(byte)(value>>>8);out[at+2]=(byte)(value>>>16);out[at+3]=(byte)(value>>>24);}else{out[at]=(byte)(value>>>24);out[at+1]=(byte)(value>>>16);out[at+2]=(byte)(value>>>8);out[at+3]=(byte)value;}}
     public static void main(String[] args) throws Exception {
         Ptp.requireSuccess(0x1002,0x2001);checks++;
         Ptp.requireSuccess(0x1002,0x201e);checks++; // Regression: reconnect must reach Panasonic session setup.
@@ -113,6 +143,18 @@ public final class CoreChecks {
             check(!new File(out.getPath()+".part").exists(),"failed final move removes partial output");
             check(Arrays.equals(result,Files.readAllBytes(out.toPath())),"failed final move preserves existing output");
             try {MotionPhoto.write(jpg,mp4,tmp.resolve("bad.jpg").toFile(),-2);throw new AssertionError("invalid timestamp accepted");} catch(IOException expected){checks++;}
+            check("演示".equals(MomentFacts.origin(true,true)) && "机身快门同步".equals(MomentFacts.origin(false,true)) && "App 快门".equals(MomentFacts.origin(false,false)),"album origin labels");
+            check("USB".equals(MomentFacts.transport("usb")) && "Wi-Fi（实验）".equals(MomentFacts.transport("wifi")) && "演示".equals(MomentFacts.transport("demo")) && "未知".equals(MomentFacts.transport("")),"album transport labels");
+            check("Panasonic DC-S5".equals(MomentFacts.cameraName("Panasonic","DC-S5")) && "Panasonic DC-S5".equals(MomentFacts.cameraName("Panasonic","Panasonic DC-S5")) && MomentFacts.cameraName(" "," ")==null,"camera name keeps a single make");
+            check("ISO 400".equals(MomentFacts.iso(400)) && MomentFacts.iso(0)==null,"ISO label");
+            check("1/125".equals(MomentFacts.shutter(0.008)) && "1/80".equals(MomentFacts.shutter(1d/80)) && "2.5s".equals(MomentFacts.shutter(2.5)) && MomentFacts.shutter(0)==null,"shutter label");
+            check("f/1.8".equals(MomentFacts.aperture(1.8)) && "f/4".equals(MomentFacts.aperture(4)) && MomentFacts.aperture(-1)==null,"aperture label");
+            check("50 mm".equals(MomentFacts.focal(50)) && "35.5 mm".equals(MomentFacts.focal(35.5)) && "6000 × 4000".equals(MomentFacts.dimensions(6000,4000)),"focal length and pixel size");
+            byte[] lensJpeg=jpegWithLens("LUMIX S 50/1.8",true);
+            check("LUMIX S 50/1.8".equals(JpegExif.lens(lensJpeg)),"little-endian LensModel");
+            check("abc".equals(JpegExif.lens(jpegWithLens("abc",false))),"big-endian inline lens");
+            check(JpegExif.lens(new byte[]{(byte)255,(byte)216,(byte)255,(byte)217})==null,"jpeg without EXIF has no lens");
+            byte[] broken=jpegWithLens("LUMIX S 50/1.8",true);broken[6]=0;check(JpegExif.lens(broken)==null,"truncated APP1 does not throw");
         } finally {try(var walk=Files.walk(tmp)){for(Path p:walk.sorted(Comparator.reverseOrder()).toList())Files.delete(p);}}
         System.out.println("PASS "+checks+" core checks");
     }

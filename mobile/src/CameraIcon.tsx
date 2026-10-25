@@ -11,6 +11,7 @@ export const CAMERA_ICONS = {
   ratio: 'ratio', check: 'check', close: 'close', list: 'list', save: 'save',
   delete: 'delete', import: 'import', refresh: 'rotate', scopes: 'scopes',
   enlarge: 'enlarge', shrink: 'shrink', move: 'move',
+  info: 'info', share: 'share', play: 'play',
 } as const;
 export type CameraIconName = keyof typeof CAMERA_ICONS;
 export const CAMERA_ACCENT = ui.color.accent;

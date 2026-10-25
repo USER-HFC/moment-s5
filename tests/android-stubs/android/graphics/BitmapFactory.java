@@ -7,7 +7,7 @@ public final class BitmapFactory {
     public static Runnable beforePixels;
     public static final class Options {
         public boolean inJustDecodeBounds,inMutable;
-        public int outWidth,outHeight;
+        public int inSampleSize,outWidth,outHeight;
         public Bitmap.Config inPreferredConfig;
     }
     public static Bitmap decodeByteArray(byte[] b,int offset,int length){return decodeByteArray(b,offset,length,null);}
@@ -16,4 +16,5 @@ public final class BitmapFactory {
         if(beforePixels!=null)beforePixels.run();
         decoded++;last=new Bitmap(width,height,options!=null && options.inMutable);return last;
     }
+    public static Bitmap decodeFile(String path,Options options){return decodeByteArray(null,0,0,options);}
 }

@@ -30,5 +30,8 @@ const cameraIcons = {
   save: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/>',
   delete: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>',
   import: '<path d="M5 3h9l5 5v13H5V3Zm9 0v5h5M2 13h10m-3-3 3 3-3 3"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/>',
+  share: '<circle cx="6" cy="12" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="m8 11 7-3M8 13l7 3"/>',
+  play: '<path d="m8 5 11 7-11 7V5Z"/>',
 };
 if (typeof module !== 'undefined') module.exports = cameraIcons;

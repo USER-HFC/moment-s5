@@ -92,13 +92,18 @@ public final class LutEngine {
         return line;
     }
 
-    public byte[] applyJpeg(byte[] jpeg) throws IOException {
+    public byte[] applyJpeg(byte[] jpeg) throws IOException { return applyJpeg(jpeg, 0); }
+
+    /** maxEdge above zero subsamples the preview. Saving a moment always passes zero and stays full resolution. */
+    public byte[] applyJpeg(byte[] jpeg, int maxEdge) throws IOException {
         if (jpeg == null || jpeg.length == 0) throw new IOException("LUT 输入为空");
         BitmapFactory.Options options = new BitmapFactory.Options(); options.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, options);
         if (options.outWidth <= 0 || options.outHeight <= 0) throw new IOException("LUT 输入 JPEG 无法解码");
         if ((long) options.outWidth * options.outHeight > MAX_PIXELS) throw new IOException("照片分辨率超过 LUT 处理上限");
-        options.inJustDecodeBounds = false; options.inMutable = true; options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        int sample = 1;
+        if (maxEdge > 0) while (sample < 64 && (options.outWidth / sample > maxEdge || options.outHeight / sample > maxEdge)) sample *= 2;
+        options.inJustDecodeBounds = false; options.inSampleSize = sample; options.inMutable = true; options.inPreferredConfig = Bitmap.Config.ARGB_8888;
         Bitmap source = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, options);
         if (source == null) throw new IOException("LUT 输入 JPEG 无法解码");
         Bitmap bitmap = null;

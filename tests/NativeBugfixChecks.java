@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.usb.*;
 import android.media.*;
+import org.json.JSONObject;
 import java.io.*;
 import java.lang.reflect.*;
 import java.nio.ByteBuffer;
@@ -316,9 +317,112 @@ public final class NativeBugfixChecks {
         check(MediaCodec.released==1 && MediaMuxer.released==1,"codec and muxer release independently even when stop and release throw");
         check(!Files.exists(root.resolve("audio.tmp.mp4")),"failed AAC encode leaves no temporary MP4");MediaCodec.failRelease=false;
     }
+    private static final class ExportCursor implements android.database.Cursor {
+        String name="", relative="";
+        boolean row=true;
+        public boolean moveToFirst(){return row;}
+        public int getColumnIndex(String column){return "_display_name".equals(column)?0:"relative_path".equals(column)?1:-1;}
+        public String getString(int column){return column==0?name:relative;}
+        public void close(){}
+    }
+    private static void renderChecks(Path root)throws Exception {
+        Path folder=Files.createDirectory(root.resolve("rerender"));
+        File dir=folder.resolve("M1").toFile();
+        if(!dir.mkdir()) throw new IOException("dir");
+        byte[] original=new byte[]{(byte)255,(byte)216,0x11,0x22,0x33,0x44,(byte)255,(byte)217};
+        Files.write(new File(dir,"original.jpg").toPath(),original);
+        Files.write(new File(dir,"motion.mp4").toPath(),new byte[]{0,0,0,16,102,116,121,112,105,115,111,109,0,0,0,0});
+        JSONObject meta=new JSONObject().put("captureMode","pre-only").put("complete",true).put("stillUs",1_500_000).put("demo",false).put("cameraTriggered",true).put("transport","usb").put("source","P1000123.JPG").put("createdAt",1700000000000L);
+        MomentStore.metadata(dir,meta);
+        File cube=folder.resolve("again.cube").toFile();
+        Files.writeString(cube.toPath(),"TITLE \"Again LUT\"\nLUT_3D_SIZE 2\n"+cube(2));
+        LutEngine filter=LutEngine.load(cube);
+        MomentRender.apply(dir,filter,"builtin:again");
+        check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),original),"re-render never rewrites original.jpg");
+        check(new File(dir,"rendered.jpg").isFile() && !new File(dir,"rendered.jpg.part").exists(),"rendered derivative replaces the partial file");
+        JSONObject applied=MomentStore.metadata(dir);
+        check(applied.getBoolean("lutApplied") && applied.getString("lut").equals("Again LUT") && applied.getString("lutId").equals("builtin:again"),"re-render records the chosen LUT");
+        byte[] packed=Files.readAllBytes(new File(dir,"MOMENT_MP.jpg").toPath());
+        check(packed[0]==(byte)255 && packed[1]==(byte)216,"motion container is still a JPEG");
+        check(!contains(packed,new byte[]{0x11,0x22,0x33,0x44}),"motion container uses the graded still, not the original payload");
+        check(Arrays.equals(new byte[]{0,0,0,16,102,116,121,112,105,115,111,109,0,0,0,0},Arrays.copyOfRange(packed,packed.length-16,packed.length)),"motion container keeps the existing video");
+        check(new File(dir,"rendered.jpg").equals(MomentRender.shareFile(dir,applied,"display")),"share of the current picture prefers the derivative");
+        MomentRender.apply(dir,null,null);
+        JSONObject cleared=MomentStore.metadata(dir);
+        check(!cleared.getBoolean("lutApplied") && cleared.isNull("lut") && cleared.isNull("lutId") && !new File(dir,"rendered.jpg").exists(),"原色 removes the derivative");
+        check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),original),"clearing a LUT still leaves the original");
+        byte[] repacked=Files.readAllBytes(new File(dir,"MOMENT_MP.jpg").toPath());
+        check(contains(repacked,new byte[]{0x11,0x22,0x33,0x44}),"cleared motion container is packed from original.jpg");
+        Bitmap.failPixels=true;
+        try {MomentRender.apply(dir,filter,"builtin:again");throw new AssertionError("failed LUT render accepted");}
+        catch(IOException expected){checks++;}
+        finally {Bitmap.failPixels=false;}
+        check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),original) && !new File(dir,"rendered.jpg").exists() && !new File(dir,"rendered.jpg.part").exists() && MomentStore.metadata(dir).isNull("lut"),"failed re-render rolls back to the previous derivative");
+        File photo=folder.resolve("M2").toFile();
+        if(!photo.mkdir()) throw new IOException("photo");
+        Files.write(new File(photo,"original.jpg").toPath(),original);
+        MomentStore.metadata(photo,new JSONObject().put("captureMode","photo").put("complete",false).put("error","LUT 处理失败，原片已保留").put("lutApplied",false).put("demo",true).put("source","DEMO.jpg").put("transport","demo"));
+        MomentRender.apply(photo,filter,"imported.cube");
+        JSONObject recovered=MomentStore.metadata(photo);
+        check(recovered.getBoolean("complete") && !recovered.has("error") && recovered.getBoolean("lutApplied") && !new File(photo,"MOMENT_MP.jpg").exists(),"a failed still becomes complete without creating a motion container");
+        File missing=folder.resolve("M3").toFile();
+        if(!missing.mkdir()) throw new IOException("missing");
+        MomentStore.metadata(missing,new JSONObject().put("captureMode","photo"));
+        expectIo(()->MomentRender.apply(missing,null,null),"missing original re-rendered");
+        Context context=new Context(folder.toFile());
+        ContentResolver resolver=new ContentResolver();
+        context.resolver=resolver;
+        ExportCursor cursor=new ExportCursor();
+        cursor.name="M2.jpg";cursor.relative="DCIM/MomentS5/";
+        resolver.queryResult=cursor;
+        ExifInterface.make="Panasonic";ExifInterface.model="DC-S5";ExifInterface.iso=400;ExifInterface.exposure=0.008;ExifInterface.aperture=1.8;ExifInterface.focal=50;ExifInterface.pixelWidth=6000;ExifInterface.pixelHeight=4000;ExifInterface.orientation=ExifInterface.ORIENTATION_ROTATE_90;ExifInterface.fail=false;
+        Files.write(new File(photo,"original.jpg").toPath(),jpegWithLensModel("LUMIX S 50/1.8"));
+        MomentDetails details=MomentDetails.read(context,photo);
+        check(details.origin.equals("演示") && details.transport.equals("演示") && details.cameraFile==null,"demo details do not pretend the file is on the camera card");
+        check("Panasonic DC-S5".equals(details.camera) && "LUMIX S 50/1.8".equals(details.lens),"EXIF model and lens");
+        check("ISO 400".equals(details.iso) && "1/125".equals(details.shutter) && "f/1.8".equals(details.aperture) && "50 mm".equals(details.focalLength),"EXIF exposure labels");
+        check(details.width==4000 && details.height==6000,"rotated EXIF pixel size is swapped");
+        check(details.exported && "DCIM/MomentS5/M2.jpg".equals(details.exportPath) && details.files.stream().anyMatch(file->file.name.equals("original.jpg") && file.bytes>0),"export path and original size");
+        cursor.row=false;
+        MomentDetails missingExport=MomentDetails.read(context,photo);
+        check(missingExport.exportKnown && !missingExport.exported && missingExport.exportPath==null,"an empty MediaStore result is not an export");
+        resolver.failQuery=true;
+        MomentDetails unknown=MomentDetails.read(context,photo);
+        check(!unknown.exportKnown && !unknown.exported,"a MediaStore failure is unknown rather than not exported");
+        resolver.failQuery=false;ExifInterface.fail=true;ExifInterface.pixelWidth=0;ExifInterface.pixelHeight=0;BitmapFactory.width=2400;BitmapFactory.height=1600;
+        MomentDetails fallback=MomentDetails.read(context,dir);
+        check(fallback.camera==null && fallback.width==2400 && fallback.height==1600 && "机身快门同步".equals(fallback.origin) && "USB".equals(fallback.transport) && "P1000123.JPG".equals(fallback.cameraFile),"bounds decode and shutter provenance survive unreadable EXIF");
+        ExifInterface.fail=false;BitmapFactory.width=2;BitmapFactory.height=2;
+        check(MomentRender.shareFile(dir,MomentStore.metadata(dir),"original").getName().equals("original.jpg"),"original share target");
+        expectIo(()->MomentRender.shareFile(dir,MomentStore.metadata(dir),"nope"),"unknown share kind");
+    }
+    private static boolean contains(byte[] data,byte[] needle){
+        for(int i=0;i+needle.length<=data.length;i++) if(Arrays.equals(needle,Arrays.copyOfRange(data,i,i+needle.length))) return true;
+        return false;
+    }
+    private static byte[] jpegWithLensModel(String lens){
+        byte[] text=(lens+"\0").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] tiff=new byte[8+2+12+4+2+12+4+text.length];
+        tiff[0]='I';tiff[1]='I';tiff[2]=42;
+        tiff[4]=8;
+        tiff[8]=1;
+        tiff[10]=(byte)0x69;tiff[11]=(byte)0x87;tiff[12]=4;tiff[14]=1;tiff[18]=26;
+        tiff[26]=1;
+        tiff[28]=(byte)0x34;tiff[29]=(byte)0xA4;tiff[30]=2;tiff[32]=(byte)text.length;
+        tiff[36]=44;
+        System.arraycopy(text,0,tiff,44,text.length);
+        byte[] jpeg=new byte[4+2+6+tiff.length+2];
+        jpeg[0]=(byte)255;jpeg[1]=(byte)216;jpeg[2]=(byte)255;jpeg[3]=(byte)225;
+        int length=2+6+tiff.length;
+        jpeg[4]=(byte)(length>>>8);jpeg[5]=(byte)length;
+        jpeg[6]='E';jpeg[7]='x';jpeg[8]='i';jpeg[9]='f';
+        System.arraycopy(tiff,0,jpeg,12,tiff.length);
+        jpeg[jpeg.length-2]=(byte)255;jpeg[jpeg.length-1]=(byte)217;
+        return jpeg;
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);}
+        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }
