@@ -59,10 +59,13 @@ export default function App() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (page === 'camera') return false;
+      // Settings owns its own back stack (list → capture, about → list).
+      if (page === 'settings') return false;
       setPage('camera'); return true;
     });
     return () => sub.remove();
   }, [page]);
+  const closeSettings = useCallback(() => setPage('camera'), []);
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setSnack(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { setSnack(errorText(e)); } };
@@ -89,7 +92,7 @@ export default function App() {
     <StatusBar hidden />
     {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => setPage('settings')} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment}/>}
-    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} onBack={() => setPage('camera')}/>}
+    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} onBack={closeSettings}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={4500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
