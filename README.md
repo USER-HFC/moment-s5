@@ -4,64 +4,68 @@
 
 Experimental Android Motion Photo companion for the original Panasonic LUMIX S5 over USB. Unofficial, MIT-licensed. **Physical S5 / Find X8 compatibility is not yet verified.**
 
-[预发布 v0.8.0-beta.2 · 普通照片与透明示波器](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2) · [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
+[预发布 v0.8.0-beta.3](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.3) · [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
-v0.8.0-beta.2（code 23）让普通照片也下载本次原始 JPEG、按快门时选定的 LUT 保存渲染副本、进入 App 相册并导出到 `DCIM/MomentS5`；不需要三秒预缓存，不生成视频。示波器改为透明图表，可各自放大 / 缩小、移动和关闭，移除 AF / 近 / 远按钮组及冗余说明。**Wi-Fi 未经实体 S5 验证，USB 仍为默认与推荐方式。beta.1 与 beta.2 证书相同，可直接覆盖升级；v0.7.0 签名不同，须先导出并确认照片，再卸载 v0.7.0、安装 beta。** APK、SHA-256 和完整验证见 [发布验证报告](evidence/v0.8.0-beta.2/REPORT.md)。
+**v0.8.0-beta.3（code 24）是预发布版。v0.7.0 仍是最新稳定版。** 日常使用请安装 [v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0)；想试用本版协议修复时再下载 [v0.8.0-beta.3 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.3)。
 
-本次验证通过 TypeScript、62 个 Jest 测试、ESLint 0 errors、全部 Java 检查脚本、41 个 Python Wi-Fi 测试及实际 release 构建；模拟器 DEMO / 自写 Wi-Fi mock 媒体和界面证据见上述报告。发布 APK 为 `moment-lumix-v0.8.0-beta.2-arm64.apk`（32,305,881 字节），SHA-256：`56bbe51ca18ba446267f95c3860db3d15bb5143b19f5d5d8ab5a79fe54b2ddb2`。
+本版继续提供两种拍摄：普通照片下载这一次的 JPEG，动态照片在约 3 秒取景缓存就绪后保存 Motion Photo。透明示波器和 LUT 仍然可用。USB 是默认和推荐的连接方式。Wi-Fi 仍是实验功能，界面标明「未经真机验证」。
 
-v0.7.0 修复三项拍摄页问题：相册支持双指缩放、单击显隐操作、删除 App 内副本，并直接返回拍照页；动态照片改为按下快门时冻结连续预录队列，不再先录未来 3 秒；相机照片索引在快门前准备，避免慢 USB 索引阻塞快门。相机 SD 卡原片和已导出系统相册副本不会因 App 删除而删除。
+USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)：
 
-当前开发版是支持横竖屏的 React Native 应用，使用 React Native Paper，启动后直接进入拍摄页；相册从拍摄页进入，返回时回到拍摄页。动态照片会把相机原片和可选 LUT 渲染图同步到手机；LUMIX Lab 的 33-grid `.cube` 与包含它的 `.zip` 可导入本地 LUT 仓库。Android 发布包只提供 `arm64-v8a`，适合现代手机直装。
+- USB 在收到回复的第一个字节之前会一直等到期限，快门期限为 60 秒；传输中途超时仍然断开。ISO 和光圈优先读当前参数，快门可以显示 B 门、整秒和分数快门。
+- 实验 Wi-Fi 按公开的 LUMIX Sync 顺序等待机身确认、订阅事件后再取景，并以较疏的保活和有限的目录读取减少整卡遍历。原片允许 512 字节填充。快门仍然只发一次。
 
-v0.5.8 修复 S5 拍摄后 JPEG 索引更新滞后导致的“未找到本次 JPEG”：事件端点和文件索引改为双通道轮询，并延长高分辨率原片接收等待；同时把真实失败原因同步到相册，不再把失败记录永久显示为“合成中”。**当前驱动仍限定初代 S5，改名不代表新增机型支持**。这是全新安装包，不兼容旧包 `cn.moment.s5` 的升级关系；如需清理旧版请手动卸载。iPhone / iPad 共用 RN 页面，原生相机桥仍待适配。
+独立的自动对焦按钮已移除。USB 和演示有取景时，点按画面中央的对焦框即可自动对焦；Wi-Fi 只有在机身声明支持自动对焦时才显示这个框。远焦 / 近焦按钮只在 USB 连接时显示，每次按一下走一档相对步进；方向尚未在真机上确认。
 
-<img src="evidence/v0.2.0/01-home.png" alt="横屏首页：监看、定时遥控、动态照片、相册" width="720">
+**尚未在真实 S5 / Find X8 上验证。** 协议修复只用自写的假设备测过。模拟器上的 DEMO 和连接面板见 [v0.8.0-beta.3 截图记录](evidence/v0.8.0-beta.3/REPORT.md)。beta.2 可直接覆盖安装本版；从 v0.7.0 升级须先把照片导出到系统相册并确认，再卸载 v0.7.0，因为签名不同。
+
+<img src="evidence/v0.8.0-beta.3/01-release-start.png" alt="横屏拍摄页：未连接相机，有网格、LUT、示波器和照片 / 动态两种模式" width="720">
 
 ## 当前交付
 
-- React Native Android APK，最低 Android 13（API 33）；支持竖屏及双向横屏，工具栏、透明示波器和快门区随方向重排。`mobile/` 是 RN 工程，产品名为“瞬间 Lumix”。
-- 监看：实时取景、构图网格开关；普通照片和前台定时照片均下载本次 JPEG，可选 LUT、App 相册及系统导出，机身 SD 卡原片不变。
-- Panasonic PTP USB 会话、实时 JPEG 取景、AF、近/远焦步进、曝光参数读取。
-- 手机缓存快门前约 3 秒取景，App 快门触发 S5 拍照，再接收本次原尺寸 JPEG；不采集快门后画面。
-- 原照片 + H.264 视频打包为 Android Motion Photo；保留原始 EXIF 与 JPEG 数据。
-- 可选手机麦克风收音，AAC 音轨与视频合并。默认关闭，需要明确授予录音权限。
-- LUT 仓库：导入 LUMIX Lab 33-grid `.cube` 或 `.zip`，启用后同时作用于监看帧和手机端渲染照片；`original.jpg` 永远保留相机原始 JPEG，`rendered.jpg` 是派生文件。LUT 必须匹配输入色彩空间，App 不会把普通 JPEG 自动变成 V-Log。
-- 内置 8 个只读“Fuji 风格”LUT：Provia/Standard、Velvia、Astia、Classic Chrome、Classic Negative、Eterna、Acros、Pro Neg.Std。它们是本项目原创的非官方近似效果，适用于普通 SDR sRGB / Rec.709 取景与 JPEG，建议搭配相机标准照片风格；不是富士官方 LUT 或机内色彩的精确复现。生成脚本、许可与来源核查见 [NOTICE.md](NOTICE.md)。
-- 最近照片全屏预览、双指缩放、单击显隐操作、动态照片长按播放、列表查看、删除 App 内副本、系统相册导出。普通静态照片不显示 LIVE 或播放提示。
-- 可运行的合成演示，用于无相机测试。演示拍摄、界面及元数据都明确标记，不伪装成机身输出。
-- 连接诊断可分享，不记录机身序列号，不上传日志。
+- React Native Android APK，最低 Android 13（API 33），只提供 `arm64-v8a`。支持竖屏和双向横屏，工具栏、取景和快门区随方向重排。`mobile/` 是 RN 工程，产品名为「瞬间 Lumix」。启动后直接进入拍摄页。
+- 连接面板默认是 USB。同一面板提供「Wi-Fi（实验）」和合成演示。演示画面与元数据标为 DEMO / SYNTHETIC DEMO。
+- **照片**：下载本次 JPEG，可选 LUT，写入 App 相册，并可导出到 `DCIM/MomentS5`。无三秒预缓存，不生成视频。机身 SD 卡原片保持不动。
+- **动态**：手机保留快门前约 3 秒取景。缓存就绪后，快门冻结这段队列并触发机身拍摄，再接收本次 JPEG，打包为 Android Motion Photo。视频里只有快门前的取景帧。
+- 监看有实时取景和构图网格。LUT 同时作用于监看和手机端渲染；`original.jpg` 永远是相机原始 JPEG，`rendered.jpg` 才是派生文件。可导入 LUMIX Lab 的 33-grid `.cube` 或包含它的 `.zip`。内置 8 个只读 Fuji 风格近似预设，说明见 [NOTICE.md](NOTICE.md)。LUT 必须和输入色彩空间匹配，App 不会把普通 JPEG 自动变成 V-Log。
+- 透明示波器可同时打开 RGB 直方图、亮度波形、RGB 分列和矢量示波器，各自移动、放大、缩小和关闭。
+- 对焦：没有单独的自动对焦按钮。USB 和演示在取景上显示中央对焦框，点按即自动对焦；Wi-Fi 要等机身声明支持才显示这个框。远焦 / 近焦只在 USB 已连接、且不是演示时出现。它们是相对步进，方向尚未在真机上确认，也没有 A/B 精确拉焦。
+- 相册从拍摄页进入，返回拍摄页。最近照片可双指缩放、单击显隐操作；动态照片可长按回放，普通照片不显示 LIVE。列表可切换旧照片。删除只移除 App 内副本。
+- 可选手机麦克风，默认关闭，授权后才把 AAC 音轨并入动态照片。
+- 连接诊断可以分享。记录里不包含机身序列号，日志不上传。
 
-**状态：RN Release 可构建并在 Android 模拟器启动；尚未在真实 S5/Find X8 上验证 USB 会话、镜头控制、取景连续性和 ColorOS 相册识别。** iOS 页面工程已由 RN 生成，但 ImageCaptureCore/PTP 原生桥尚未接入，因此不能宣称 iPhone/iPad 已支持。Android Motion Photo 不能直接当作 Apple Live Photo。
+**状态：当前 release 能在 Android 模拟器里启动并完成上述 DEMO 界面。尚未在真实 S5 / Find X8 上验证 USB 会话、Wi-Fi 握手、镜头步进方向、取景连续性或 ColorOS 相册识别。** iOS 页面工程已由 RN 生成，ImageCaptureCore / PTP 原生桥还没接入，不能把 iPhone / iPad 当成已支持。Android Motion Photo 也不能直接当作 Apple Live Photo。驱动仍限定初代 S5。
 
-详细验证范围与结果见 [TEST_REPORT.md](TEST_REPORT.md)，交互与视觉取舍见 [DESIGN.md](DESIGN.md)。
+交互取舍见 [DESIGN.md](DESIGN.md)，更早的测试范围见 [TEST_REPORT.md](TEST_REPORT.md)。
 
 ## 在 OPPO 上使用
 
-1. 下载 [v0.8.0-beta.2 预发布 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.2)，或选择 [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0)。beta.1 可直接覆盖升级；v0.7.0 签名不同，先导出照片并确认系统相册副本，再卸载 v0.7.0。
-2. 手机设置搜索“OTG”并开启。使用支持数据的 USB-C to USB-C 线接 S5。
-3. S5 选择 **PC(Tether)**、单张拍摄、JPEG 或 RAW+JPEG，确认 SD 卡可写。先用较短快门测试，例如 1/125s。
-4. 打开 App 直接进入拍摄页，点顶部“连接”选择 USB 并允许访问；同一面板也提供 Wi-Fi（实验）与合成演示。顶部提供网格、LUT 和示波器；示波器的移动 / 大小 / 关闭图标各自独立。
-5. 默认 **照片** 模式直接拍摄并下载 JPEG，无 LUT 同样保存；LUT 在快门触发时冻结，原片保留。选择 **动态** 后才需要等待取景缓存就绪，再点“拍摄动态照片”。按下快门时 App 会冻结已经缓存的前三秒并立即触发机身快门，不会再等待快门后的画面。在接收这张照片期间不要同时按机身快门或连接其他遥控软件。
-6. 在拍摄页打开“相册”会直接预览最近照片；单击显示或隐藏操作，双指缩放，动态照片可长按回放。列表中可切换旧照片；“保存到系统相册”写入 `DCIM/MomentS5`，删除只移除 App 内副本。
-7. 如需声音，点快门区的“环境声”并授权麦克风。离开 App 后停止收音和连接；回来手动重连。
+1. 稳定使用请下载 [v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0)。试用协议修复请下载 [v0.8.0-beta.3 预发布 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.3)。从 beta.2 可以直接覆盖安装。从 v0.7.0 升级时，先把照片保存到系统相册并打开确认，再卸载 v0.7.0；卸载会清掉 App 内照片和导入的 LUT，SD 卡原片和已经导出的副本还在。
+2. 手机设置里打开 OTG。用能传数据的 USB-C 线连接 S5。这是推荐方式。
+3. S5 选择 **PC(Tether)**、单张、JPEG 或 RAW+JPEG，并确认 SD 卡可写。先用较短快门，例如 1/125s。
+4. 打开 App 即进入拍摄页。点「连接」，默认用 USB 并允许访问。同一面板里的「Wi-Fi（实验）」需要相机自己的 Wi-Fi，并在界面上标明尚未真机验证；没有相机时用「体验演示」。
+5. 工具栏有网格、LUT 和示波器。有取景时点中央对焦框做自动对焦。只有 USB 连接后才会出现远焦 / 近焦，每按一次走一档；方向还要用真机看镜头实际往哪边动。
+6. 底部默认是 **照片**，点快门即拍并下载这一张 JPEG。选了 LUT 时，快门瞬间的 LUT 会被冻结，原片仍保留。改选 **动态** 后，等到「缓存就绪」再点「拍摄动态照片」。接收这张照片时，不要同时按机身快门或打开另一套遥控软件。
+7. 「相册」直接打开最近一张。单击显隐操作，双指缩放；动态照片长按回放。列表里可以换旧照片。「保存」写入 `DCIM/MomentS5`。删除只删 App 内副本。
+8. 需要声音时点「环境声」并允许麦克风。离开 App 后收音和连接都会停，回来要手动重连。
 
-**定时遥控**：选择延时，点“开始倒计时”，可随时在指令发出前取消。离开页面、退到后台或 USB 拔出会取消尚未到点的任务；不支持后台定时、间隔连拍或自动重试。普通照片会下载本次 JPEG 到 App 相册，按触发快门时的 LUT 渲染；本机相册不浏览相机存储卡。
+**定时**：点「定时」后选择延时，再点「开始倒计时」。指令发出前可以取消。离开页面、退到后台或断开连接会取消还没到点的任务。这里没有后台定时、间隔连拍或失败自动重拍。定时照片同样下载本次 JPEG。相册只看手机里的 App 副本，不浏览相机存储卡。
 
-没有相机时，点“体验演示”。普通照片真实执行 JPEG 保存、LUT 渲染与导出；动态照片另执行缓存和编码。画面和元数据均标记 DEMO / SYNTHETIC DEMO。
+没有相机时点「体验演示」。照片模式会走 JPEG 保存、LUT 和导出；动态模式另外走缓存和编码。画面上的 MOMENT / SYNTHETIC DEMO 表示这是合成素材。
 
 ## 重要的能力边界
 
-- **照片**来自 S5 本次 JPEG；RAW 留给机身保存，本版不下载或处理 RW2。程序不会主动删除相机中的文件。
-- **动态**来自 USB 取景，最长边限制 960 像素、输出 15 fps。重复帧按真实时间显示，不表示机身提供了 15 个不同画面/秒。不是机内 4K 视频，也不是通过缓存补拍过去的 RAW。
-- 动态截止于发出快门指令前的缓存快照，不是硬件曝光起始时间；Motion Photo 静态照片的时间标记位于视频最后一个编码帧。视频本身仅含取景帧，不会把原片插入视频。照片与动态的精确同步要在真机上校准。
-- 拍照可能暂停取景，本版只使用快门前画面以避开该中断。仅动态模式在预缓存未达到 3 秒或出现超过 500 ms 的帧间隔时阻止拍摄；App 不会用快门后的画面补录。仍显示最长帧间隔，不保证 USB 取景始终流畅。
-- 音频来自手机，与 USB 画面共享单调时钟，但实际取景传输延迟仍需校准。收音失败会在日志中记录；缓存不足时导出无声版本。
-- 以横向拍摄作为首次真机测试条件。竖拍静态 EXIF 原样保留，但机身取景方向与动态匹配尚未真机验证。
-- “系统相册识别为实况”取决于 ColorOS 版本；App 内回放不依赖系统相册识别。社交软件可能只保留 JPEG，需要分别验证分享渠道。
-- App 退到后台会关闭连接，不提供后台持续预录。合成期间请等当前照片完成；已下载的原片即使合成失败也会保留。
-- 只支持一个进行中的拍摄任务；原片接收上限 64 MB，压缩 JPEG 环形缓存上限 32 MB。
-- AF / 近 / 远按钮组已移除；未提供 A/B 精确拉焦。镜头控制仍需实体设备验证。
+- **照片**是 S5 这一次的 JPEG。RAW 留在机身，本版不下载、不处理 RW2，也不会主动删除相机里的文件。
+- **动态**来自取景流，最长边 960 像素、输出 15 fps。重复帧按真实时间间隔显示。它是快门前的监看，不是机内 4K，也不是事后补出来的 RAW。
+- 动态视频停在发出快门指令之前的缓存。Motion Photo 里静态照片的时间标记落在视频最后一个编码帧。照片和动态的对齐还要在真机上校准。
+- 只有动态模式要求预缓存满 3 秒，并且帧间隔不超过 500 ms。间隔更大时快门会停用。App 不用快门之后的画面补这段视频。
+- 声音来自手机麦克风。缓存不够或没有录音权限时，动态照片可以是无声的。
+- 首次真机测试建议先用横构图。竖拍静态 JPEG 的 EXIF 会原样保留；机身取景方向和动态画面是否一致，还没在真机上看过。
+- 系统相册会不会把文件认成实况，取决于 ColorOS 版本。App 内长按回放不依赖这个识别。
+- 退到后台会断开连接，没有后台连续预录。同一时间只有一个拍摄任务。原片接收上限 64 MB，压缩 JPEG 环形缓存上限 32 MB。
+- 对焦没有独立的自动对焦按钮，也没有精确的 A/B 拉焦。中央对焦框是点按自动对焦。远焦 / 近焦是 USB 上的相对步进，方向尚未在真机上确认。Wi-Fi 侧的对焦指令即使协议里有候选值，界面也不提供远 / 近按钮。
+- 实验 Wi-Fi 仍可能在真实机身上失败。已知还要真机数据才能决定的事项写在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)，包括快门前是否必须进出一次播放模式，以及手动对焦档位的方向。USB 仍是默认和推荐方式。
+- 示波器分析的是 LUT 之后的监看 JPEG，是构图和曝光的参考，不是 RAW 或机内测光。
 
 ## 构建
 
@@ -135,14 +139,14 @@ Android 在独立低优先级线程中分析与监看相同的 LUT 后 JPEG（�
 
 本版使用独立的 `CameraTransport`：USB 包装原有 `UsbS5`，实验 Wi-Fi 使用串行 `cam.cgi`、`getstate` 保活、独立 UDP 完整 JPEG 接收和 description 公布的 DLNA ContentDirectory。相机 HTTP / UDP socket 绑定到所选 Android `Network`，不绑定整个进程或替换默认互联网网络。应用的通用明文 HTTP 策略保持关闭；相机专用 socket 客户端另行强制同一相机私有 IPv4、校验公布的资源地址、拒绝重定向和控制指令资源。debug 的 Metro 例外仅限 localhost / 模拟器主机。
 
-- 只实现候选 legacy `req_acc` 与设备名登记；机身须接受连接。Gen2 `req_acc_g` / `req_acc_e` 仅解析结构，报告“需要真机抓包确认”，没有移植 G9II 常量或响应算法。
-- AF 使用 `oneshot_af`，MF 使用 `wide-slow` / `tele-slow`；保留协议能力探测，但不显示 AF / 近 / 远按钮组。曝光仅展示可读的 `getsetting` 字段。
-- 每次拍摄先取得完整分页目录基线，再单发快门。快门超时或拒绝后退出会话，**绝不自动重发**；请检查 SD 卡后重新连接。只接受唯一新对象中的 `CAM_ORG` / `CAM_RAW_JPG` 原 JPEG；多张新图、双卡歧义、缩略图或旧图均不能代替本次原片。请使用单张 JPEG / RAW+JPEG，避免机身或其他 App 同时拍摄。
-- 原片流式写入临时文件，校验长度、JPEG SOI / SOF / SOS / EOI 后原子发布；随后按模式保存：普通照片直接 LUT / JPEG / 相册 / 导出；动态照片再用三秒 pre-only 缓冲编码 Motion Photo。完整连续三秒、帧间隔不超过 500 ms 的门槛只约束动态模式。
-- UDP 当前只接受含完整 JPEG 的单个 datagram，可识别有限长度的前缀。残帧被丢弃，有界队列最多三帧；未知应用分包格式须真机抓包确认。离开前台释放取景与网络，不进行后台拍摄。暂不包含 BLE 唤醒、自动发现或 iOS Wi-Fi 实现。
+- 只实现候选 legacy `req_acc` 与设备名登记；机身须接受连接。机身弹出确认时会继续等待，而不是立刻判失败。Gen2 `req_acc_g` / `req_acc_e` 仅解析结构，报告“需要真机抓包确认”，没有移植 G9II 常量或响应算法。
+- Wi-Fi 的自动对焦候选是 `oneshot_af`，手动对焦候选是 `wide-slow` / `tele-slow`。界面不提供 Wi-Fi 的远焦 / 近焦按钮。USB 连接时才显示这两枚相对步进；点按取景中央对焦框做自动对焦。曝光只展示读到的字段。
+- 拍摄前的目录基线只读根目录和最新文件夹；之后只再列新增或 `childCount` 有变化的文件夹，避免把整张卡扫一遍。快门只发一次，超时或拒绝后退出会话，**绝不自动重发**。只接受唯一新对象中的 `CAM_ORG` / `CAM_RAW_JPG` 原 JPEG。请使用单张 JPEG / RAW+JPEG，避免机身或其他 App 同时拍摄。
+- 原片允许 EOI 之后的填充。校验 SOI / SOF / SOS / EOI 后原子发布，再按模式保存：普通照片走 LUT / JPEG / 相册 / 导出；动态照片再用三秒快门前缓冲编码 Motion Photo。满 3 秒且帧间隔不超过 500 ms 的门槛只约束动态模式。
+- 取景按每个 UDP 数据报里的 S5 头部偏移找 JPEG，失败时再在报头附近搜索标记，并截到 EOI。残帧丢弃，队列最多三帧。跨数据报的未知分包仍要真机抓包确认。离开前台会释放取景和网络。暂不包含 BLE 唤醒、自动发现或 iOS Wi-Fi。
 
 模拟器闭环只证明本项目自写 mock 与 App 的协议 / 媒体路径，不能代替真实 S5、Find X8、双 STA / 蜂窝共存、长曝光、双卡或原片 SD 字节一致性验收。证据见 [Wi-Fi beta 验证报告](evidence/v0.8.0-beta.1-wifi/REPORT.md)，实体测试清单见 [无线研究](docs/research/wireless-connection.md)。纯 Java 主机检查运行 `JAVA_HOME=/path/to/JDK17 bash tools/check-wifi.sh`；保留现有 core / native / scopes / LUT / Jest 与 `python3 -I -m unittest discover tools/s5-wifi` 检查。
 
-debug APK 才显示“模拟相机调试”，也会在原生层拒绝 release 的任意主机设置。独立模拟器可使用 `10.0.2.2:18088`、UDP `49152`，运行 `python3 -I tools/s5-wifi/mock_camera.py --http-port 18088 --ssdp-port 11988 --advertise-host 10.0.2.2`；向指定模拟器执行 `adb -s emulator-5580 emu redir add udp:49152:49152`。mock HTTP 仍只绑定 Mac loopback。详细复现命令在验证报告中。
+debug APK 才显示「模拟相机调试」，release 会在原生层拒绝任意主机设置。release 的自测适配器是 `python3 -I tools/s5-wifi/mock_release_camera.py`，命令和临时端口转发写在 [tools/s5-wifi/README.md](tools/s5-wifi/README.md)。相机 IP 框目前是十进制键盘；这次在模拟器上第二次小数点进不去，所以没有连上 mock，也没有已连接的 Wi-Fi 取景截图。mock 仍然只证明自写夹具，不能代替真实 S5。
 
-**升级签名：beta.1 可直接覆盖安装 beta.2。** 两者均使用现有 `~/.android/debug.keystore`，证书 SHA-256 `85e000b6b35fd5ad95072cbc359992a808b752aca653c8f723b187777f77c565`，已对下载的 beta.1 APK 与本次 APK 实际核对。v0.7.0 原签名密钥不可用，不能直接覆盖；从 v0.7.0 迁移须先保存照片到系统相册并确认成功，再卸载 v0.7.0。卸载会删除 App 内照片和导入 LUT，SD 卡原片及已导出副本保留。`0.8.0-beta.2` / code `23` 是 GitHub pre-release，v0.7.0 仍为最新稳定版。
+**升级签名：beta.1 / beta.2 可直接覆盖安装 v0.8.0-beta.3。** 发布说明记录三者使用同一证书，SHA-256 `85e000b6b35fd5ad95072cbc359992a808b752aca653c8f723b187777f77c565`。v0.7.0 的签名不同，不能直接覆盖；迁移须先把照片保存到系统相册并确认，再卸载 v0.7.0。卸载会删除 App 内照片和导入 LUT，SD 卡原片及已导出副本保留。`0.8.0-beta.3` / code `24` 是 GitHub pre-release，v0.7.0 仍为最新稳定版。
