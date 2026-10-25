@@ -102,10 +102,11 @@ final class WifiS5Protocol {
     /** LUMIX Sync's accctrl identity: fixed prefix plus a per-install seed of 12 hex digits. */
     static final String CLIENT_PREFIX="4D454930-0100-1000-8001-";
     static String clientId(File file) throws IOException {
-        if(file.isFile()){String saved=Files.readString(file.toPath(),StandardCharsets.US_ASCII).trim();if(saved.matches("[0-9A-F]{12}"))return CLIENT_PREFIX+saved;}
+        // AGP compiles against a system image that has readAllBytes/write, not readString/writeString.
+        if(file.isFile()){String saved=new String(Files.readAllBytes(file.toPath()),StandardCharsets.US_ASCII).trim();if(saved.matches("[0-9A-F]{12}"))return CLIENT_PREFIX+saved;}
         byte[] seed=new byte[6];new java.security.SecureRandom().nextBytes(seed);StringBuilder hex=new StringBuilder();for(byte b:seed)hex.append(String.format(Locale.ROOT,"%02X",b&255));
         File parent=file.getAbsoluteFile().getParentFile();if(parent!=null && !parent.isDirectory() && !parent.mkdirs())throw new IOException("无法保存 Wi-Fi 设备标识");
-        Files.writeString(file.toPath(),hex,StandardCharsets.US_ASCII);return CLIENT_PREFIX+hex;
+        Files.write(file.toPath(),hex.toString().getBytes(StandardCharsets.US_ASCII));return CLIENT_PREFIX+hex;
     }
     /** {@code childCount} is -1 when the camera omits it. */
     record Item(String id,String parent,String title,List<Media> originals,boolean container,int childCount) {String identity(){return parent+"\u001f"+id;}}
