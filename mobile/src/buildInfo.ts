@@ -26,3 +26,23 @@ export function minAndroidLabel(api: string) {
   if (api === '33') return 'Android 13（API 33）';
   return api === '未知' ? '未知' : `API ${api}`;
 }
+
+/** Build timestamps are UTC ISO strings; people compare them against local clock time. */
+export function formatBuiltAt(raw: string) {
+  const date = new Date(raw);
+  if (!raw || raw === '未知' || Number.isNaN(date.getTime())) return raw;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** One block for bug reports, so nobody has to stitch rows together by hand. */
+export function buildInfoText(build: BuildInfo) {
+  return [
+    `瞬间 Lumix ${build.versionName}（${build.versionCode}）`,
+    `构建时间：${formatBuiltAt(build.builtAt)}`,
+    `提交：${build.git}`,
+    `构建类型：${build.buildType}`,
+    `ABI：${build.abi}`,
+    `最低 Android 版本：${minAndroidLabel(build.minSdk)}`,
+  ].join('\n');
+}

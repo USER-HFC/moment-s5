@@ -8,7 +8,7 @@ export const CAMERA_ICONS = {
   back: 'back', grid: 'grid', album: 'album', lut: 'lut', motion: 'motion', photo: 'photo',
   timer: 'timer', focus: 'focus-auto', far: 'focus-far', near: 'focus-near',
   usb: 'usb', wifi: 'wifi', disconnected: 'usb-off', demo: 'demo', mic: 'mic', muted: 'mic-off',
-  ratio: 'ratio', check: 'check', close: 'close', list: 'list', save: 'save',
+  ratio: 'ratio', check: 'check', chevron: 'chevron', copy: 'copy', external: 'external', close: 'close', list: 'list', save: 'save',
   delete: 'delete', import: 'import', refresh: 'rotate', settings: 'settings', scopes: 'scopes',
   enlarge: 'enlarge', shrink: 'shrink', move: 'move',
 } as const;
