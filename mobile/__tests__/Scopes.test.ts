@@ -111,6 +111,18 @@ describe('independent scope panel state', () => {
       }
     }
   });
+  it('can sit on either edge of a portrait or landscape viewfinder', () => {
+    for (const bounds of [
+      {width: 360, height: 540, insets: {top: 0, bottom: 0, left: 0, right: 0}},
+      {width: 640, height: 360, insets: {top: 0, bottom: 0, left: 0, right: 0}},
+    ]) for (const size of ['S', 'M'] as const) {
+      const top = scopePanelLayout(bounds, {x: 0, y: 0}, size);
+      const bottom = scopePanelLayout(bounds, {x: 1, y: 1}, size);
+      expect(top.x).toBe(0); expect(top.y).toBe(0);
+      expect(bottom.x + bottom.width).toBe(bounds.width);
+      expect(bottom.y + bottom.height).toBe(bounds.height);
+    }
+  });
   it('places a newly opened panel in a free tile', () => {
     let state = createScopePanelState();
     state = updateScopePanelState(state, {type: 'toggle', kind: 'waveform'});

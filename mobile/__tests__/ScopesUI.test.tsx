@@ -17,6 +17,7 @@ jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
 import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS} from '../src/scopes/ScopesOverlay';
 import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
+import {scopePanelLayout} from '../src/scopes/panelState';
 import {SCOPE_SHAPE} from '../src/scopes/protocol';
 import CameraWorkspace from '../src/CameraWorkspace';
 
@@ -148,7 +149,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.update(<CameraWorkspace {...props}/>));
     expect(mockHandlers.size).toBe(0);
   });
-  it('reserves actual HUD measurements for scopes and retains all four corners after the last scope closes', () => {
+  it('lets charts cover the full preview, including the HUD bands, and retains all four corners after the last scope closes', () => {
     const state = {active: true, busy: false, ready: true, demo: false, lut: null, exposure: 'ISO 640     f/4.0     1/80', phoneBattery: {percent: 37}};
     const props = {state, preview: 'data:image/jpeg;base64,frame', buffered: 3, luts: [], onLut: async () => {}, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
     act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
@@ -158,7 +159,14 @@ describe('scope overlays and native subscription lifecycle', () => {
       tree!.root.findByProps({testID: 'hud-bottom'}).props.onLayout({nativeEvent: {layout: {height: 80}}});
       changeScopePanel({type: 'toggle', kind: 'waveform'});
     });
-    expect(tree!.root.findByType(ScopesOverlay).props.bounds.insets).toEqual({top: 84, bottom: 104, left: 16, right: 16});
+    const bounds = tree!.root.findByType(ScopesOverlay).props.bounds;
+    expect(bounds.insets).toEqual({top: 0, bottom: 0, left: 0, right: 0});
+    expect(scopePanelLayout(bounds, {x: 0, y: 0}, 'S').y).toBe(0);
+    expect(scopePanelLayout(bounds, {x: 1, y: 1}, 'M').y + scopePanelLayout(bounds, {x: 1, y: 1}, 'M').height).toBe(bounds.height);
+    const overlayZ = StyleSheet.flatten(tree!.root.findByProps({testID: 'scopes-overlay'}).props.style).zIndex;
+    const hudZ = StyleSheet.flatten(tree!.root.findByProps({testID: 'hud-top'}).props.style).zIndex;
+    expect(overlayZ).toBeGreaterThan(hudZ);
+    expect(overlayZ).toBeLessThan(1100);
     act(() => tree!.root.findByProps({testID: 'scope-close-waveform'}).props.onPress());
     expect(tree!.root.findAllByProps({testID: 'scopes-overlay'})).toHaveLength(0);
     for (const testID of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree!.root.findByProps({testID})).toBeTruthy();

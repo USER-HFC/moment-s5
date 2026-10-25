@@ -13,7 +13,6 @@ import ScopesOverlay from './scopes/ScopesOverlay';
 import {useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
 import CameraHud from './hud/CameraHud';
-import {hudSafeBounds} from './hud/readings';
 
 type Panel = 'lut' | 'delay' | null;
 type Props = {
@@ -149,7 +148,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
             <View style={[styles.emptyCopy, landscape && styles.emptyCopyLandscape]}><Text style={styles.emptyTitle}>等待相机取景</Text></View>
             <Button textColor={ui.color.text} mode="outlined" accessibilityLabel="体验演示" contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button>
           </ScrollView>}
-          {hasFeed && <ScopesOverlay panels={scopePanels} bounds={hudSafeBounds(previewFrame || finderSize, hudTopHeight, hudBottomHeight)} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
+          {/* HUD bands stay in the preview. Charts may cover them; the text is drawn underneath. */}
+          {hasFeed && <ScopesOverlay panels={scopePanels} bounds={{...(previewFrame || finderSize), insets: {top: 0, bottom: 0, left: 0, right: 0}}} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
           <CameraHud state={state} buffered={buffered} motion={motionEnabled} waiting={waiting} onTopLayout={event => setHudTopHeight(event.nativeEvent.layout.height)} onBottomLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}/>
           {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
         </View>
