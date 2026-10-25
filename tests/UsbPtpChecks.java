@@ -126,8 +126,26 @@ public final class UsbPtpChecks {
         check(camera.nextCameraPhoto(next,Set.of())==null,"a synced photo joins the baseline and is never imported twice");
         camera.close();
     }
+    /** Event thread records the flag only; the capture worker does the bulk read later. */
+    private static void propertyEvents() throws Exception {
+        UsbS5 camera=open(manager());
+        camera.acceptEvent(4,0xc102,1);
+        check(camera.exposureChanged(),"Panasonic DevicePropChanged 0xC102 requests an exposure refresh");
+        camera.clearExposureChanged();
+        check(!camera.exposureChanged(),"clearing the property-change flag waits for the next event");
+        camera.acceptEvent(4,0x4006,null);
+        check(camera.exposureChanged(),"standard PTP DevicePropChanged 0x4006 requests an exposure refresh");
+        camera.clearExposureChanged();
+        camera.acceptEvent(4,0xc108,42);
+        check(Integer.valueOf(42).equals(camera.nextAdded()) && !camera.exposureChanged(),"ObjectAdded stays a photo event and is not an exposure change");
+        camera.acceptEvent(2,0xc102,1);
+        check(!camera.exposureChanged(),"a data container is not an event");
+        camera.acceptEvent(4,0xc108,null);
+        check(camera.nextAdded()==null,"ObjectAdded without a handle is ignored");
+        camera.close();
+    }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();anyLumix();focus();cameraPhotos();
+        timeouts();exposure();anyLumix();focus();cameraPhotos();propertyEvents();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }

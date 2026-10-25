@@ -90,7 +90,8 @@ public final class WifiS5Checks {
         final List<String> controls=Collections.synchronizedList(new ArrayList<>());final List<String> photoIds=Collections.synchronizedList(new ArrayList<>());
         final byte[] preview,original;final String base;volatile int udpPort;volatile boolean focus=true,noUdp,redirect,truncate,wrongSize,refuseAuth,gen2,refuseShutter,chunked;volatile long captureDelay;
         // S5 behaviour taken from lumix-remote's published real-body notes, not from our own hardware.
-        final AtomicInteger subscribes=new AtomicInteger(),unsubscribes=new AtomicInteger(),playmodes=new AtomicInteger(),recmodes=new AtomicInteger();
+        final AtomicInteger subscribes=new AtomicInteger(),unsubscribes=new AtomicInteger(),playmodes=new AtomicInteger(),recmodes=new AtomicInteger(),settings=new AtomicInteger();
+        volatile URI eventCallback;
         final List<String> browsed=Collections.synchronizedList(new ArrayList<>());
         volatile boolean events=true,browseNeedsPlay,inPlay,folders,pad,encrypted,refuseChallenge;volatile String cammode;volatile int underResearch,busyReplies,failStates,busyStates;
         Fixture(Path root,int oldCount) throws Exception {
@@ -141,7 +142,7 @@ public final class WifiS5Checks {
                     exchange.getResponseHeaders().set("X-SESSION_ID","self-authored-token");send(exchange,gen2?ok("<challenge>self-authored-envelope</challenge>"):refuseAuth?"<camrply><result>err-reject</result></camrply>":ok(""));return;}
                 if("setsetting".equals(mode))names.incrementAndGet();
                 if("getinfo".equals(mode)){send(exchange,ok(focus?"<capability><camcmd>oneshot_af</camcmd><step>focus wide-slow tele-slow</step></capability>":"<capability/>"));return;}
-                if("getsetting".equals(mode)){send(exchange,ok("<setting><"+kind+">400</"+kind+"></setting>"));return;}
+                if("getsetting".equals(mode)){settings.incrementAndGet();send(exchange,ok("<setting><"+kind+">400</"+kind+"></setting>"));return;}
                 if("getstate".equals(mode)){states.incrementAndGet();
                     if(failStates>0){failStates--;exchange.sendResponseHeaders(500,-1);exchange.close();return;}
                     if(busyStates>0){busyStates--;send(exchange,"<camrply><result>err_busy</result></camrply>");return;}
@@ -167,7 +168,7 @@ public final class WifiS5Checks {
             exchange.getResponseHeaders().set("SID","uuid:fixture-subscription");exchange.getResponseHeaders().set("TIMEOUT","Second-300");exchange.sendResponseHeaders(200,-1);exchange.close();
             if(callback==null)return;
             subscribes.incrementAndGet();controls.add("SUBSCRIBE");
-            URI target=URI.create(callback.replaceAll("^<|>$",""));
+            URI target=URI.create(callback.replaceAll("^<|>$",""));eventCallback=target;
             workers.execute(()->{try{Thread.sleep(50);notify(target,"mod_Play");}catch(Exception ignored){}});
         }
         void notify(URI target,String value) throws IOException {
@@ -308,9 +309,39 @@ public final class WifiS5Checks {
             fixture.failStates=100;Thread.sleep(800);check(camera.closed(),"three failed polls in a row end the session");
         }
     }
+    /** Construction only: open() is what starts the keeper, and abort() releases that thread. */
+    private static void exposureInterval() throws Exception {
+        WifiS5Transport probe=new WifiS5Transport(new WifiCameraHttp.Route(){
+            public Socket connect(String host,int port) throws IOException {throw new IOException("unused");}
+            public void bind(DatagramSocket socket){}
+            public void close(){}
+        },"127.0.0.1",80,true,CLIENT,s->{},()->0);
+        try {check(probe.exposureEveryMs==2000,"idle Wi-Fi exposure refresh is about two seconds");}
+        finally {probe.abort();}
+    }
+    /** getstate stays at the keeper period. getsetting is the extra load, so it stays on the slow cadence. */
+    private static void exposureCadence(Path fixtures) throws Exception {
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            camera.keepaliveMs=50;camera.exposureEveryMs=200;camera.open();
+            check(fixture.settings.get()>0,"open probes exposure settings once");
+            Field state=WifiS5Transport.class.getDeclaredField("state");state.setAccessible(true);
+            state.set(camera,WifiS5Transport.State.DOWNLOADING);
+            Thread.sleep(50);int held=fixture.settings.get();Thread.sleep(700);
+            check(fixture.settings.get()==held,"exposure settings are not polled outside READY or BASELINED");
+            state.set(camera,WifiS5Transport.State.BASELINED);int before=fixture.settings.get();Thread.sleep(600);
+            check(fixture.settings.get()>before,"an idle BASELINED keeper reads exposure");
+            check(fixture.eventCallback!=null,"the fixture saw the GENA callback");
+            fixture.notify(fixture.eventCallback,"busy");Thread.sleep(80);
+            int busyHeld=fixture.settings.get();Thread.sleep(600);
+            check(fixture.settings.get()==busyHeld,"a busy body is not asked for exposure settings");
+            fixture.notify(fixture.eventCallback,"update");Thread.sleep(80);
+            int idle=fixture.settings.get();Thread.sleep(600);
+            check(fixture.settings.get()>idle,"exposure settings resume once the body is idle");
+        }
+    }
     public static void main(String[] args) throws Exception {
         Path fixtures=Path.of("tests/fixtures/s5-wifi"),output=Files.createTempDirectory("wifi-checks-");
-        try{parsing(fixtures);transportChecks(fixtures,output);protocolFlowChecks(fixtures,output);}finally{try(var files=Files.walk(output)){for(Path path:files.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
+        try{parsing(fixtures);exposureInterval();transportChecks(fixtures,output);protocolFlowChecks(fixtures,output);exposureCadence(fixtures);}finally{try(var files=Files.walk(output)){for(Path path:files.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" Wi-Fi checks (self-authored host fixtures; DC-S5 unverified)");
     }
 }

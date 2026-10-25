@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /** Native transport adapted from tethr (see NOTICE.md). All bulk operations are serialized. */
@@ -20,6 +21,7 @@ public final class UsbS5 implements AutoCloseable {
     private final UsbEndpoint in,out,events;
     private final Consumer<String> log;
     private final LinkedBlockingQueue<Integer> added=new LinkedBlockingQueue<>(64);
+    private final AtomicBoolean exposureChanged=new AtomicBoolean();
     private volatile boolean closed;
     private int transaction;
     private byte[] packet=new byte[16384];
@@ -85,6 +87,8 @@ public final class UsbS5 implements AutoCloseable {
         Set<Integer> s=new HashSet<>(); for(int h:new Ptp.Reader(r.data).array(4)) s.add(h);return s;
     }
     public void clearCaptureEvents() { added.clear(); }
+    public boolean exposureChanged() { return exposureChanged.get(); }
+    public void clearExposureChanged() { exposureChanged.set(false); }
     /** True when the body has an interrupt endpoint, so ObjectAdded events arrive for every new file. */
     public boolean hasEvents() { return events!=null; }
     public Integer nextAdded() { return added.poll(); }
@@ -127,13 +131,23 @@ public final class UsbS5 implements AutoCloseable {
                         try {completed=connection.requestWait(500);} catch(TimeoutException ignored) { /* Keep the same request pending. */ }
                     }
                     if(closed) {request.cancel();break;}
-                    int n=buffer.position(); if(n<16) continue;
+                    int n=buffer.position(); if(n<12) continue;
                     byte[] b=buffer.array();int type=Ptp.le(b).getShort(4)&65535,code=Ptp.le(b).getShort(6)&65535;
-                    if(type==4 && (code==0xc108 || code==0x4002)) added.offer(Ptp.le(b).getInt(12));
+                    acceptEvent(type,code,n>=16?Ptp.le(b).getInt(12):null);
                 }
             } catch(Exception e) {if(!closed) log.accept("事件接收结束："+e.getMessage());}
             finally {request.close();}
         },"s5-events");eventThread.start();
+    }
+    /**
+     * tethr names Panasonic DevicePropChanged 0xC102. libgphoto2's standard DevicePropChanged
+     * is 0x4006, and Lumix bodies advertise that too. The event thread only records it; the
+     * bulk read happens later on the capture worker so it cannot interleave with the shutter.
+     */
+    void acceptEvent(int type,int code,Integer handle) {
+        if(type!=4) return;
+        if((code==0xc108 || code==0x4002) && handle!=null) added.offer(handle);
+        else if(code==0xc102 || code==0x4006) exposureChanged.set(true);
     }
     private static final class Result {
         final int operation,code; final byte[] data;

@@ -3,7 +3,7 @@ import renderer, {act} from 'react-test-renderer';
 import {describe, expect, it, jest} from '@jest/globals';
 import {StyleSheet} from 'react-native';
 import CameraHud from '../src/hud/CameraHud';
-import {batteryText, exposureReading, hudSafeBounds} from '../src/hud/readings';
+import {batteryText, EXPOSURE_STALE_MS, exposureReading, hudSafeBounds} from '../src/hud/readings';
 import {CameraState} from '../src/native';
 import {scopePanelLayout} from '../src/scopes/panelState';
 
@@ -50,7 +50,8 @@ describe('truthful four-corner camera HUD', () => {
   });
   it('labels aged / unknown-age readings, and discards previous real-camera values in demo or disconnected states', () => {
     const exposure = 'ISO 640     f/2.8     1/125';
-    expect(exposureReading({...connected, exposure, exposureAgeMs: 11_000}).label).toContain('已过期');
+    expect(exposureReading({...connected, exposure, exposureAgeMs: EXPOSURE_STALE_MS}).label).not.toContain('已过期');
+    expect(exposureReading({...connected, exposure, exposureAgeMs: EXPOSURE_STALE_MS + 1}).label).toContain('已过期');
     expect(exposureReading({...connected, exposure}).label).toContain('最近读数');
     for (const state of [{...connected, exposure, demo: true}, {...connected, exposure, active: false}]) {
       const tree = hud(state, true);

@@ -2,7 +2,8 @@ import {BatteryReading, CameraState} from '../native';
 import {ScopeBounds} from '../scopes/panelState';
 import {ui} from '../theme';
 
-export const EXPOSURE_STALE_MS = 10_000;
+/** Three missed ~2 s refreshes. A newer sample clears it; a quiet link still says the last reading expired. */
+export const EXPOSURE_STALE_MS = 6_000;
 const EMPTY = {aperture: 'f/—', shutter: '快门 —', iso: 'ISO —'};
 
 /** Only split the display forms emitted by USB / Wi-Fi. Encoded Wi-Fi values stay raw. */
