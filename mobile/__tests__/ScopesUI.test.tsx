@@ -15,7 +15,7 @@ jest.mock('../src/native', () => {
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {children: React.ReactNode}) => children}));
 
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
-import ScopesOverlay from '../src/scopes/ScopesOverlay';
+import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS} from '../src/scopes/ScopesOverlay';
 import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
 import CameraWorkspace from '../src/CameraWorkspace';
 
@@ -205,5 +205,49 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: false}}/>));
     expect(mockHandlers.size).toBe(0);
     expect(api.setScopesEnabled.mock.calls.at(-1)?.[0]).toBe(false);
+  });
+  it('hides chart controls after idle, keeps dragging, and reveals them from a long press or an accessibility action', () => {
+    const gestures: any[] = [];
+    const create = PanResponder.create;
+    jest.spyOn(PanResponder, 'create').mockImplementation(config => {gestures.push(config); return create(config);});
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'histogram'});});
+    const panel = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-histogram'}).props.style);
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS - 1));
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    act(() => tree!.root.findByProps({testID: 'scope-move-histogram'}).props.onPress());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS - 1));
+    expect(tree!.root.findByProps({testID: 'scope-resize-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(1));
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    expect(tree!.root.findAllByProps({testID: 'scope-resize-histogram'})).toHaveLength(0);
+    expect(tree!.root.findAllByProps({testID: 'scope-close-histogram'})).toHaveLength(0);
+    const reveal = () => tree!.root.findByProps({testID: 'scope-reveal-histogram'});
+    expect(reveal().props.delayLongPress).toBe(SCOPE_CONTROLS_REVEAL_MS);
+    expect(typeof reveal().parent!.props.onMoveShouldSetResponderCapture).toBe('function');
+    act(() => changeScopePanel({type: 'move', kind: 'histogram', position: {x: 0, y: 0}}));
+    const startX = panel().transform[0].translateX.__getValue();
+    const drag = gestures[0];
+    act(() => drag.onPanResponderGrant());
+    act(() => drag.onPanResponderMove({}, {dx: 40, dy: 24}));
+    act(() => drag.onPanResponderRelease({}, {dx: 40, dy: 24}));
+    expect(panel().transform[0].translateX.__getValue()).toBeGreaterThan(startX);
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    const width = panel().width;
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'resize'}}));
+    expect(panel().width).toBeGreaterThan(width);
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'down'}}));
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'activate'}}));
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    expect(tree!.root.findByProps({testID: 'scope-resize-histogram'})).toBeTruthy();
+    expect(tree!.root.findByProps({testID: 'scope-close-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(tree!.root.findAllByProps({testID: 'scope-close-histogram'})).toHaveLength(0);
+    act(() => reveal().props.onLongPress());
+    expect(tree!.root.findByProps({accessibilityLabel: '关闭RGB 直方图'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'close'}}));
+    expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
   });
 });
