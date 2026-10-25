@@ -24,8 +24,20 @@ afterEach(() => { act(() => tree.unmount()); jest.clearAllTimers(); jest.useReal
 const press = (label: string) => act(() => tree.root.findByProps({accessibilityLabel: label}).props.onPress());
 const tick = (ms: number) => act(() => jest.advanceTimersByTime(ms));
 
-it('removes the AF, near and far focus cluster', () => {
-  for (const label of ['自动对焦', '近对焦', '远对焦']) expect(tree.root.findAllByProps({accessibilityLabel: label})).toHaveLength(0);
+it('keeps the separate AF button removed', () => {
+  expect(tree.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);
+});
+
+it('shows near/far focus only on a live USB connection, wired like v0.7.0', () => {
+  for (const hidden of [{}, {transport: 'wifi' as const}, {transport: 'demo' as const, demo: true}, {transport: 'usb' as const, active: false}]) {
+    act(() => tree.update(<CameraWorkspace {...props} state={{...state, ...hidden}}/>));
+    for (const label of ['近对焦', '远对焦']) expect(tree.root.findAllByProps({accessibilityLabel: label})).toHaveLength(0);
+  }
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb'}}/>));
+  press('远对焦'); press('近对焦');
+  expect(jest.mocked(camera!.focus).mock.calls).toEqual([[-1], [1]]);
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb', busy: true}}/>));
+  expect(tree.root.findByProps({accessibilityLabel: '远对焦'}).props.disabled).toBe(true);
 });
 
 it('captures an ordinary still with no prebuffer and with a selected LUT', () => {

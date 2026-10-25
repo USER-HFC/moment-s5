@@ -105,6 +105,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const captureLabel = waiting ? '取消倒计时' : motionEnabled ? '拍摄动态照片' : timerEnabled ? '开始倒计时' : '拍摄照片';
   const disabled = !waiting && (!state.active || state.busy || (motionEnabled && !state.ready));
   const canAutofocus = state.transport !== 'wifi' || !!state.autofocus;
+  // USB ManualFocusDrive only; Wi-Fi focus values are still unverified on the S5.
+  const canManualFocus = state.active && !state.demo && state.transport === 'usb';
   const connectionLabel = state.active ? state.demo ? '演示' : state.transport === 'wifi' ? 'Wi-Fi' : 'USB' : '连接';
   const commitPreview = (slot: 0 | 1, uri: string) => {
     if (pendingSlotRef.current !== slot || slotUrisRef.current[slot] !== uri) return;
@@ -118,6 +120,13 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
         <CameraControl label="网格" accessibilityLabel="构图网格" icon="grid" active={grid} checked={grid} onPress={() => setGrid(value => !value)}/>
         <CameraControl label="LUT" accessibilityLabel="LUT 风格" icon="lut" active={!!state.lut} onPress={() => setPanel('lut')}/>
         <ScopeToolbar panels={scopePanels} landscape={landscape}/>
+        {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
+            0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
+            not flip either side without checking on a real S5. */}
+        {canManualFocus && <>
+          <CameraControl label="远焦" accessibilityLabel="远对焦" accessibilityHint="镜头向远处步进一档" icon="far" disabled={state.busy || waiting} onPress={() => camera?.focus(-1)}/>
+          <CameraControl label="近焦" accessibilityLabel="近对焦" accessibilityHint="镜头向近处步进一档" icon="near" disabled={state.busy || waiting} onPress={() => camera?.focus(1)}/>
+        </>}
       </View>
       <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
         accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
