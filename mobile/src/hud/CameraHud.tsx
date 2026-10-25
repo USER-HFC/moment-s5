@@ -3,7 +3,7 @@ import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {CameraState} from '../native';
 import {ui} from '../theme';
-import {lutDisplayName} from '../LutPresetList';
+import {lutDisplayName} from '../lutName';
 import {batteryText, exposureReading} from './readings';
 
 type Props = {state: CameraState; buffered: number; motion: boolean; waiting: boolean; onTopLayout: (event: LayoutChangeEvent) => void; onBottomLayout: (event: LayoutChangeEvent) => void};

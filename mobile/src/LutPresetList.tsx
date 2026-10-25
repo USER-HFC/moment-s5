@@ -4,8 +4,9 @@ import {Text} from 'react-native-paper';
 import {LutItem} from './native';
 import {ui} from './theme';
 import CameraIcon from './CameraIcon';
+import {lutDisplayName} from './lutName';
 
-export const lutDisplayName = (name: string) => name.replace(/^(?:内置 · )?Fuji 风格 · /, '');
+export {lutDisplayName};
 const STRIPS: Record<string, string[]> = {
   off: ['#E2D3B1', '#97AF99', '#4B7676', '#294343'],
   acros: ['#F0F0EB', '#ACACA7', '#686862', '#282823'],

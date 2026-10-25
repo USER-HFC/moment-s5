@@ -24,8 +24,9 @@ const moments = [{
   imageUri: 'content://moment/image', originalUri: 'content://moment/original', videoUri: 'content://moment/video',
 }] as any;
 const exportMock = async (_id: string) => {};
-const gestures = () => (GestureHandler as any).__gestures as {kind: string; onBegin?: () => void; onUpdate?: (event: any) => void; onEnd?: (event: any) => void}[];
+const gestures = () => (GestureHandler as any).__gestures as {kind: string; numberOfTaps?: number; onBegin?: () => void; onStart?: () => void; onUpdate?: (event: any) => void; onEnd?: (event: any, success?: boolean) => void}[];
 const latest = (kind: string) => [...gestures()].reverse().find((gesture) => gesture.kind === kind);
+const singleTap = () => [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && !gesture.numberOfTaps)!;
 
 function open(tree: renderer.ReactTestRenderer, source = 'S5.JPG') {
   act(() => tree.root.findByProps({accessibilityLabel: `打开${source}`}).props.onPress());
@@ -41,7 +42,7 @@ it('keeps Wi-Fi capture provenance visible in the album after disconnection', ()
 });
 
 it('opens a photo from the grid and swipes to the next one', () => {
-  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG', captureMode: 'photo', videoUri: undefined}];
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG', imageUri: 'content://moment/image2', captureMode: 'photo', videoUri: undefined}];
   const tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
   expect(tree.root.findByProps({testID: 'album-grid'})).toBeTruthy();
   expect(tree.root.findAllByProps({testID: 'motion-viewer'})).toHaveLength(0);
@@ -52,8 +53,49 @@ it('opens a photo from the grid and swipes to the next one', () => {
   expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
   act(() => { pan.onBegin?.(); pan.onUpdate?.({translationX: -220, translationY: 0}); pan.onEnd?.({translationX: -220, translationY: 0}); });
   expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('2 / 2');
-  expect(JSON.stringify(tree.toJSON())).toContain('T2.JPG');
+  expect(tree.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('content://moment/image2');
   act(() => tree.unmount());
+});
+
+it('toggles the immersive chrome with a single tap', () => {
+  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+  open(tree);
+  const top = () => tree.root.findByProps({testID: 'album-top-bar'});
+  expect(top().props.accessibilityElementsHidden).toBe(false);
+  act(() => singleTap().onEnd?.({}, true));
+  expect(top().props.accessibilityElementsHidden).toBe(true);
+  expect(tree.root.findByProps({testID: 'album-bottom-bar'}).props.pointerEvents).toBe('none');
+  act(() => singleTap().onEnd?.({}, true));
+  expect(top().props.accessibilityElementsHidden).toBe(false);
+  act(() => tree.unmount());
+});
+
+it('zooms and restores on a double tap', () => {
+  const tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+  open(tree);
+  const double = [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && gesture.numberOfTaps === 2)!;
+  expect(tree.root.findByProps({testID: 'album-pager'}).props.accessibilityState.selected).toBe(false);
+  act(() => double.onEnd?.({}, true));
+  expect(tree.root.findByProps({testID: 'album-pager'}).props.accessibilityState.selected).toBe(true);
+  act(() => double.onEnd?.({}, true));
+  expect(tree.root.findByProps({testID: 'album-pager'}).props.accessibilityState.selected).toBe(false);
+  act(() => tree.unmount());
+});
+
+it('titles the viewer with the capture time and a deduplicated summary', () => {
+  const now = new Date(2026, 9, 25, 18, 0).getTime();
+  const spy = jest.spyOn(Date, 'now').mockReturnValue(now);
+  try {
+    const photo = {...moments[0], demo: true, transport: 'demo', lut: 'Velvia', createdAt: new Date(2026, 9, 25, 16, 22).getTime()};
+    const tree = renderer.create(<MotionAlbum moments={[photo]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+    open(tree);
+    expect(tree.root.findByProps({testID: 'album-title'}).props.children).toBe('今天 16:22');
+    expect(tree.root.findByProps({testID: 'album-subtitle'}).props.children).toBe('演示 · Velvia');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('演示 · 演示');
+    act(() => tree.unmount());
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 it('does not change photos while the current one is zoomed', () => {
@@ -100,6 +142,18 @@ it('plays a motion photo from the button and waits for the first frame before fa
   act(() => tree!.unmount()); timing.mockRestore();
 });
 
+it('plays a motion photo from the LIVE badge', () => {
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
+  open(tree!);
+  const timing = jest.spyOn(Animated, 'timing');
+  act(() => tree!.root.findByProps({testID: 'album-live-badge'}).props.onPress());
+  act(() => tree!.root.findByProps({testID: 'motion-video'}).props.onReadyForDisplay());
+  expect(timing).toHaveBeenCalledTimes(2);
+  expect(tree!.root.findByProps({accessibilityLabel: '停止播放'})).toBeTruthy();
+  act(() => tree!.unmount()); timing.mockRestore();
+});
+
 it('resets playback after leaving the viewer', () => {
   const seek = (Video as any).seekMock;
   seek.mockClear();
@@ -128,8 +182,8 @@ it('can delete a failed app-private record while export stays unavailable', () =
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={failed} onBack={jest.fn()} onExport={exportMock} onDelete={remove}/>); });
   open(tree!);
-  expect(tree!.root.findAllByProps({accessibilityLabel: '保存到系统相册'})).toHaveLength(0);
-  expect(tree!.root.findAllByProps({accessibilityLabel: '保存原片到系统相册'})).toHaveLength(0);
+  expect(tree!.root.findAllByProps({accessibilityLabel: '导出到系统相册'})).toHaveLength(0);
+  expect(tree!.root.findAllByProps({accessibilityLabel: '导出原片到系统相册'})).toHaveLength(0);
   act(() => tree!.root.findByProps({accessibilityLabel: '删除照片'}).props.onPress());
   const buttons = alert.mock.calls[0][2]!;
   act(() => buttons[1].onPress!());
@@ -148,7 +202,7 @@ it.each([null, 'Classic Chrome'])('shows and exports a static photo without LIVE
   expect(JSON.stringify(tree!.toJSON())).not.toContain('LIVE');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('长按播放');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('已合成');
-  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '保存到系统相册'}).props.onPress(); });
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '导出到系统相册'}).props.onPress(); });
   expect(onExport).toHaveBeenCalledWith('M1');
   act(() => tree!.unmount());
 });
@@ -158,7 +212,7 @@ it('shows LUT failure honestly and offers the preserved original for a failed st
   act(() => { tree = renderer.create(<MotionAlbum moments={[{...moments[0], captureMode: 'photo', complete: false, error: 'LUT 处理失败，原片已保留', videoUri: undefined}]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
   expect(JSON.stringify(tree!.toJSON())).toContain('LUT 处理失败，原片已保留');
   open(tree!);
-  expect(tree!.root.findByProps({accessibilityLabel: '保存原片到系统相册'})).toBeTruthy();
+  expect(tree!.root.findByProps({accessibilityLabel: '导出原片到系统相册'})).toBeTruthy();
   expect(tree!.root.findAllByProps({testID: 'motion-video'})).toHaveLength(0);
   act(() => tree!.unmount());
 });
@@ -174,8 +228,38 @@ it('previews a LUT from the original and saves that choice', async () => {
   await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
   expect(onPreview).toHaveBeenCalledWith('M1', 'builtin:classic-chrome');
   expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
-  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '从原片重新套用 LUT'}).props.onPress(); });
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '保存 LUT'}).props.onPress(); });
   expect(onRender).toHaveBeenCalledWith('M1', 'builtin:classic-chrome');
+  act(() => tree!.unmount());
+});
+
+it('fills the LUT filmstrip with photo thumbnails from the background cache', async () => {
+  const luts = [{id: 'builtin:classic-chrome', name: 'Classic Chrome', size: 12, builtIn: true}];
+  const onThumbnail = jest.fn(async (_id: string, lutId: string) => `file://thumb-${lutId}`);
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={moments} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onThumbnail={onThumbnail}/>); });
+  open(tree!);
+  act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  await act(async () => {});
+  expect(onThumbnail).toHaveBeenCalledWith('M1', 'builtin:classic-chrome');
+  expect(tree!.root.findByProps({testID: 'lut-thumb-builtin:classic-chrome'}).props.source.uri).toBe('file://thumb-builtin:classic-chrome');
+  act(() => tree!.unmount());
+});
+
+it('cancels the LUT filmstrip without saving', async () => {
+  const luts = [{id: 'builtin:classic-chrome', name: 'Classic Chrome', size: 12, builtIn: true}];
+  const onPreview = jest.fn(async (_id: string, lutId: string) => `file://preview-${lutId}`);
+  const onRender = jest.fn(async () => {});
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={moments} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onPreview={onPreview} onRender={onRender}/>); });
+  open(tree!);
+  act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
+  act(() => tree!.root.findByProps({accessibilityLabel: '取消更换 LUT'}).props.onPress());
+  expect(onRender).not.toHaveBeenCalled();
+  expect(tree!.root.findAllByProps({testID: 'album-lut-sheet'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('content://moment/image');
   act(() => tree!.unmount());
 });
 
@@ -203,7 +287,7 @@ it('shows where the photo lives and how it was captured', async () => {
   const onDetails = jest.fn(async () => ({
     origin: '机身快门同步', transport: 'USB', cameraFile: 'P1000123.JPG', capturedAt: new Date(2024, 0, 2, 3, 4, 5).getTime(),
     camera: 'Panasonic DC-S5', lens: 'LUMIX S 50/1.8', iso: 'ISO 400', shutter: '1/125', aperture: 'f/1.8', focalLength: '50 mm',
-    width: 6000, height: 4000, lut: 'Classic Chrome', lutApplied: true, directory: '/data/moments/M1',
+    width: 6000, height: 4000, lut: 'Classic Chrome', lutApplied: true, directory: '/data/user/0/cn.moment.lumix/files/moments/M1',
     files: [{name: 'original.jpg', bytes: 2048}, {name: 'rendered.jpg', bytes: 4096}],
     exportKnown: true, exported: true, exportPath: 'DCIM/MomentS5/M1.jpg',
   }));
@@ -213,9 +297,47 @@ it('shows where the photo lives and how it was captured', async () => {
   await act(async () => { tree!.root.findByProps({accessibilityLabel: '照片信息'}).props.onPress(); });
   expect(onDetails).toHaveBeenCalledWith('M1');
   const text = JSON.stringify(tree!.toJSON());
-  for (const part of ['机身快门同步', 'USB', 'P1000123.JPG', 'Panasonic DC-S5', 'LUMIX S 50/1.8', 'ISO 400', '1/125', 'f/1.8', '50 mm', '6000 × 4000', 'Classic Chrome', '/data/moments/M1', '已导出 · DCIM/MomentS5/M1.jpg', '原片', 'LUT 成片']) {
+  for (const part of ['DC-S5 · LUMIX S 50/1.8', 'ISO', '400', '1/125', 'f/1.8', '50 mm', '6000 × 4000', '6.0 KB', 'Classic Chrome', '…/moments/M1', '已导出', 'DCIM/MomentS5/M1.jpg', 'P1000123.JPG', '复制路径']) {
     expect(text).toContain(part);
   }
+  expect(tree!.root.findByProps({testID: 'info-params'})).toBeTruthy();
+  act(() => tree!.unmount());
+});
+
+it('shows a single no-EXIF line instead of a column of dashes', async () => {
+  const onDetails = jest.fn(async () => ({
+    origin: '演示', transport: '演示', cameraFile: null, capturedAt: 1700000000000,
+    camera: null, lens: null, iso: null, shutter: null, aperture: null, focalLength: null,
+    width: 2400, height: 1600, lut: null, lutApplied: false, directory: '/data/user/0/cn.moment.lumix/files/moments/M1',
+    files: [{name: 'original.jpg', bytes: 2048}],
+    exportKnown: false, exported: false, exportPath: null,
+  }));
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[{...moments[0], demo: true, transport: 'demo'}]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onDetails={onDetails}/>); });
+  open(tree!);
+  await act(async () => { tree!.root.findByProps({accessibilityLabel: '照片信息'}).props.onPress(); });
+  const text = JSON.stringify(tree!.toJSON());
+  expect(text).toContain('这张照片没有拍摄参数（EXIF）');
+  expect(text).not.toContain('—');
+  expect(tree!.root.findAllByProps({testID: 'info-params'})).toHaveLength(0);
+  expect(text).not.toContain('焦距');
+  act(() => tree!.unmount());
+});
+
+it('shows the original while the photo is held in the LUT sheet', async () => {
+  const luts = [{id: 'builtin:classic-chrome', name: 'Classic Chrome', size: 12, builtIn: true}];
+  const onPreview = jest.fn(async (_id: string, lutId: string) => `file://preview-${lutId}`);
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={moments} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onPreview={onPreview} onRender={async () => {}}/>); });
+  open(tree!);
+  act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
+  const hold = latest('longPress')!;
+  act(() => hold.onStart?.());
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('content://moment/original');
+  act(() => hold.onEnd?.({}));
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
   act(() => tree!.unmount());
 });
 

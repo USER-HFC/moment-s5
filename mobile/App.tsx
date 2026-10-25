@@ -72,7 +72,7 @@ export default function App() {
   const exportMoment = async (id: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
-      await camera.exportMoment(id); setSnack('照片已保存到 DCIM/MomentS5');
+      await camera.exportMoment(id); setSnack('已导出到 DCIM/MomentS5');
     } catch (e) { setSnack(errorText(e)); }
   };
   const deleteMoment = async (id: string) => {
@@ -98,6 +98,11 @@ export default function App() {
       return await camera.previewMomentLut(id, lutId);
     } catch (e) { setSnack(errorText(e)); throw e; }
   }, []);
+  const previewMomentThumbnail = useCallback(async (id: string, lutId: string) => {
+    if (!camera?.previewMomentLutThumbnail) return null;
+    try { return await camera.previewMomentLutThumbnail(id, lutId, 160); }
+    catch { return null; }
+  }, []);
   const describeMoment = useCallback(async (id: string) => {
     if (!camera) throw new Error('当前平台没有相机桥');
     return camera.describeMoment(id);
@@ -111,7 +116,7 @@ export default function App() {
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
     {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
-    {page === 'album' && <MotionAlbum moments={moments} luts={luts} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onDetails={describeMoment} onShare={shareMoment}/>}
+    {page === 'album' && <MotionAlbum moments={moments} luts={luts} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={4500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;

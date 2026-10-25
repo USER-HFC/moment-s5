@@ -74,6 +74,16 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     @ReactMethod public void previewMomentLut(String id,String lutId,Promise promise){
         files.execute(()->{File part=null;try{if(lutId==null||lutId.isEmpty()||"off".equals(lutId)){promise.resolve(null);return;}File dir=momentDir(id);byte[] jpeg=MomentRender.preview(new File(dir,"original.jpg"),loadLut(lutId),1600);File out=new File(context.getCacheDir(),"moment-preview-"+dir.getName()+".jpg");part=new File(out.getPath()+".part");Files.write(part.toPath(),jpeg);Files.move(part.toPath(),out.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);promise.resolve("file://"+out.getAbsolutePath()+"?t="+out.lastModified());}catch(Exception e){promise.reject("MOMENT_PREVIEW",e.getMessage(),e);}finally{if(part!=null)part.delete();}});
     }
+    @ReactMethod public void previewMomentLutThumbnail(String id,String lutId,double maxEdge,Promise promise){
+        files.execute(()->{try{if(lutId==null||lutId.isEmpty()||"off".equals(lutId)){promise.resolve(null);return;}File dir=momentDir(id);File original=new File(dir,"original.jpg");int edge=Math.max(64,Math.min(320,(int)maxEdge));
+            // The original never changes, so a cached thumbnail stays valid until the app cache is cleared.
+            File out=new File(context.getCacheDir(),"moment-thumb-"+dir.getName()+"-"+Integer.toHexString(lutId.hashCode())+"-"+edge+".jpg");
+            if(out.isFile()&&out.length()>0&&out.lastModified()>=original.lastModified()){promise.resolve("file://"+out.getAbsolutePath()+"?t="+out.lastModified());return;}
+            byte[] jpeg=MomentRender.preview(original,loadLut(lutId),edge);File part=new File(out.getPath()+".part");
+            try{Files.write(part.toPath(),jpeg);Files.move(part.toPath(),out.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}finally{part.delete();}
+            promise.resolve("file://"+out.getAbsolutePath()+"?t="+out.lastModified());
+        }catch(Exception e){promise.reject("MOMENT_THUMBNAIL",e.getMessage(),e);}});
+    }
     @ReactMethod public void describeMoment(String id,Promise promise){files.execute(()->{try{promise.resolve(detailsMap(MomentDetails.read(context,momentDir(id))));}catch(Exception e){promise.reject("MOMENT_DETAILS",e.getMessage(),e);}});}
     @ReactMethod public void shareMoment(String id,String kind,Promise promise){try{File dir=momentDir(id);File file=MomentRender.shareFile(dir,MomentStore.metadata(dir),kind);if(!file.isFile()||file.length()==0)throw new IOException("文件尚未生成");Activity activity=getCurrentActivity();if(activity==null)throw new IOException("当前无法打开分享");Uri uri=ShareProvider.uri(context,file);String mime=file.getName().endsWith(".mp4")?"video/mp4":"image/jpeg";Intent intent=new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.setClipData(ClipData.newRawUri(file.getName(),uri));activity.startActivity(Intent.createChooser(intent,"分享照片"));promise.resolve(null);}catch(Exception e){promise.reject("MOMENT_SHARE",e.getMessage(),e);}}
     @ReactMethod public void importLut(String uri,String displayName,Promise promise){

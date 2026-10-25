@@ -1,4 +1,5 @@
 import {MomentItem} from './native';
+import {lutDisplayName} from './lutName';
 
 export type ShareKind = 'display' | 'original' | 'video' | 'motion';
 
@@ -11,6 +12,66 @@ export function formatMomentDate(timestamp: number) {
 export function formatMomentDateTime(timestamp: number) {
   const date = new Date(timestamp);
   return `${formatMomentDate(timestamp)}:${String(date.getSeconds()).padStart(2, '0')}`;
+}
+
+const two = (n: number) => String(n).padStart(2, '0');
+function dayStart(timestamp: number) {
+  const date = new Date(timestamp);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Viewer heading: today and yesterday stay relative, older photos use the calendar date. */
+export function formatCaptureTitle(timestamp: number, now = Date.now()) {
+  const date = new Date(timestamp);
+  const days = Math.round((dayStart(now) - dayStart(timestamp)) / DAY);
+  const time = `${two(date.getHours())}:${two(date.getMinutes())}`;
+  if (days === 0) return `今天 ${time}`;
+  if (days === 1) return `昨天 ${time}`;
+  if (date.getFullYear() === new Date(now).getFullYear()) return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+}
+
+/** Grid section heading: no clock, because the photos below already carry the time. */
+export function formatDayHeading(timestamp: number, now = Date.now()) {
+  const date = new Date(timestamp);
+  const days = Math.round((dayStart(now) - dayStart(timestamp)) / DAY);
+  if (days === 0) return '今天';
+  if (days === 1) return '昨天';
+  if (date.getFullYear() === new Date(now).getFullYear()) return `${date.getMonth() + 1}月${date.getDate()}日`;
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+export function groupMomentsByDay(moments: MomentItem[], now = Date.now()) {
+  const groups = new Map<number, {key: string; title: string; timestamp: number; moments: MomentItem[]}>();
+  for (const moment of moments) {
+    const start = dayStart(moment.createdAt);
+    let group = groups.get(start);
+    if (!group) {
+      group = {key: String(start), title: formatDayHeading(moment.createdAt, now), timestamp: start, moments: []};
+      groups.set(start, group);
+    }
+    group.moments.push(moment);
+  }
+  return [...groups.values()].sort((a, b) => b.timestamp - a.timestamp);
+}
+
+/** Viewer subtitle: source · connection · LUT, without repeating a value twice. */
+export function momentSummary(moment: Pick<MomentItem, 'demo' | 'cameraTriggered' | 'transport' | 'lut'>) {
+  const values = [momentOrigin(moment)];
+  const transport = momentTransport(moment.transport, moment.demo);
+  if (transport !== '未知') values.push(transport);
+  if (moment.lut) values.push(lutDisplayName(moment.lut));
+  return values.filter((value, index) => values.indexOf(value) === index).join(' · ');
+}
+
+/** Keeps the useful tail of an app-private path inside the info sheet. */
+export function shortPath(path: string) {
+  const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+  if (parts.length <= 2) return path;
+  const name = parts[parts.length - 1];
+  const tail = name.length > 12 ? `…${name.slice(-8)}` : name;
+  return `…/${parts[parts.length - 2]}/${tail}`;
 }
 
 export function formatBytes(bytes: number) {

@@ -5,8 +5,10 @@ function mockGesture(kind) {
     runOnJS: () => builder,
     enabled: () => builder,
     manualActivation: () => builder,
-    numberOfTaps: () => builder,
+    numberOfTaps: (count) => { handlers.numberOfTaps = count; return builder; },
     maxDistance: () => builder,
+    maxDuration: (duration) => { handlers.maxDuration = duration; return builder; },
+    minDuration: (duration) => { handlers.minDuration = duration; return builder; },
     activeOffsetX: () => builder,
     activeOffsetY: () => builder,
     onBegin: (fn) => { handlers.onBegin = fn; return builder; },
@@ -28,9 +30,11 @@ jest.mock('react-native-gesture-handler', () => {
       Pinch: () => mockGesture('pinch'),
       Pan: () => mockGesture('pan'),
       Tap: () => mockGesture('tap'),
+      LongPress: () => mockGesture('longPress'),
       Native: () => mockGesture('native'),
       Simultaneous: () => mockGesture('simultaneous'),
       Exclusive: () => mockGesture('exclusive'),
+      Race: () => mockGesture('race'),
     },
     GestureDetector: ({children}) => children,
     GestureHandlerRootView: ({children, style}) => React.createElement(View, {style}, children),
@@ -38,3 +42,6 @@ jest.mock('react-native-gesture-handler', () => {
   };
 });
 /* global jest */
+
+// Jest has no native animated module; keep native-driver animations testable.
+jest.mock('react-native/src/private/animated/NativeAnimatedHelper');

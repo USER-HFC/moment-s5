@@ -18,13 +18,13 @@ export default function CameraControl({icon, label, accessibilityLabel, accessib
     disabled={disabled} onPress={onPress} onLongPress={onLongPress} android_ripple={{color: ui.color.pressed}}
     style={({pressed}) => [styles.control, active && styles.active, pressed && styles.pressed, disabled && styles.disabled]}>
     {thumbnail ? <Image accessible={false} source={{uri: thumbnail}} style={styles.thumbnail}/> : <CameraIcon name={icon} active={active} destructive={destructive}/>}
-    {label && <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, active && styles.activeLabel, destructive && styles.destructive]}>{label}</Text>}
+    {label && <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, active && styles.activeLabel]}>{label}</Text>}
   </Pressable>;
 }
 
 const styles = StyleSheet.create({
   control: {width: ui.icon.touch, height: ui.icon.touch, flexShrink: 0, alignItems: 'center', justifyContent: 'center', gap: ui.space.xs, borderRadius: ui.radius.control, overflow: 'hidden'},
   active: {backgroundColor: ui.color.selected}, pressed: {backgroundColor: ui.color.raised}, disabled: {opacity: .45},
-  label: {...ui.type.label, color: ui.color.muted, textAlign: 'center'}, activeLabel: {color: ui.color.accent}, destructive: {color: ui.color.destructive},
+  label: {...ui.type.label, color: ui.color.muted, textAlign: 'center'}, activeLabel: {color: ui.color.accent},
   thumbnail: {width: ui.icon.size, height: ui.icon.size, borderRadius: ui.space.xs, borderWidth: 1, borderColor: ui.color.outline},
 });

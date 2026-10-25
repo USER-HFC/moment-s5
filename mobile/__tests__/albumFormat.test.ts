@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {fileLabel, formatBytes, formatDimensions, formatMomentDate, formatMomentDateTime, momentOrigin, momentTransport, shareKinds} from '../src/albumFormat';
+import {fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, momentOrigin, momentSummary, momentTransport, shareKinds, shortPath} from '../src/albumFormat';
 
 it('formats capture time, size and pixel dimensions', () => {
   const stamp = new Date(2024, 0, 2, 3, 4, 5).getTime();
@@ -29,4 +29,43 @@ it('names the shutter origin, transport and shareable files', () => {
   expect(shareKinds({videoUri: 'file://v', complete: true})).toEqual(['display', 'original', 'video', 'motion']);
   expect(shareKinds({captureMode: 'photo', complete: true})).toEqual(['display', 'original']);
   expect(shareKinds({videoUri: 'file://v', complete: false})).toEqual(['display', 'original', 'video']);
+});
+
+it('formats viewer titles as today, yesterday or a calendar date', () => {
+  const now = new Date(2026, 9, 25, 18, 0).getTime();
+  const at = (year: number, month: number, day: number, hour: number, minute: number) => new Date(year, month, day, hour, minute).getTime();
+  expect(formatCaptureTitle(at(2026, 9, 25, 16, 22), now)).toBe('今天 16:22');
+  expect(formatCaptureTitle(at(2026, 9, 24, 16, 22), now)).toBe('昨天 16:22');
+  expect(formatCaptureTitle(at(2026, 8, 20, 16, 22), now)).toBe('9月20日 16:22');
+  expect(formatCaptureTitle(at(2025, 9, 25, 16, 22), now)).toBe('2025年10月25日 16:22');
+  expect(formatDayHeading(at(2026, 9, 25, 16, 22), now)).toBe('今天');
+  expect(formatDayHeading(at(2026, 9, 24, 16, 22), now)).toBe('昨天');
+  expect(formatDayHeading(at(2026, 8, 20, 16, 22), now)).toBe('9月20日');
+  expect(formatDayHeading(at(2025, 9, 25, 16, 22), now)).toBe('2025年10月25日');
+});
+
+it('builds a deduplicated viewer summary', () => {
+  expect(momentSummary({demo: true, transport: 'demo'})).toBe('演示');
+  expect(momentSummary({transport: 'usb'})).toBe('App 快门 · USB');
+  expect(momentSummary({cameraTriggered: true, transport: 'usb', lut: 'Velvia'})).toBe('机身快门同步 · USB · Velvia');
+  expect(momentSummary({transport: 'usb', lut: 'Velvia'})).toBe('App 快门 · USB · Velvia');
+  expect(momentSummary({demo: true, transport: 'demo', lut: 'Fuji 风格 · Velvia'})).toBe('演示 · Velvia');
+});
+
+it('groups photos by day and keeps a readable storage tail', () => {
+  const now = new Date(2026, 9, 25, 18, 0).getTime();
+  const today = new Date(2026, 9, 25, 10, 0).getTime();
+  const yesterday = new Date(2026, 9, 24, 10, 0).getTime();
+  const older = new Date(2026, 8, 2, 10, 0).getTime();
+  const groups = groupMomentsByDay([
+    {id: 'A', source: 'a.jpg', createdAt: today, complete: true},
+    {id: 'B', source: 'b.jpg', createdAt: yesterday, complete: true},
+    {id: 'C', source: 'c.jpg', createdAt: older, complete: true},
+    {id: 'D', source: 'd.jpg', createdAt: today - 1000, complete: true},
+  ], now);
+  expect(groups.map((group) => group.title)).toEqual(['今天', '昨天', '9月2日']);
+  expect(groups[0].moments.map((moment) => moment.id)).toEqual(['A', 'D']);
+  expect(shortPath('/data/user/0/cn.moment.lumix/files/moments/M1')).toBe('…/moments/M1');
+  expect(shortPath('/data/user/0/cn.moment.lumix/files/moments/M1792916568901_50cdd12a')).toBe('…/moments/…50cdd12a');
+  expect(shortPath('M1')).toBe('M1');
 });
