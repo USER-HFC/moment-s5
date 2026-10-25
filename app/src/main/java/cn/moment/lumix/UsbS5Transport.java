@@ -16,12 +16,17 @@ public final class UsbS5Transport implements CameraTransport {
     private final Consumer<String> log;
     /** Handles and the newest Lumix sequence saved in this camera session. */
     private final Set<Integer> savedHandles=new HashSet<>();
+    /** Name+size of every saved photo; a backup-recording copy on the other card carries the same pair. */
+    private final Set<String> savedCopies=new HashSet<>();
     private int newestSavedSequence=-1;
     private String newestSavedName="";
     private record Handles(Set<Integer> values) implements Baseline {}
-    private record Shot(int handle,String filename,long size,int sequence) {}
-    /** {@code P} + folder + file, e.g. {@code P1010001.JPG}. A handle is not this order. */
-    private static final Pattern LUMIX_NAME=Pattern.compile("(?i)^P(\\d{3})(\\d{4})\\.JPE?G$");
+    private record Shot(int handle,String filename,long size,int sequence,int storageId) {}
+    /** A candidate and the rule that allowed it, for the diagnostic line. */
+    private record Listed(Shot shot,String rule) {}
+    /** {@code P}, or {@code _} in AdobeRGB, + folder + file, e.g. {@code P1010001.JPG} / {@code _1010001.JPG}. */
+    private static final Pattern LUMIX_NAME=Pattern.compile("(?i)^[P_](\\d{3})(\\d{4})\\.JPE?G$");
+    private static String copyKey(String filename,long size) {return filename+'\n'+size;}
     static int lumixSequence(String filename) {
         if(filename==null) return -1;
         Matcher matcher=LUMIX_NAME.matcher(filename.trim());
@@ -46,6 +51,7 @@ public final class UsbS5Transport implements CameraTransport {
     public void noteSaved(Original photo) {
         if(photo==null) return;
         if(photo.key() instanceof Integer handle) savedHandles.add(handle);
+        savedCopies.add(copyKey(photo.filename(),photo.size()));
         int sequence=lumixSequence(photo.filename());
         if(sequence>newestSavedSequence) {newestSavedSequence=sequence;newestSavedName=photo.filename();}
     }
@@ -72,9 +78,10 @@ public final class UsbS5Transport implements CameraTransport {
                 if(!info.jpeg()) {holdFormat.add(handle);continue;}
                 holdFormat.remove(handle);
                 if(baseline!=null && baseline.contains(handle)) {it.remove();continue;}
-                if(savedHandles.contains(handle)) {log.accept("照片事件 句柄 "+handle+" 不选：本会话已保存");it.remove();continue;}
-                String skip=sequenceSkip(info.filename);
-                if(skip!=null) {log.accept("照片事件 句柄 "+handle+" 不选："+skip);it.remove();continue;}
+                if(savedHandles.contains(handle) || savedCopies.contains(copyKey(info.filename,info.size))) {log.accept("照片事件 句柄 "+handle+" 不选：本会话已保存");it.remove();continue;}
+                int sequence=lumixSequence(info.filename);
+                if(sequence<0) {log.accept("照片事件 句柄 "+handle+" 不选：文件名不符合序号规则，等待两次索引一致");it.remove();continue;}
+                if(newestSavedSequence>=0 && sequence<=newestSavedSequence) {log.accept("照片事件 句柄 "+handle+" 不选：文件名序号不大于已保存的 "+savedLabel());it.remove();continue;}
                 // One event can name an older object. Until this session has saved a photo,
                 // only two identical listings may accept. A higher Lumix sequence than that
                 // saved photo is the shutter just released.
@@ -85,11 +92,12 @@ public final class UsbS5Transport implements CameraTransport {
                 it.remove();
             }
             if(listDue) {
-                Shot chosen;
-                try {chosen=listedShot(baseline);}
+                Listed listed;
+                try {listed=listedShot(baseline);}
                 catch(IOException e) {log.accept("照片索引暂不可用，继续等待："+e.getMessage());previous=null;nextList=now()+500_000;Thread.sleep(80);continue;}
-                if(chosen!=null && previous!=null && chosen.handle==previous.handle && chosen.filename.equals(previous.filename)) {
-                    log.accept("本次照片选中句柄 "+chosen.handle+" "+chosen.filename+"：连续两次索引一致，文件名序号最新");
+                Shot chosen=listed==null?null:listed.shot;
+                if(chosen!=null && previous!=null && chosen.handle==previous.handle && chosen.filename.equals(previous.filename) && chosen.size==previous.size) {
+                    log.accept("本次照片选中句柄 "+chosen.handle+" "+chosen.filename+"："+listed.rule);
                     return new Original(chosen.handle,chosen.filename,chosen.size);
                 }
                 previous=chosen;
@@ -105,15 +113,9 @@ public final class UsbS5Transport implements CameraTransport {
     private void logEvent(Map<Integer,String> seen,int handle,String message) {
         if(!message.equals(seen.put(handle,message))) log.accept(message);
     }
-    /** Null when this filename is a Lumix JPEG newer than every photo saved this session. */
-    private String sequenceSkip(String filename) {
-        int sequence=lumixSequence(filename);
-        if(sequence<0) return "不是 Lumix 文件名序号";
-        if(newestSavedSequence>=0 && sequence<=newestSavedSequence) return "文件名序号不大于已保存的 "+(newestSavedName.isEmpty()?Integer.toString(newestSavedSequence):newestSavedName);
-        return null;
-    }
-    /** Newest new JPEG, or null when this listing is not safe to pair. */
-    private Shot listedShot(Set<Integer> baseline) throws IOException {
+    private String savedLabel() {return newestSavedName.isEmpty()?Integer.toString(newestSavedSequence):newestSavedName;}
+    /** Newest new JPEG after merging backup-recording copies, or null when this listing is not safe to pair. */
+    private Listed listedShot(Set<Integer> baseline) throws IOException {
         List<Integer> handles=new ArrayList<>(usb.handles());
         handles.sort(Integer::compareUnsigned);
         List<Shot> choices=new ArrayList<>();
@@ -126,18 +128,57 @@ public final class UsbS5Transport implements CameraTransport {
             if(line.length()>0) line.append('；');
             if(!info.jpeg()) {line.append(String.format(Locale.ROOT,"句柄 %d 格式 0x%04X 文件 %s（还不是 JPEG）",handle,info.format,info.filename));continue;}
             line.append("句柄 ").append(handle).append(' ').append(info.filename);
-            if(savedHandles.contains(handle)) {line.append("（本会话已保存，跳过）");continue;}
-            String skip=sequenceSkip(info.filename);
-            if(skip!=null) {line.append('（').append(skip).append("，跳过）");continue;}
-            choices.add(new Shot(handle,info.filename,info.size,lumixSequence(info.filename)));
+            if(savedHandles.contains(handle) || savedCopies.contains(copyKey(info.filename,info.size))) {line.append("（本会话已保存，跳过）");continue;}
+            choices.add(new Shot(handle,info.filename,info.size,lumixSequence(info.filename),info.storageId));
         }
         log.accept(line.length()==0?"照片索引新增候选：（无）":"照片索引新增候选："+line);
-        Shot best=null;
-        for(Shot shot:choices) {
-            if(best==null || shot.sequence>best.sequence) best=shot;
-            else if(shot.sequence==best.sequence) {log.accept("多个候选文件名序号相同，不配对");return null;}
+        List<Shot> unique=dedupeCopies(choices);
+        if(unique==null || unique.isEmpty()) return null;
+        if(unique.size()==1) {
+            Shot only=unique.get(0);
+            if(only.sequence<0) log.accept("照片索引只有 "+only.filename+"，文件名不符合序号规则；连续两次一致则按唯一新 JPEG 接受");
+            return rollbackChecked(only,only.sequence<0?"只有一个新 JPEG（文件名不符合序号规则）":"文件名序号最新",false);
         }
-        return best;
+        for(Shot shot:unique) if(shot.sequence<0) {log.accept("多个新 JPEG 中有文件名不符合序号规则，无法判断，不配对");return null;}
+        Shot best=unique.get(0);
+        for(Shot shot:unique) {
+            if(shot.sequence>best.sequence) best=shot;
+            else if(shot.sequence==best.sequence && !shot.filename.equals(best.filename)) {log.accept("多个候选文件名序号相同，不配对");return null;}
+        }
+        return rollbackChecked(best,"文件名序号最新",true);
+    }
+    /**
+     * Same name and size on two cards is one photo; keep the smaller StorageID. A name with
+     * different sizes is not a backup copy, so nothing in this listing is safe to pair.
+     */
+    private List<Shot> dedupeCopies(List<Shot> choices) {
+        Map<String,List<Shot>> byName=new LinkedHashMap<>();
+        for(Shot shot:choices) byName.computeIfAbsent(shot.filename,k->new ArrayList<>()).add(shot);
+        List<Shot> unique=new ArrayList<>();
+        for(List<Shot> copies:byName.values()) {
+            long size=copies.get(0).size;
+            StringBuilder handles=new StringBuilder();
+            for(Shot shot:copies) {
+                if(handles.length()>0) handles.append('/');
+                handles.append(shot.handle);
+                if(shot.size!=size) {
+                    log.accept("同名 JPEG 大小不同，不配对："+copies.get(0).filename+" 句柄 "+handles+"，大小 "+size+"/"+shot.size);
+                    return null;
+                }
+            }
+            Shot keep=copies.get(0);
+            for(Shot shot:copies) if(Integer.compareUnsigned(shot.storageId,keep.storageId)<0 || (shot.storageId==keep.storageId && Integer.compareUnsigned(shot.handle,keep.handle)<0)) keep=shot;
+            if(copies.size()>1) log.accept("同名同大小的备份副本视为同一张照片："+keep.filename+" 句柄 "+handles+"，选 StorageID 较小的句柄 "+keep.handle);
+            unique.add(keep);
+        }
+        return unique;
+    }
+    /** Two agreeing listings may accept a rollback only when it is the single new JPEG. */
+    private Listed rollbackChecked(Shot chosen,String rule,boolean multiple) {
+        if(chosen.sequence<0 || newestSavedSequence<0 || chosen.sequence>newestSavedSequence) return new Listed(chosen,"连续两次索引一致，"+rule);
+        if(multiple) {log.accept("候选文件名序号不大于已保存的 "+savedLabel()+"，跳过");return null;}
+        log.accept("照片索引只有 "+chosen.filename+"，序号不大于已保存的 "+savedLabel()+"；连续两次一致则按换卡/重置编号接受");
+        return new Listed(chosen,"连续两次索引一致，只有一个新 JPEG；序号回退（可能换卡或重置编号），按唯一新文件接受");
     }
     public void downloadOriginal(Original original,File destination) throws IOException {
         if(original.size()>64*1024*1024L)throw new IOException("照片超过当前 64 MB 接收上限");
@@ -151,7 +192,11 @@ public final class UsbS5Transport implements CameraTransport {
         for(Integer handle;(handle=usb.nextAdded())!=null;) {
             if(known.contains(handle) || saved.contains(handle))continue; // e.g. a second event for a photo already saved
             Ptp.ObjectInfo info=usb.objectInfo(handle);
-            if(info.jpeg())return new Original(handle,info.filename,info.size); // RAW of a RAW+JPEG pair is skipped
+            if(!info.jpeg())continue; // RAW of a RAW+JPEG pair is skipped
+            // Backup recording stores the same name+size on both cards. The second event is the
+            // same photo, so syncing it again would import one shutter twice.
+            if(!savedCopies.add(copyKey(info.filename,info.size)))continue;
+            return new Original(handle,info.filename,info.size);
         }
         return null;
     }
