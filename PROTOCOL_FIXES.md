@@ -37,6 +37,18 @@
 | W10 | Wi-Fi 用 description 的 `modelName` 判断机型，只接受 `DC-S5` | 真实 S5 的 `modelName` 是 `LUMIX`，型号在 `modelNumber`（`DC-S5`）。**实机连接一律报「检测型号不匹配」**（用户实测确认） | 改为以 `manufacturer=Panasonic` 识别 LUMIX，型号取自 `modelNumber`，日志记录型号和固件版本 |
 | W11 | Wi-Fi 遇到加密握手直接失败 | 新款 LUMIX（description 的 `X_CamCapability` 以 1 结尾）无法连接 | 按 LUMIX Sync 规则选择握手方式：用 `req_acc_g` 取随机数，再发送变换后的 `req_acc_e`；机身拒绝 `req_acc_g` 时退回普通握手，普通握手收到 challenge 时改走加密握手。变换算法来自 lumix-remote 对 LUMIX Sync 的分析，**未在加密机型上验证** |
 
+## 曝光刷新
+
+以前只在连接成功时读取一次曝光，HUD 会一直显示连接瞬间的 ISO / 快门 / 光圈，之后在机身上改参数也看不到。
+
+现在的策略：
+
+- **USB**：空闲时约每 2 秒读一次；收到 Panasonic `0xC102` 或标准 PTP `0x4006`（DevicePropChanged）时提前刷新；拍摄、遥控快门、导入机身照片结束后也会补读。机身在处理拍摄（`busy`）或断线时不读，避免和快门抢 bulk 传输。
+- **Wi-Fi**：`getsetting` 的间隔从 5 秒改为约 2 秒，只在 READY / BASELINED 且机身空闲时读取；`err_busy` 不当作失败。
+- **HUD**：读数超过 6 秒（约三次刷新）未更新就视为过期，不再把旧值当成当前值。
+
+**2 秒间隔是否影响机身稳定性尚未在真机确认。** 更密的 `cam.cgi` 轮询是 lumix-remote 记录过的 S5 卡死诱因之一；如果真机出现异常，先把 `WifiS5Transport.exposureEveryMs` / `CaptureEngine.exposureRefreshUs` 调回 5 秒。
+
 ## 机型范围
 
 USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机的 LUMIX（VID `0x04da`），Wi-Fi 接受任何 description 厂商为 Panasonic 的 LUMIX。所有机型都沿用 S5 的安全规则（与 lumix-remote 的 generic 配置一致）。除 S5 的 Wi-Fi 型号识别经用户实测之外，其余机型均未经真机验证。
@@ -52,9 +64,10 @@ USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
-bash tools/check-core.sh   # 61 core checks
-bash tools/check-usb.sh    # 55 USB PTP checks
-bash tools/check-wifi.sh   # 111 Wi-Fi checks
+bash tools/check-core.sh   # 72 core checks
+bash tools/check-usb.sh    # 61 USB PTP checks
+bash tools/check-wifi.sh   # 118 Wi-Fi checks
+bash tools/check-scopes.sh # 161 scope checks
 ```
 
-`tools/check-native-host.sh` 需要 `.tools/android-all.jar` 和 `react-android.jar`，本机没有这两个文件，所以这次没有运行。
+`tools/check-native-host.sh` 使用 `.tools/android-all.jar`（`org.robolectric:android-all:15-robolectric-12650502`）和从 `react-android-0.76.7-release.aar` 解出的 `classes.jar`；也可以用 `MOMENT_ANDROID_JAR` / `MOMENT_REACT_JAR` 指向别处的缓存。

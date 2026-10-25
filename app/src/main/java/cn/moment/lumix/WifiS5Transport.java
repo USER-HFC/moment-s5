@@ -26,7 +26,7 @@ public final class WifiS5Transport implements CameraTransport {
     static final int BUSY_ATTEMPTS=5,KEEPALIVE_FAILURES=3;
     static final long KEEPALIVE_SILENCE_MS=30_000;
     /** LUMIX Sync timings; package-private so host checks can shorten them. */
-    long pairPollMs=1000,pairTimeoutMs=90_000,settleMs=30_000,busyRetryMs=1000,keepaliveMs=1000,exposureEveryMs=5000;
+    long pairPollMs=1000,pairTimeoutMs=90_000,settleMs=30_000,busyRetryMs=1000,keepaliveMs=1000,exposureEveryMs=2000;
     private final URL base;
     private final boolean debug;
     private final WifiCameraHttp http;
@@ -226,11 +226,13 @@ public final class WifiS5Transport implements CameraTransport {
     private static String setting(WifiS5Protocol.Reply reply,String field){String value=reply.first(field);if(value==null)value=reply.first("value");return value==null||value.isEmpty()?null:value.substring(0,Math.min(64,value.length()));}
     private void readExposure() throws IOException {
         List<String> values=new ArrayList<>();for(String field:exposureFields){WifiS5Protocol.Reply reply=command("getsetting",field,null,null);String value=setting(reply,field);if(reply.result().equalsIgnoreCase("ok") && value!=null)values.add((field.equals("iso")?"ISO ":field.equals("focal")?"f/":"快门 ")+value);}
-        if(!values.isEmpty()){exposure=String.join("     ",values);exposureUpdatedAt=clock.getAsLong();}
+        if(!values.isEmpty()){exposure=String.join("     ",values);exposureUpdatedAt=clock.getAsLong();lastExposureNs=System.nanoTime();}
     }
     /**
-     * 1 Hz getstate like LUMIX Sync. err_busy is not a failure; err_reject, three failed polls
-     * in a row or 30 s without any successful camera reply end the session.
+     * 1 Hz getstate like LUMIX Sync. Exposure settings are read about every 2 s, and only while
+     * READY or BASELINED and the body is idle: denser cam.cgi polling can wedge an S5.
+     * err_busy is not a failure; err_reject, three failed polls in a row or 30 s without any
+     * successful camera reply end the session.
      */
     private void keepAlive() {
         if(closed)return;

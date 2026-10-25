@@ -5,8 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 compiler="${JAVA_HOME:+$JAVA_HOME/bin/}javac"
 runtime="${JAVA_HOME:+$JAVA_HOME/bin/}java"
-classpath="${MOMENT_ANDROID_JAR:-.tools/android-all.jar}:${MOMENT_REACT_JAR:-.tools/react-android.jar}"
-mkdir -p build/native-compile build/native-host-checks
+mkdir -p build/buildconfig-stub build/native-compile build/native-host-checks
+"$compiler" -encoding UTF-8 -d build/buildconfig-stub tests/android-stubs/com/moments5rn/BuildConfig.java
+classpath="${MOMENT_ANDROID_JAR:-.tools/android-all.jar}:${MOMENT_REACT_JAR:-.tools/react-android.jar}:build/buildconfig-stub"
 sources=()
 while IFS= read -r file; do sources+=("$file"); done < <(find app/src/main/java mobile/android/app/src/main/java/cn/moment/lumix -name '*.java' ! -name MainActivity.java)
 "$compiler" -encoding UTF-8 -cp "$classpath" -d build/native-compile "${sources[@]}"

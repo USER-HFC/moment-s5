@@ -25,6 +25,9 @@ const cameraIcons = {
   timer: '<circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 7v4l2 2m3-10 2-2"/>',
   scopes: '<path d="M3 20h18M5 16v-4m4 4V6m4 10V9m4 7V4m4 12v-5"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
+  chevron: '<path d="m9 5 7 7-7 7"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
+  external: '<path d="M14 4h6v6m0-6-8 8M19 14v6H4V5h6"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   list: '<path d="M9 6h12M9 12h12M9 18h12M3 6h1m-1 6h1m-1 6h1"/>',
   save: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/>',
@@ -33,5 +36,6 @@ const cameraIcons = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/>',
   share: '<circle cx="6" cy="12" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="m8 11 7-3M8 13l7 3"/>',
   play: '<path d="m8 5 11 7-11 7V5Z"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
 };
 if (typeof module !== 'undefined') module.exports = cameraIcons;

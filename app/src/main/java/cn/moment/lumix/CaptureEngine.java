@@ -30,6 +30,9 @@ public final class CaptureEngine {
     private volatile String transport="usb";
     private volatile String exposureValue="";
     private volatile long exposureReadUs;
+    /** Idle USB period. A queued shutter sets busy first, so the poll must not start a read behind it. */
+    long exposureRefreshUs=2_000_000L;
+    private long nextExposureRefreshUs;
     private volatile AudioRing microphone;
     private volatile boolean audioEnabled;
     private volatile boolean demo,busy,shuttingDown;
@@ -95,7 +98,7 @@ public final class CaptureEngine {
                 result=synthetic?"演示：遥控快门已触发（未连接机身）":"遥控指令已完成 · 请在机身确认照片";
                 log(result);
             } catch(Exception e) {failure=e;}
-            finally {ring.clear();busy=false;}
+            finally {ring.clear();busy=false;refreshExposure();}
             if(failure!=null)fail(failure);else listener.status(result,false);
         });
     }
@@ -129,7 +132,7 @@ public final class CaptureEngine {
                 }
                 if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("相机会话已失效或连接已取消，请重新连接相机");
                 camera.clearCaptureEvents();
-                active=true;demo=false;exposureValue=camera.exposure();exposureReadUs=now();listener.exposure(exposureValue);
+                active=true;demo=false;exposureValue=camera.exposure();exposureReadUs=now();nextExposureRefreshUs=exposureReadUs+exposureRefreshUs;listener.exposure(exposureValue);
                 if(camera.closed() || connectingEpoch!=sessionEpoch.get()) throw new IOException("相机连接已取消");
                 startPolling();
             }
@@ -152,8 +155,10 @@ public final class CaptureEngine {
     private void grab() throws Exception {
         CameraTransport.Preview frame=demo?new CameraTransport.Preview(demoFrame(now(),960,640),now()):(camera==null?null:camera.preview());
         if(frame!=null) {byte[] bytes=frame.jpeg();LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}synchronized(this){if(!active || busy || filter!=lut)return;ring.add(frame.receivedUs(),bytes);listener.frame(bytes,ring.durationUs(),demo);}}
+        // busy is set on the tap thread before the shutter task is queued behind this poll.
+        if(!busy) refreshIdleExposure();
         CameraTransport session=camera;
-        if(!demo && session!=null && session.reportsNewPhotos())syncCameraPhoto(session);
+        if(!demo && !busy && session!=null && session.reportsNewPhotos())syncCameraPhoto(session);
     }
     /** A photo taken with the camera's own shutter: download it and save it like an app photo. */
     private void syncCameraPhoto(CameraTransport session) throws IOException {
@@ -163,7 +168,20 @@ public final class CaptureEngine {
         if(photo==null)return;
         synchronized(this){if(!active || busy)return;busy=true;}
         try {importCameraPhoto(session,photo);}
-        finally {ring.clear();busy=false;}
+        finally {ring.clear();busy=false;refreshExposure();}
+    }
+    /** USB only. Wi-Fi keeps its own timestamp, so a cached getter must not look like a new sample. */
+    private void refreshIdleExposure() {
+        CameraTransport session=camera;
+        if(demo || busy || session==null || !"usb".equals(session.kind())) return;
+        long time=now();
+        if(!session.exposureChanged() && time<nextExposureRefreshUs) return;
+        if(busy) return;
+        session.clearExposureChanged();
+        if(busy || !active || camera!=session) return;
+        String value=session.exposure();
+        if(busy || !active || demo || camera!=session || session.closed()) return;
+        exposureValue=value;exposureReadUs=now();nextExposureRefreshUs=exposureReadUs+exposureRefreshUs;listener.exposure(value);
     }
     /** After the timer remote shutter: wait for its photo so the next app capture's baseline includes it. */
     private void awaitRemotePhoto(CameraTransport session,long epoch) throws Exception {
@@ -282,7 +300,7 @@ public final class CaptureEngine {
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
                 if(!motion) {
                     meta.put("durationUs",0);meta.put("complete",true);meta.remove("error");MomentStore.metadata(dir,meta);
-                    ring.clear();busy=false;listener.saved(dir);listener.status("照片已保存",false);return;
+                    ring.clear();busy=false;refreshExposure();listener.saved(dir);listener.status("照片已保存",false);return;
                 }
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
@@ -306,12 +324,12 @@ public final class CaptureEngine {
                         MotionPhoto.write(new File(finalDir,rendered?"rendered.jpg":"original.jpg"),new File(finalDir,"motion.mp4"),new File(finalDir,"MOMENT_MP.jpg"),stillUs);
                         meta.put("complete",true);meta.remove("error");MomentStore.metadata(finalDir,meta);
                     } catch(Exception e) {saveFailure(finalDir,meta,e);failure=e;}
-                    finally {ring.clear();busy=false;}
+                    finally {ring.clear();busy=false;refreshExposure();}
                     // Observers must see the completed state when the result event arrives.
                     if(failure!=null) {listener.failed(finalDir,failure.getMessage());fail(failure);}
                     else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status("实况已保存",false);}
                 });
-            } catch(Exception e) {if(dir!=null)saveFailure(dir,meta,e);ring.clear();busy=false;if(dir!=null)listener.failed(dir,e.getMessage());fail(e);}
+            } catch(Exception e) {if(dir!=null)saveFailure(dir,meta,e);ring.clear();busy=false;refreshExposure();if(dir!=null)listener.failed(dir,e.getMessage());fail(e);}
         });
     }
     private void saveFailure(File dir,JSONObject meta,Exception error) {
@@ -326,10 +344,11 @@ public final class CaptureEngine {
     }
     public void refreshExposure() {
         CameraTransport current=camera;long epoch=sessionEpoch.get();
-        if(active && !busy && current!=null && !worker.isShutdown())worker.execute(()-> {
-            if(busy || !sameSession(epoch,current,false))return;
+        if(active && !demo && !busy && current!=null && "usb".equals(current.kind()) && !worker.isShutdown())worker.execute(()-> {
+            if(busy || demo || !sameSession(epoch,current,false))return;
             String value=current.exposure();
-            if(sameSession(epoch,current,false)){exposureValue=value;exposureReadUs=now();listener.exposure(value);}
+            if(busy || !sameSession(epoch,current,false))return;
+            exposureValue=value;exposureReadUs=now();nextExposureRefreshUs=exposureReadUs+exposureRefreshUs;listener.exposure(value);
         });
     }
     public void disconnect() {

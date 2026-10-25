@@ -45,6 +45,8 @@ public final class UsbS5Transport implements CameraTransport {
     public void autofocus() throws IOException {usb.autofocus();}
     public void focus(boolean far) throws IOException {usb.focus(far);}
     public String exposure() {return usb.exposure();}
+    public boolean exposureChanged() {return usb.exposureChanged();}
+    public void clearExposureChanged() {usb.clearExposureChanged();}
     public Baseline prepareCaptureBaseline() throws IOException {return new Handles(Collections.unmodifiableSet(new HashSet<>(usb.handles())));}
     public void clearCaptureEvents() {usb.clearCaptureEvents();}
     public void shutter() throws IOException {usb.shutter();}

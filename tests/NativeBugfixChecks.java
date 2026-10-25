@@ -231,7 +231,7 @@ public final class NativeBugfixChecks {
         public void open(){}public Preview preview(){return null;}
         public Capabilities capabilities(){return new Capabilities(false,false,false);}
         int exposureReads;
-        public void autofocus(){}public void focus(boolean far){}public String exposure(){exposureReads++;return "";}
+        public void autofocus(){}public void focus(boolean far){}public String exposure(){exposureReads++;calls.add("exposure");return "ISO 200     f/4.0     1/100";}
         public boolean freshBaselineRequired(){return wifi;}
         public Baseline prepareCaptureBaseline(){calls.add("baseline");return baseline;}
         public void clearCaptureEvents(){calls.add("clear");}
@@ -422,9 +422,104 @@ public final class NativeBugfixChecks {
         jpeg[jpeg.length-2]=(byte)255;jpeg[jpeg.length-1]=(byte)217;
         return jpeg;
     }
+
+    /** USB poll reads exposure only while idle. The shutter task is queued ahead of the next read. */
+    private static final class RefreshCamera implements CameraTransport {
+        volatile String kind="usb";
+        volatile boolean changed,closed;
+        final AtomicInteger reads=new AtomicInteger();
+        final CountDownLatch first=new CountDownLatch(1);
+        public String kind(){return kind;}
+        public void open(){}
+        public Preview preview(){return null;}
+        public Capabilities capabilities(){return new Capabilities(false,false,false);}
+        public void autofocus(){}
+        public void focus(boolean far){}
+        public String exposure(){if(reads.incrementAndGet()==1)first.countDown();return "ISO 200     f/4.0     1/100";}
+        public Baseline prepareCaptureBaseline(){return new Baseline(){};}
+        public void clearCaptureEvents(){}
+        public void shutter(){}
+        public Original awaitNewJpeg(Baseline baseline,java.util.function.BooleanSupplier valid){return null;}
+        public void downloadOriginal(Original original,File destination){}
+        public boolean exposureChanged(){return changed;}
+        public void clearExposureChanged(){changed=false;}
+        public boolean closed(){return closed;}
+        public void abort(){closed=true;}
+        public void close(){closed=true;}
+    }
+    private static CaptureEngine.Listener quiet(){return new CaptureEngine.Listener(){
+        public void status(String text,boolean ready){}public void frame(byte[] jpeg,long buffered,boolean demo){}
+        public void saved(File dir){}public void log(String text){}public void exposure(String text){}
+    };}
+    private static void exposureRefreshChecks(Path root)throws Exception {
+        Path files=Files.createDirectory(root.resolve("exposure"));
+        CaptureEngine engine=new CaptureEngine(new Context(files.toFile()),quiet());
+        try {
+            check((long)field(CaptureEngine.class,"exposureRefreshUs").get(engine)==2_000_000L,"idle USB exposure refresh is about two seconds");
+            RefreshCamera camera=new RefreshCamera();
+            field(CaptureEngine.class,"camera").set(engine,camera);
+            field(CaptureEngine.class,"active").set(engine,true);
+            field(CaptureEngine.class,"demo").set(engine,false);
+            field(CaptureEngine.class,"busy").set(engine,true);
+            field(CaptureEngine.class,"exposureRefreshUs").set(engine,100_000L);
+            field(CaptureEngine.class,"exposureValue").set(engine,"ISO 100     f/2.8     1/50");
+            field(CaptureEngine.class,"exposureReadUs").set(engine,CaptureEngine.now()-30_000_000L);
+            Method start=CaptureEngine.class.getDeclaredMethod("startPolling");start.setAccessible(true);start.invoke(engine);
+            Thread.sleep(350);
+            check(camera.reads.get()==0 && engine.exposureAgeMs()>=20_000,"USB exposure is not read while a capture is busy");
+            field(CaptureEngine.class,"busy").set(engine,false);
+            check(camera.first.await(3,TimeUnit.SECONDS),"idle USB poll refreshes exposure");
+            settle(engine);
+            check(engine.exposureValue().contains("ISO 200") && engine.exposureAgeMs()>=0 && engine.exposureAgeMs()<2000,"a fresh USB sample updates the HUD timestamp");
+            field(CaptureEngine.class,"busy").set(engine,true);settle(engine);
+            int held=camera.reads.get();Thread.sleep(350);
+            check(camera.reads.get()==held,"a later busy period does not read exposure");
+            field(CaptureEngine.class,"exposureRefreshUs").set(engine,60_000_000L);
+            camera.changed=true;
+            field(CaptureEngine.class,"nextExposureRefreshUs").set(engine,CaptureEngine.now()+60_000_000L);
+            Thread.sleep(250);
+            check(camera.reads.get()==held && camera.changed,"a property-change event waits until the shutter worker is idle");
+            field(CaptureEngine.class,"busy").set(engine,false);
+            long deadline=System.nanoTime()+3_000_000_000L;
+            while(camera.reads.get()==held && System.nanoTime()<deadline)Thread.sleep(20);
+            check(camera.reads.get()==held+1 && !camera.changed,"DevicePropChanged refreshes exposure once the camera is idle");
+            field(CaptureEngine.class,"busy").set(engine,true);settle(engine);
+            camera.kind="wifi";camera.changed=true;
+            field(CaptureEngine.class,"nextExposureRefreshUs").set(engine,0L);
+            int wifiHeld=camera.reads.get();
+            field(CaptureEngine.class,"busy").set(engine,false);
+            Thread.sleep(300);
+            check(camera.reads.get()==wifiHeld && camera.changed,"Wi-Fi exposure stays on its own keeper and a USB poll does not consume the flag");
+        }finally{engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
+        engine=new CaptureEngine(new Context(files.toFile()),quiet());
+        try {
+            StillCamera usb=new StillCamera(false);
+            field(CaptureEngine.class,"camera").set(engine,usb);
+            field(CaptureEngine.class,"active").set(engine,true);
+            field(CaptureEngine.class,"demo").set(engine,false);
+            field(CaptureEngine.class,"preparedHandles").set(engine,usb.baseline);
+            CountDownLatch resume=block(engine);engine.captureStill();
+            check(engine.busy() && usb.exposureReads==0,"the shutter is not delayed by an exposure read");
+            resume.countDown();settle(engine);
+            check(usb.exposureReads==1 && usb.calls.indexOf("shutter")<usb.calls.indexOf("exposure"),"one exposure read follows the shutter");
+            check(engine.exposureAgeMs()>=0 && engine.exposureAgeMs()<2000 && engine.exposureValue().contains("ISO 200"),"the post-shutter sample is current");
+            StillCamera wifi=new StillCamera(true);
+            field(CaptureEngine.class,"camera").set(engine,wifi);
+            field(CaptureEngine.class,"active").set(engine,true);
+            field(CaptureEngine.class,"demo").set(engine,false);
+            field(CaptureEngine.class,"preparedHandles").set(engine,wifi.baseline);
+            engine.captureStill();settle(engine);
+            check(wifi.exposureReads==0,"Wi-Fi capture does not add a USB exposure read");
+            StillCamera demo=new StillCamera(false);
+            field(CaptureEngine.class,"camera").set(engine,demo);
+            field(CaptureEngine.class,"demo").set(engine,true);
+            engine.captureStill();settle(engine);
+            check(demo.exposureReads==0,"demo capture does not read a camera");
+        }finally{engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);}
+        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

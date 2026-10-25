@@ -17,6 +17,9 @@ public interface CameraTransport extends AutoCloseable {
     void autofocus() throws IOException;
     void focus(boolean far) throws IOException;
     String exposure();
+    /** Panasonic 0xC102 (tethr DevicePropChanged) or standard PTP 0x4006 since the last clear. */
+    default boolean exposureChanged() {return false;}
+    default void clearExposureChanged() {}
     /** Monotonic timestamp of a cached exposure sample, or zero when unavailable. */
     default long exposureUpdatedAtUs() {return 0;}
     Baseline prepareCaptureBaseline() throws Exception;

@@ -12,18 +12,19 @@ import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
+import FocusFlyout from './FocusFlyout';
 import CameraHud from './hud/CameraHud';
 
-type Panel = 'lut' | 'delay' | null;
+type Panel = 'lut' | 'delay' | 'focus' | null;
 type Props = {
-  onAlbum: () => void; latestPhoto?: string;
+  onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
 };
 type PreviewSlots = [string | undefined, string | undefined];
 
-export default function CameraWorkspace({onAlbum, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto}: Props) {
+export default function CameraWorkspace({onAlbum, onSettings, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const scopePanels = useScopePanels();
@@ -125,14 +126,17 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
         {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
             0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
             not flip either side without checking on a real S5. */}
-        {canManualFocus && <>
-          <CameraControl label="远焦" accessibilityLabel="远对焦" accessibilityHint="镜头向远处步进一档" icon="far" disabled={state.busy || waiting} onPress={() => camera?.focus(-1)}/>
-          <CameraControl label="近焦" accessibilityLabel="近对焦" accessibilityHint="镜头向近处步进一档" icon="near" disabled={state.busy || waiting} onPress={() => camera?.focus(1)}/>
-        </>}
+        {canManualFocus && <CameraControl testID="focus-button" label="对焦" accessibilityLabel="对焦"
+          accessibilityHint={panel === 'focus' ? '收起近/远对焦面板' : '展开近/远对焦面板'}
+          icon="focus" active={panel === 'focus'} disabled={state.busy || waiting}
+          onPress={() => setPanel(value => value === 'focus' ? null : 'focus')}/>}
       </View>
-      <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
-        accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
-        icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
+      <View style={[styles.railEnd, landscape && styles.railEndLandscape]}>
+        <CameraControl testID="settings-button" label="设置" icon="settings" accessibilityLabel="设置" accessibilityHint="打开设置" onPress={() => {cancelCountdown(); setPanel(null); onSettings?.();}}/>
+        <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
+          accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
+          icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
+      </View>
     </View>
     <View testID="camera-body" style={[styles.body, landscape && styles.bodyLandscape]}>
       <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
@@ -177,6 +181,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
     </View>
     {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} rail={rail}
       onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
+    {panel === 'focus' && canManualFocus && <FocusFlyout landscape={landscape} rail={rail} disabled={state.busy || waiting}
+      onFocus={direction => camera?.focus(direction)} onClose={() => setPanel(null)}/>}
     <CameraSheet visible={panel === 'delay'} title="快门延时" onClose={() => setPanel(null)}>
       {panel === 'delay' && <View style={styles.options}>
         <Button textColor={timerEnabled ? ui.color.text : ui.color.accent} contentStyle={styles.touch} accessibilityLabel="关闭定时" mode={!timerEnabled ? 'contained-tonal' : 'outlined'} onPress={() => {cancelCountdown(); setTimerEnabled(false); setPanel(null);}}>关闭</Button>
@@ -193,6 +199,7 @@ const styles = StyleSheet.create({
   toolsRail: {minHeight: 64, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   toolsRailLandscape: {width: 64, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.gutter, flexDirection: 'column'},
   viewTools: {flexDirection: 'row', gap: ui.space.sm}, viewToolsLandscape: {flexDirection: 'column'},
+  railEnd: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm}, railEndLandscape: {flexDirection: 'column'},
   body: {flex: 1, minHeight: 0, minWidth: 0}, bodyLandscape: {flexDirection: 'row'},
   finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
   previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: ui.color.surface}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
