@@ -37,6 +37,8 @@ public final class CaptureEngine {
     private volatile LutEngine lut;
     /** Object handles captured during session preparation, before a shutter tap. */
     private volatile CameraTransport.Baseline preparedHandles;
+    /** Originals saved in this session (app captures and synced body photos), never imported twice. */
+    private final Set<Object> savedOriginals=Collections.synchronizedSet(new HashSet<>());
     /** Changes whenever the camera session is replaced or disconnected. */
     private final AtomicLong sessionEpoch=new AtomicLong();
     private ScheduledFuture<?> polling;
@@ -76,8 +78,9 @@ public final class CaptureEngine {
         if(!canRemoteCapture()) {listener.status("相机未连接或正在处理拍摄",false);return;}
         busy=true;
         long epoch=sessionEpoch.get();CameraTransport session=camera;boolean synthetic=demo;
-        // A remote shot can appear in the index later. The old baseline is no longer safe.
-        preparedHandles=null;
+        // A remote shot can appear in the index later. Without ObjectAdded events the old baseline
+        // is no longer safe; with them the shot is synced below and folded into the baseline.
+        if(synthetic || camera==null || !camera.reportsNewPhotos())preparedHandles=null;
         worker.execute(()-> {
             String result=null;Exception failure=null;
             try {
@@ -87,6 +90,7 @@ public final class CaptureEngine {
                     if(!sameSession(epoch,session,false))throw new IOException("相机已断开，未触发快门");
                     session.shutter();
                     if(session.freshBaselineRequired()){session.awaitNewJpeg(before,()->sameSession(epoch,session,false));session.completeWithoutDownload();}
+                    else if(session.reportsNewPhotos())awaitRemotePhoto(session,epoch);
                 }
                 result=synthetic?"演示：遥控快门已触发（未连接机身）":"遥控指令已完成 · 请在机身确认照片";
                 log(result);
@@ -148,6 +152,66 @@ public final class CaptureEngine {
     private void grab() throws Exception {
         CameraTransport.Preview frame=demo?new CameraTransport.Preview(demoFrame(now(),960,640),now()):(camera==null?null:camera.preview());
         if(frame!=null) {byte[] bytes=frame.jpeg();LutEngine filter=lut;if(filter!=null)try{bytes=filter.applyJpeg(bytes);}catch(IOException e){log("LUT 取景套用失败："+e.getMessage());}synchronized(this){if(!active || busy || filter!=lut)return;ring.add(frame.receivedUs(),bytes);listener.frame(bytes,ring.durationUs(),demo);}}
+        CameraTransport session=camera;
+        if(!demo && session!=null && session.reportsNewPhotos())syncCameraPhoto(session);
+    }
+    /** A photo taken with the camera's own shutter: download it and save it like an app photo. */
+    private void syncCameraPhoto(CameraTransport session) throws IOException {
+        CameraTransport.Original photo;
+        try {photo=session.nextCameraPhoto(preparedHandles,savedOriginals);}
+        catch(IOException e) {if(session.closed())throw e;log("机身新照片暂时无法读取："+e.getMessage());return;}
+        if(photo==null)return;
+        synchronized(this){if(!active || busy)return;busy=true;}
+        try {importCameraPhoto(session,photo);}
+        finally {ring.clear();busy=false;}
+    }
+    /** After the timer remote shutter: wait for its photo so the next app capture's baseline includes it. */
+    private void awaitRemotePhoto(CameraTransport session,long epoch) throws Exception {
+        long deadline=now()+30_000_000;
+        while(now()<deadline && sameSession(epoch,session,false)) {
+            CameraTransport.Original photo=session.nextCameraPhoto(preparedHandles,savedOriginals);
+            if(photo!=null){importCameraPhoto(session,photo);return;}
+            Thread.sleep(100);
+        }
+        preparedHandles=null;log("遥控快门的照片尚未出现在机身索引中；下一次拍摄只接受快门后的照片事件");
+    }
+    private void importCameraPhoto(CameraTransport session,CameraTransport.Original photo) {
+        File dir=null;JSONObject meta=new JSONObject();LutEngine filter=lut;
+        try {
+            listener.status("正在同步机身拍摄的照片",false);
+            dir=store.create();meta.put("schema",1);meta.put("demo",false);meta.put("createdAt",System.currentTimeMillis());
+            meta.put("captureMode","photo");meta.put("mediaType","photo");meta.put("cameraTriggered",true);
+            meta.put("source",photo.filename());meta.put("transport",session.kind());meta.put("experimentalWifi",session.kind().equals("wifi"));
+            meta.put("lutRequested",filter==null?JSONObject.NULL:filter.title);meta.put("lut",JSONObject.NULL);meta.put("lutApplied",false);
+            meta.put("frames",0);meta.put("durationUs",0);meta.put("audio",false);meta.put("hasPostFrames",false);meta.put("complete",false);
+            MomentStore.metadata(dir,meta);
+            File original=new File(dir,"original.jpg"),part=new File(dir,"original.jpg.part");
+            try {session.downloadOriginal(photo,part);Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);}
+            finally {Files.deleteIfExists(part.toPath());}
+            savedOriginals.add(photo.key());
+            CameraTransport.Baseline before=preparedHandles;if(before!=null)preparedHandles=session.withPhoto(before,photo);
+            boolean lutApplied=renderLut(dir,original,filter,false);
+            meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);meta.put("complete",true);
+            MomentStore.metadata(dir,meta);
+            listener.saved(dir);listener.status("已同步机身照片 "+photo.filename(),false);log("已同步机身拍摄的照片 "+photo.filename());
+        } catch(Exception e) {if(dir!=null){saveFailure(dir,meta,e);listener.failed(dir,e.getMessage());}fail(e);}
+    }
+    /**
+     * rendered.jpg from the camera bytes; original.jpg is never changed. A photo keeps its original
+     * and reports the failure; a motion photo also keeps original-camera.jpg and continues without it.
+     */
+    private boolean renderLut(File dir,File original,LutEngine filter,boolean motion) throws IOException {
+        if(filter==null)return false;
+        byte[] still=Files.readAllBytes(original.toPath());
+        if(motion)Files.write(new File(dir,"original-camera.jpg").toPath(),still);
+        File part=new File(dir,"rendered.jpg.part");
+        try {
+            Files.write(part.toPath(),filter.applyJpeg(still));
+            Files.move(part.toPath(),new File(dir,"rendered.jpg").toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            return true;
+        }
+        catch(IOException e) {if(!motion)throw new IOException("LUT 处理失败，原片已保留："+e.getMessage(),e);log("LUT 原片套用失败，保留相机原片："+e.getMessage());return false;}
+        finally {Files.deleteIfExists(part.toPath());}
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
     public void capture() {capture(true);}
@@ -202,6 +266,7 @@ public final class CaptureEngine {
                         cameraAtTap.downloadOriginal(source,part);
                         Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
                     } finally {Files.deleteIfExists(part.toPath());}
+                    savedOriginals.add(source.key());
                     // Refresh the next button boundary after this transfer. This
                     // USB index read is deliberately after the shutter and can
                     // never delay the current capture.
@@ -210,19 +275,7 @@ public final class CaptureEngine {
                 }
                 meta.put("source",filename);MomentStore.metadata(dir,meta);
                 // Keep the camera bytes immutable; rendered.jpg is an explicit derivative.
-                boolean lutApplied=false;
-                if(filter!=null){
-                    byte[] still=Files.readAllBytes(original.toPath());
-                    if(motion)Files.write(new File(dir,"original-camera.jpg").toPath(),still);
-                    File part=new File(dir,"rendered.jpg.part");
-                    try {
-                        Files.write(part.toPath(),filter.applyJpeg(still));
-                        Files.move(part.toPath(),new File(dir,"rendered.jpg").toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-                        lutApplied=true;
-                    }
-                    catch(IOException e) {if(!motion)throw new IOException("LUT 处理失败，原片已保留："+e.getMessage(),e);log("LUT 原片套用失败，保留相机原片："+e.getMessage());}
-                    finally {Files.deleteIfExists(part.toPath());}
-                }
+                boolean lutApplied=renderLut(dir,original,filter,motion);
                 meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
                 meta.put("frames",fs.size());meta.put("maxGapMs",motion?Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000:0);
                 meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis",motion?"button-tap pre-shutter buffer snapshot; exposure time is approximate":"button-tap request; camera exposure time is approximate");
@@ -281,7 +334,7 @@ public final class CaptureEngine {
     }
     public void disconnect() {
         // Invalidate queued shutters and unblock USB reads before waiting for the worker.
-        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;exposureValue="";exposureReadUs=0;
+        sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;savedOriginals.clear();exposureValue="";exposureReadUs=0;
         CameraTransport c=camera;if(c!=null)c.abort();stopAudio();
         if(!worker.isShutdown())worker.execute(()->disconnectNow(false));
     }
@@ -291,7 +344,7 @@ public final class CaptureEngine {
     }
     private void disconnectNow(boolean invalidate) {
         stopAudio();
-        if(invalidate)sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;exposureValue="";exposureReadUs=0;if(polling!=null) polling.cancel(false);polling=null;
+        if(invalidate)sessionEpoch.incrementAndGet();active=false;demo=false;preparedHandles=null;savedOriginals.clear();exposureValue="";exposureReadUs=0;if(polling!=null) polling.cancel(false);polling=null;
         if(camera!=null) camera.close();camera=null;ring.clear();
     }
     private void fail(Exception e) {log(e.getClass().getSimpleName()+": "+e.getMessage());listener.status(e.getMessage()==null?"发生错误，请查看连接诊断":e.getMessage(),false);}

@@ -100,8 +100,34 @@ public final class UsbPtpChecks {
         check(!camera.closed(),"a refused focus step keeps the session");
         camera.close();
     }
+    private static byte[] objectInfo(int format,String name) throws IOException {
+        ByteArrayOutputStream out=new ByteArrayOutputStream();ByteBuffer head=Ptp.le(new byte[52]);
+        head.putInt(0x00010001).putShort((short)format).putShort((short)0).putInt(4096);out.write(head.array());ptpString(out,name);return out.toByteArray();
+    }
+    @SuppressWarnings("unchecked") private static void cameraPhotos() throws Exception {
+        UsbManager manager=manager();UsbS5Transport camera=new UsbS5Transport(manager,new UsbDevice(),s->{});camera.open();
+        manager.connection.respond=command->{ByteBuffer b=Ptp.le(command);int op=b.getShort(6)&65535,tx=b.getInt(8),h=command.length>=16?b.getInt(12):0;
+            byte[] ok=container(3,0x2001,tx,new byte[0]);
+            try {
+                if(op==0x1008) return join(container(2,op,tx,h==5?objectInfo(0x3000,"P1000005.RW2"):objectInfo(0x3801,"P100000"+h+".JPG")),ok);
+                if(op==0x1007) {ByteBuffer list=Ptp.le(new byte[12]).putInt(2).putInt(1).putInt(2);return join(container(2,op,tx,list.array()),ok);}
+            } catch(IOException e) {throw new UncheckedIOException(e);}
+            return ok;
+        };
+        CameraTransport.Baseline baseline=camera.prepareCaptureBaseline();
+        java.lang.reflect.Field usbField=UsbS5Transport.class.getDeclaredField("usb");usbField.setAccessible(true);
+        java.lang.reflect.Field queue=UsbS5.class.getDeclaredField("added");queue.setAccessible(true);
+        java.util.concurrent.LinkedBlockingQueue<Integer> added=(java.util.concurrent.LinkedBlockingQueue<Integer>)queue.get(usbField.get(camera));
+        added.addAll(List.of(2,5,7,8));
+        CameraTransport.Original photo=camera.nextCameraPhoto(baseline,Set.of(7));
+        check(photo!=null && photo.key().equals(8) && photo.filename().equals("P1000008.JPG"),"body photo sync skips known handles, saved photos and RAW, and returns the JPEG");
+        check(camera.nextCameraPhoto(baseline,Set.of())==null,"no further body photos after the queue drains");
+        CameraTransport.Baseline next=camera.withPhoto(baseline,photo);added.add(8);
+        check(camera.nextCameraPhoto(next,Set.of())==null,"a synced photo joins the baseline and is never imported twice");
+        camera.close();
+    }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();anyLumix();focus();
+        timeouts();exposure();anyLumix();focus();cameraPhotos();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }

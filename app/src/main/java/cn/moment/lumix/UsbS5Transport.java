@@ -16,9 +16,11 @@ public final class UsbS5Transport implements CameraTransport {
     public UsbS5Transport(UsbManager manager,UsbDevice device,Consumer<String> log) throws IOException {
         usb=new UsbS5(manager,device,log);this.log=log;
     }
+    /** Same monotonic microsecond clock as CaptureEngine.now(). */
+    private static long now() {return android.os.SystemClock.elapsedRealtimeNanos()/1000;}
     public String kind() {return "usb";}
     public void open() throws IOException {usb.open();}
-    public Preview preview() throws IOException {byte[] bytes=usb.preview();return bytes==null?null:new Preview(bytes,CaptureEngine.now());}
+    public Preview preview() throws IOException {byte[] bytes=usb.preview();return bytes==null?null:new Preview(bytes,now());}
     public Capabilities capabilities() {return new Capabilities(true,true,true);}
     public void autofocus() throws IOException {usb.autofocus();}
     public void focus(boolean far) throws IOException {usb.focus(far);}
@@ -28,9 +30,9 @@ public final class UsbS5Transport implements CameraTransport {
     public void shutter() throws IOException {usb.shutter();}
     public Original awaitNewJpeg(Baseline before,BooleanSupplier valid) throws Exception {
         Set<Integer> baseline=before==null?null:((Handles)before).values;
-        long deadline=CaptureEngine.now()+60_000_000,nextList=CaptureEngine.now();
+        long deadline=now()+60_000_000,nextList=now();
         Set<Integer> rejected=new HashSet<>(),pendingEvents=new HashSet<>();
-        while(CaptureEngine.now()<deadline && valid.getAsBoolean()) {
+        while(now()<deadline && valid.getAsBoolean()) {
             Integer eventHandle=usb.nextAdded();if(eventHandle!=null)pendingEvents.add(eventHandle);
             for(Iterator<Integer> it=pendingEvents.iterator();it.hasNext();) {
                 int handle=it.next();
@@ -39,10 +41,10 @@ public final class UsbS5Transport implements CameraTransport {
                     rejected.add(handle);it.remove();
                 } catch(IOException e) {log.accept("收到照片事件但暂时无法读取索引 "+handle+"："+e.getMessage());}
             }
-            if(baseline!=null && CaptureEngine.now()>=nextList) {
+            if(baseline!=null && now()>=nextList) {
                 Set<Integer> handles;
                 try {handles=usb.handles();}
-                catch(IOException e) {log.accept("照片索引暂不可用，继续等待："+e.getMessage());nextList=CaptureEngine.now()+500_000;Thread.sleep(80);continue;}
+                catch(IOException e) {log.accept("照片索引暂不可用，继续等待："+e.getMessage());nextList=now()+500_000;Thread.sleep(80);continue;}
                 Set<Integer> jpegHandles=new HashSet<>();
                 for(int handle:handles) {
                     if(rejected.contains(handle)||baseline.contains(handle))continue;
@@ -51,7 +53,7 @@ public final class UsbS5Transport implements CameraTransport {
                 }
                 Integer newest=FrameRing.newestFreshHandle(jpegHandles,baseline);
                 if(newest!=null){Ptp.ObjectInfo info=usb.objectInfo(newest);return new Original(newest,info.filename,info.size);}
-                nextList=CaptureEngine.now()+1_000_000;
+                nextList=now()+1_000_000;
             }
             Thread.sleep(80);
         }
@@ -65,6 +67,20 @@ public final class UsbS5Transport implements CameraTransport {
         byte[] bytes=usb.object((Integer)original.key());
         if(original.size()!=0 && bytes.length!=original.size())throw new IOException("原片长度不符，未生成实况文件");
         Files.write(destination.toPath(),bytes);
+    }
+    public boolean reportsNewPhotos(){return usb.hasEvents();}
+    public Original nextCameraPhoto(Baseline before,Set<Object> saved) throws IOException {
+        Set<Integer> known=before==null?Set.of():((Handles)before).values;
+        for(Integer handle;(handle=usb.nextAdded())!=null;) {
+            if(known.contains(handle) || saved.contains(handle))continue; // e.g. a second event for a photo already saved
+            Ptp.ObjectInfo info=usb.objectInfo(handle);
+            if(info.jpeg())return new Original(handle,info.filename,info.size); // RAW of a RAW+JPEG pair is skipped
+        }
+        return null;
+    }
+    public Baseline withPhoto(Baseline before,Original photo) {
+        Set<Integer> values=new HashSet<>(before==null?Set.of():((Handles)before).values);values.add((Integer)photo.key());
+        return new Handles(Collections.unmodifiableSet(values));
     }
     public boolean closed(){return usb.closed();}
     public void abort(){usb.abort();}

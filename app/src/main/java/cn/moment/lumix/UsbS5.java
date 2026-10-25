@@ -85,6 +85,8 @@ public final class UsbS5 implements AutoCloseable {
         Set<Integer> s=new HashSet<>(); for(int h:new Ptp.Reader(r.data).array(4)) s.add(h);return s;
     }
     public void clearCaptureEvents() { added.clear(); }
+    /** True when the body has an interrupt endpoint, so ObjectAdded events arrive for every new file. */
+    public boolean hasEvents() { return events!=null; }
     public Integer nextAdded() { return added.poll(); }
     public boolean closed() { return closed; }
     public Ptp.ObjectInfo objectInfo(int h) throws IOException { Result r=exchange(0x1008,null,65536,h);r.ok();return new Ptp.ObjectInfo(r.data); }
