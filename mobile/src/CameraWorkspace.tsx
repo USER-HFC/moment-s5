@@ -17,14 +17,14 @@ import {hudSafeBounds} from './hud/readings';
 
 type Panel = 'lut' | 'delay' | null;
 type Props = {
-  onAlbum: () => void; latestPhoto?: string;
+  onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
 };
 type PreviewSlots = [string | undefined, string | undefined];
 
-export default function CameraWorkspace({onAlbum, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto}: Props) {
+export default function CameraWorkspace({onAlbum, onSettings, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const scopePanels = useScopePanels();
@@ -129,9 +129,12 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
           <CameraControl label="近焦" accessibilityLabel="近对焦" accessibilityHint="镜头向近处步进一档" icon="near" disabled={state.busy || waiting} onPress={() => camera?.focus(1)}/>
         </>}
       </View>
-      <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
-        accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
-        icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
+      <View style={[styles.railEnd, landscape && styles.railEndLandscape]}>
+        <CameraControl testID="settings-button" label="设置" icon="settings" accessibilityLabel="设置" accessibilityHint="打开设置" onPress={() => {cancelCountdown(); setPanel(null); onSettings?.();}}/>
+        <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
+          accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
+          icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
+      </View>
     </View>
     <View testID="camera-body" style={[styles.body, landscape && styles.bodyLandscape]}>
       <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
@@ -191,6 +194,7 @@ const styles = StyleSheet.create({
   toolsRail: {minHeight: 64, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   toolsRailLandscape: {width: 64, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.gutter, flexDirection: 'column'},
   viewTools: {flexDirection: 'row', gap: ui.space.sm}, viewToolsLandscape: {flexDirection: 'column'},
+  railEnd: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm}, railEndLandscape: {flexDirection: 'column'},
   body: {flex: 1, minHeight: 0, minWidth: 0}, bodyLandscape: {flexDirection: 'row'},
   finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
   previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: ui.color.surface}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},

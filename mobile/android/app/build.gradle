@@ -73,6 +73,24 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 def targetArchitectures = (findProperty("reactNativeArchitectures") ?: "arm64-v8a").split(",")
 
+// A missing git binary or a non-repo tree must not fail the APK. The module shows 未知 for a blank hash.
+def momentGit = ''
+try {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine 'git', 'rev-parse', '--short=12', 'HEAD'
+        standardOutput = stdout
+        errorOutput = new ByteArrayOutputStream()
+        ignoreExitValue = true
+    }
+    def text = stdout.toString('UTF-8').trim()
+    if (text ==~ /[0-9a-fA-F]{7,40}/) momentGit = text
+} catch (Exception ignored) {
+    momentGit = ''
+}
+def momentBuiltAt = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()
+def momentAbi = (findProperty('reactNativeArchitectures') ?: 'arm64-v8a').toString().trim()
+
 android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
@@ -92,6 +110,7 @@ android {
     }
 
     namespace "com.moments5rn"
+    buildFeatures { buildConfig true }
     lint {
         // The bundled react-native-video optional notification service is never enabled:
         // album playback stays foreground-only and uses showNotificationControls=false.
@@ -104,6 +123,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 24
         versionName "0.8.0-beta.3"
+        buildConfigField 'String', 'MOMENT_GIT', '"' + momentGit + '"'
+        buildConfigField 'String', 'MOMENT_BUILT_AT', '"' + momentBuiltAt + '"'
+        buildConfigField 'String', 'MOMENT_ABI', '"' + momentAbi.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        buildConfigField 'int', 'MOMENT_MIN_SDK', rootProject.ext.minSdkVersion.toString()
     }
     signingConfigs {
         debug {

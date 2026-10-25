@@ -9,7 +9,7 @@ export const CAMERA_ICONS = {
   timer: 'timer', focus: 'focus-auto', far: 'focus-far', near: 'focus-near',
   usb: 'usb', wifi: 'wifi', disconnected: 'usb-off', demo: 'demo', mic: 'mic', muted: 'mic-off',
   ratio: 'ratio', check: 'check', close: 'close', list: 'list', save: 'save',
-  delete: 'delete', import: 'import', refresh: 'rotate', scopes: 'scopes',
+  delete: 'delete', import: 'import', refresh: 'rotate', settings: 'settings', scopes: 'scopes',
   enlarge: 'enlarge', shrink: 'shrink', move: 'move',
 } as const;
 export type CameraIconName = keyof typeof CAMERA_ICONS;

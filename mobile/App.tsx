@@ -11,11 +11,13 @@ import MotionAlbum from './src/MotionAlbum';
 import ConnectionSheet from './src/connection/ConnectionSheet';
 import {WifiConnectionOptions} from './src/connection/model';
 import useCameraReadings from './src/hud/useCameraReadings';
+import SettingsScreen from './src/SettingsScreen';
+import {buildInfoFromModule} from './src/buildInfo';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
 export default function App() {
-  const [page, setPage] = useState<'camera' | 'album'>('camera');
+  const [page, setPage] = useState<'camera' | 'album' | 'settings'>('camera');
   const pageRef = useRef(page);
   pageRef.current = page;
   const [state, setState] = useState<CameraState>(emptyState);
@@ -85,8 +87,9 @@ export default function App() {
   };
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
+    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => setPage('settings')} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment}/>}
+    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} onBack={() => setPage('camera')}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={4500}>{snack}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;

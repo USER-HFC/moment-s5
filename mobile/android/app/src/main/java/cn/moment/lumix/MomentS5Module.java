@@ -8,6 +8,7 @@ import android.os.Build;
 import android.util.Base64;
 import com.facebook.react.bridge.*;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
+import com.moments5rn.BuildConfig;
 import java.io.*;
 import java.util.*;
 
@@ -46,7 +47,24 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         lifecycle.cancel();engine.disconnect();
         context.runOnUiQueueThread(()->{try{wifi.connect(manual,ssid,password,endpoint,debug,route->engine.connectWifi(route,endpoint,port,debug));status("正在连接 Wi-Fi（实验）· 未经真机验证");promise.resolve(null);}catch(Exception e){promise.reject("WIFI_CONNECT",e.getMessage(),e);}});
     }
-    @Override public Map<String,Object> getConstants(){return Map.of("wifiDebugEnabled",(context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);}
+    @Override public Map<String,Object> getConstants(){
+        Map<String,Object> constants=new HashMap<>();
+        constants.put("wifiDebugEnabled",(context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
+        constants.put("buildInfo",buildInfo());
+        return constants;
+    }
+    private static Map<String,String> buildInfo(){
+        Map<String,String> info=new LinkedHashMap<>();
+        info.put("versionName",buildText(BuildConfig.VERSION_NAME));
+        info.put("versionCode",Integer.toString(BuildConfig.VERSION_CODE));
+        info.put("builtAt",buildText(BuildConfig.MOMENT_BUILT_AT));
+        info.put("git",buildText(BuildConfig.MOMENT_GIT));
+        info.put("buildType",buildText(BuildConfig.BUILD_TYPE));
+        info.put("abi",buildText(BuildConfig.MOMENT_ABI));
+        info.put("minSdk",Integer.toString(BuildConfig.MOMENT_MIN_SDK));
+        return info;
+    }
+    private static String buildText(String value){String text=value==null?"":value.trim();return text.isEmpty()?"未知":text;}
     @ReactMethod public void demo(){wifi.close();lifecycle.cancel();engine.demo();}
     @ReactMethod public void disconnect(){wifi.close();lifecycle.cancel();engine.disconnect();status("相机已断开 · 请重新连接");}
     @ReactMethod public void capture(){engine.capture();}
