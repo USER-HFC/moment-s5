@@ -51,7 +51,7 @@
 
 ## 机型范围
 
-USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机的 LUMIX（VID `0x04da`），Wi-Fi 接受任何 description 厂商为 Panasonic 的 LUMIX。所有机型都沿用 S5 的安全规则（与 lumix-remote 的 generic 配置一致）。除 S5 的 Wi-Fi 型号识别经用户实测之外，其余机型均未经真机验证。
+USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机的 LUMIX（VID `0x04da`），Wi-Fi 接受任何 description 厂商为 Panasonic 的 LUMIX。所有机型都沿用 S5 的安全规则（与 lumix-remote 的 generic 配置一致）。S5 的 Wi-Fi 型号问题由用户实测发现，但修复后尚未实测；所有机型都还没有经过真机验证。
 
 ## 尚未处理（需要真机数据）
 

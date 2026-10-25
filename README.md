@@ -1,6 +1,6 @@
 # 瞬间 Lumix / Moment
 
-为 Panasonic LUMIX 系列相机打造的 React Native 实况照片应用。USB-C 数据线直连或实验 Wi-Fi，不需要视频采集卡、不依赖云端、不刷机。界面按通用 LUMIX 设计；目前只有 S5 的 Wi-Fi 型号识别经过用户实测，其他机型尚未逐一验证。
+为 Panasonic LUMIX 系列相机打造的 React Native 实况照片应用。USB-C 数据线直连或实验 Wi-Fi，不需要视频采集卡、不依赖云端、不刷机。界面按通用 LUMIX 设计；S5 的 Wi-Fi 型号问题由用户实测发现，修复后尚待实测，其他机型尚未逐一验证。
 
 Experimental Android Motion Photo companion for Panasonic LUMIX cameras over USB or experimental Wi-Fi. Unofficial, MIT-licensed. **Physical camera compatibility is not yet verified beyond the user-tested S5 Wi-Fi model identification.**
 
@@ -12,7 +12,7 @@ Experimental Android Motion Photo companion for Panasonic LUMIX cameras over USB
 
 USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)：
 
-- USB 和 Wi-Fi 都不再限定初代 S5：USB 接受提供松下 PTP 联机的 LUMIX，Wi-Fi 接受 description 厂商为 Panasonic 的 LUMIX。机型范围扩大不等于已经验证，除 S5 的 Wi-Fi 型号识别外都还没有真机证据。
+- USB 和 Wi-Fi 都不再限定初代 S5：USB 接受提供松下 PTP 联机的 LUMIX，Wi-Fi 接受 description 厂商为 Panasonic 的 LUMIX。机型范围扩大不等于已经验证，都还没有真机证据。
 - USB 在收到回复的第一个字节之前会一直等到期限，快门期限为 60 秒；传输中途超时仍然断开。ISO 和光圈优先读当前参数，快门可以显示 B 门、整秒和分数快门。
 - 曝光读数不再停在连接瞬间：USB 空闲时约 2 秒刷新一次，机身的 `0xC102` / `0x4006` 属性变化会提前触发；Wi-Fi 的 `getsetting` 也改为约 2 秒且只在机身空闲时读取。超过 6 秒没有新样本，HUD 会标为「上次读数已过期」。
 - 实验 Wi-Fi 按公开的 LUMIX Sync 顺序等待机身确认、订阅事件后再取景，兼容普通握手和加密握手（加密机型未验证），并以较疏的保活和有限的目录读取减少整卡遍历。原片允许 512 字节填充。快门仍然只发一次。
@@ -72,7 +72,7 @@ USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXE
 - 对焦没有独立的自动对焦按钮，也没有精确的 A/B 拉焦。中央对焦框是点按自动对焦；近 / 远是对焦面板里的 USB 相对步进，方向尚未在真机上确认。Wi-Fi 侧不提供近 / 远按钮。
 - 实验 Wi-Fi 仍可能在真实机身上失败。已知还要真机数据才能决定的事项写在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)，包括快门前是否必须进出一次播放模式，以及手动对焦档位的方向。USB 仍是默认和推荐方式。
 - 示波器分析的是 LUT 之后的监看 JPEG，是构图和曝光的参考，不是 RAW 或机内测光。图表可以覆盖整个取景区，可能挡住 HUD 文字。
-- 通用 LUMIX 支持只表示不再按 S5 型号拒绝连接；除 S5 的 Wi-Fi 型号识别外，没有其他机型的真机验证。
+- 通用 LUMIX 支持只表示不再按 S5 型号拒绝连接；还没有任何机型的真机验证。
 
 ## 构建
 
