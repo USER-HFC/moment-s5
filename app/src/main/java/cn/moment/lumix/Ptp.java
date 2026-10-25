@@ -80,8 +80,6 @@ public final class Ptp {
         if(size==2) return r.u16();
         throw new IOException("属性值长度异常 "+size);
     }
-    /** ManualFocusDrive (0x9416) steps, as in libgphoto2: near 2=0x01, near 1=0x02, far 1=0x03, far 2=0x04. */
-    public static int focusStep(boolean far) {return far?0x03:0x02;}
     public static String isoLabel(int iso) {return "ISO "+(iso<0?"AUTO":Integer.toString(iso));}
     public static String apertureLabel(int tenths) {
         return tenths<=0?"f/--":"f/"+(tenths%10==0?Integer.toString(tenths/10):String.format(java.util.Locale.US,"%.1f",tenths/10.0));

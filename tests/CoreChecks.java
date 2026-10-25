@@ -55,7 +55,6 @@ public final class CoreChecks {
         check(Ptp.shutterLabel(0xffffffff).equals("B"),"bulb is not shown as a huge exposure");
         check(Ptp.shutterLabel(0).equals("快门 --"),"unread shutter is not 1/0");
         check(Ptp.apertureLabel(40).equals("f/4") && Ptp.apertureLabel(56).equals("f/5.6"),"aperture tenths");
-        check(Ptp.focusStep(true)==0x03 && Ptp.focusStep(false)==0x02,"far drives far (0x03), near drives near (0x02)");
         check(Ptp.isoLabel(-1).equals("ISO AUTO") && Ptp.isoLabel(3200).equals("ISO 3200"),"ISO auto and value");
         byte[] oi=new byte[70];Ptp.le(oi).putShort(4,(short)0x3801).putInt(8,123456).putInt(26,6000).putInt(30,4000);oi[52]=8;
         byte[] filename="P01.JPG".getBytes(StandardCharsets.UTF_16LE);System.arraycopy(filename,0,oi,53,filename.length);

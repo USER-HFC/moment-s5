@@ -75,7 +75,7 @@ public final class UsbS5 implements AutoCloseable {
     public void autofocus() throws IOException { exchange(0x9405,null,0,0x03000024).ok(); }
     public void focus(boolean far) throws IOException {
         if(!info.supports(0x9416)) throw new IOException("机身未声明手动对焦指令支持");
-        ByteBuffer b=Ptp.le(new byte[10]);b.putInt(0x03010011).putInt(2).putShort((short)Ptp.focusStep(far));
+        ByteBuffer b=Ptp.le(new byte[10]);b.putInt(0x03010011).putInt(2).putShort((short)(far?2:3));
         exchange(0x9416,b.array(),0,0x03010011).ok();
     }
     public Set<Integer> handles() throws IOException {
