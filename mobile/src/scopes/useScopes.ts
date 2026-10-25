@@ -6,6 +6,7 @@ import {decodeScopeFrame, ScopeFrame} from './protocol';
 
 // CameraWorkspace unmounts for the album; keep the open set and positions for this JS session.
 let session = createScopePanelState();
+let revealHintShown = false;
 const listeners = new Set<() => void>();
 const subscribe = (listener: () => void) => {listeners.add(listener); return () => {listeners.delete(listener);};};
 const snapshot = () => session;
@@ -14,6 +15,14 @@ export const changeScopePanel = (action: ScopePanelAction) => {
   listeners.forEach(listener => listener());
 };
 export function useScopePanels() {return useSyncExternalStore(subscribe, snapshot, snapshot);}
+
+/** The hint belongs to a camera connection, not to a mounted workspace: the album unmounts the latter. */
+export function takeScopeRevealHint() {
+  if (revealHintShown) return false;
+  revealHintShown = true;
+  return true;
+}
+export function resetScopeRevealHint() {revealHintShown = false;}
 
 type ScopeApi = {setScopesEnabled?: (enabled: boolean, rotateClockwise: boolean, sourceAspectRatio: number) => void};
 const scopeApi = NativeModules.MomentLumix as ScopeApi | undefined;

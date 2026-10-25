@@ -1,4 +1,4 @@
-export const SCOPE_SHAPE = {histogramBins: 256, waveWidth: 64, levels: 64, paradeWidth: 32, vectorSize: 64} as const;
+export const SCOPE_SHAPE = {histogramBins: 256, waveWidth: 128, levels: 128, paradeWidth: 64, vectorSize: 64} as const;
 
 export type ScopeFrame = {
   version: 1; timestampUs: number; width: number; height: number; rotation: 0 | 90; sourceAspectRatio: number;

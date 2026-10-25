@@ -1,6 +1,4 @@
 import {BatteryReading, CameraState} from '../native';
-import {ScopeBounds} from '../scopes/panelState';
-import {ui} from '../theme';
 
 export const EXPOSURE_STALE_MS = 10_000;
 const EMPTY = {aperture: 'f/—', shutter: '快门 —', iso: 'ISO —'};
@@ -30,9 +28,4 @@ export function exposureReading(state: CameraState) {
 export function batteryText(reading?: BatteryReading | null) {
   const value = reading?.percent;
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100 ? `${Math.round(value)}%` : '—';
-}
-
-/** Insets include the physical corner margins and a quiet gap around the measured HUD. */
-export function hudSafeBounds(frame: {width: number; height: number}, top: number, bottom: number): ScopeBounds {
-  return {...frame, insets: {top: ui.space.gutter + Math.max(0, top) + ui.space.sm, bottom: ui.space.gutter + Math.max(0, bottom) + ui.space.sm, left: ui.space.gutter, right: ui.space.gutter}};
 }

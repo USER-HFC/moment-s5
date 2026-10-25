@@ -3,7 +3,7 @@ package cn.moment.lumix;
 /** Bounded, Android-free math for full-range, gamma-encoded live-view RGB pixels. */
 public final class ScopeAnalyzer {
     public static final int HISTOGRAM_BINS=256;
-    public static final int WAVE_WIDTH=64,LEVELS=64,PARADE_WIDTH=32,VECTOR_SIZE=64;
+    public static final int WAVE_WIDTH=128,LEVELS=128,PARADE_WIDTH=64,VECTOR_SIZE=64;
     public static final int MAX_SIDE=256;
 
     public static final class Result {

@@ -1,7 +1,8 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {AppState, NativeModules, PanResponder, StyleSheet, View} from 'react-native';
+import {AppState, NativeModules, PanResponder, StyleSheet, Vibration, View} from 'react-native';
+import {Text as SvgText} from 'react-native-svg';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
@@ -15,8 +16,10 @@ jest.mock('../src/native', () => {
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {children: React.ReactNode}) => children}));
 
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
-import ScopesOverlay from '../src/scopes/ScopesOverlay';
-import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
+import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS, SCOPE_HINT_FADE_MS, SCOPE_HINT_MS, SCOPE_PRESS_FEEDBACK_MS, SCOPE_REVEAL_HINT} from '../src/scopes/ScopesOverlay';
+import {changeScopePanel, resetScopeRevealHint, useScopePanels} from '../src/scopes/useScopes';
+import {scopePanelLayout} from '../src/scopes/panelState';
+import {SCOPE_SHAPE} from '../src/scopes/protocol';
 import CameraWorkspace from '../src/CameraWorkspace';
 
 function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: number}) {
@@ -27,8 +30,10 @@ function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: nu
 function event(rotation = 90) {
   return {version: 1, timestampUs: 1000, width: 160, height: 240, rotation, sourceAspectRatio: 1.5, demo: true, postLut: true,
     pixels: 38400, clipLow: 0, clipHigh: 0,
-    histogram: Buffer.alloc(1024, 255).toString('base64'), waveform: Buffer.alloc(4096).toString('base64'),
-    parade: Buffer.alloc(6144).toString('base64'), vectorscope: Buffer.alloc(4096).toString('base64')};
+    histogram: Buffer.alloc(4 * SCOPE_SHAPE.histogramBins, 255).toString('base64'),
+    waveform: Buffer.alloc(SCOPE_SHAPE.waveWidth * SCOPE_SHAPE.levels).toString('base64'),
+    parade: Buffer.alloc(3 * SCOPE_SHAPE.paradeWidth * SCOPE_SHAPE.levels).toString('base64'),
+    vectorscope: Buffer.alloc(SCOPE_SHAPE.vectorSize ** 2).toString('base64')};
 }
 
 describe('scope overlays and native subscription lifecycle', () => {
@@ -39,6 +44,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     jest.useFakeTimers();jest.clearAllMocks();mockHandlers.clear();
     AppState.currentState = 'active';
     changeScopePanel({type: 'closeAll'});
+    resetScopeRevealHint();
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_, listener: any) => {
       appStateChanged = listener;return {remove: jest.fn()};
     });
@@ -100,6 +106,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(tree!.root.findAllByProps({accessibilityLabel: '亮度波形 实时图表'})).toHaveLength(0);
     act(() => mockHandlers.get('cameraScopes')!(event()));
     expect(tree!.root.findByProps({accessibilityLabel: '亮度波形 实时图表'})).toBeTruthy();
+    expect(JSON.stringify(tree!.toJSON())).toContain(`"matrix":[${256 / SCOPE_SHAPE.waveWidth},0,0,${120 / SCOPE_SHAPE.levels},24,6]`);
     act(() => jest.advanceTimersByTime(1500));
     expect(JSON.stringify(tree!.toJSON())).toContain('取景暂停');
     act(() => appStateChanged('background'));
@@ -144,7 +151,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.update(<CameraWorkspace {...props}/>));
     expect(mockHandlers.size).toBe(0);
   });
-  it('reserves actual HUD measurements for scopes and retains all four corners after the last scope closes', () => {
+  it('lets charts cover the full preview, including the HUD bands, and retains all four corners after the last scope closes', () => {
     const state = {active: true, busy: false, ready: true, demo: false, lut: null, exposure: 'ISO 640     f/4.0     1/80', phoneBattery: {percent: 37}};
     const props = {state, preview: 'data:image/jpeg;base64,frame', buffered: 3, luts: [], onLut: async () => {}, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
     act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
@@ -154,7 +161,14 @@ describe('scope overlays and native subscription lifecycle', () => {
       tree!.root.findByProps({testID: 'hud-bottom'}).props.onLayout({nativeEvent: {layout: {height: 80}}});
       changeScopePanel({type: 'toggle', kind: 'waveform'});
     });
-    expect(tree!.root.findByType(ScopesOverlay).props.bounds.insets).toEqual({top: 84, bottom: 104, left: 16, right: 16});
+    const bounds = tree!.root.findByType(ScopesOverlay).props.bounds;
+    expect(bounds.insets).toEqual({top: 0, bottom: 0, left: 0, right: 0});
+    expect(scopePanelLayout(bounds, {x: 0, y: 0}, 'S').y).toBe(0);
+    expect(scopePanelLayout(bounds, {x: 1, y: 1}, 'M').y + scopePanelLayout(bounds, {x: 1, y: 1}, 'M').height).toBe(bounds.height);
+    const overlayZ = StyleSheet.flatten(tree!.root.findByProps({testID: 'scopes-overlay'}).props.style).zIndex;
+    const hudZ = StyleSheet.flatten(tree!.root.findByProps({testID: 'hud-top'}).props.style).zIndex;
+    expect(overlayZ).toBeGreaterThan(hudZ);
+    expect(overlayZ).toBeLessThan(1100);
     act(() => tree!.root.findByProps({testID: 'scope-close-waveform'}).props.onPress());
     expect(tree!.root.findAllByProps({testID: 'scopes-overlay'})).toHaveLength(0);
     for (const testID of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree!.root.findByProps({testID})).toBeTruthy();
@@ -205,5 +219,107 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: false}}/>));
     expect(mockHandlers.size).toBe(0);
     expect(api.setScopesEnabled.mock.calls.at(-1)?.[0]).toBe(false);
+  });
+  it('hides chart controls after idle, keeps dragging, and reveals them from a long press or an accessibility action', () => {
+    const gestures: any[] = [];
+    const create = PanResponder.create;
+    jest.spyOn(PanResponder, 'create').mockImplementation(config => {gestures.push(config); return create(config);});
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'histogram'});});
+    const panel = () => StyleSheet.flatten(tree!.root.findByProps({testID: 'scope-panel-histogram'}).props.style);
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS - 1));
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    act(() => tree!.root.findByProps({testID: 'scope-move-histogram'}).props.onPress());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS - 1));
+    expect(tree!.root.findByProps({testID: 'scope-resize-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(1));
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    expect(tree!.root.findAllByProps({testID: 'scope-resize-histogram'})).toHaveLength(0);
+    expect(tree!.root.findAllByProps({testID: 'scope-close-histogram'})).toHaveLength(0);
+    const reveal = () => tree!.root.findByProps({testID: 'scope-reveal-histogram'});
+    expect(reveal().props.delayLongPress).toBe(SCOPE_CONTROLS_REVEAL_MS);
+    expect(typeof reveal().parent!.props.onMoveShouldSetResponderCapture).toBe('function');
+    act(() => changeScopePanel({type: 'move', kind: 'histogram', position: {x: 0, y: 0}}));
+    const startX = panel().transform[0].translateX.__getValue();
+    const drag = gestures[0];
+    act(() => drag.onPanResponderGrant());
+    act(() => drag.onPanResponderMove({}, {dx: 40, dy: 24}));
+    act(() => drag.onPanResponderRelease({}, {dx: 40, dy: 24}));
+    expect(panel().transform[0].translateX.__getValue()).toBeGreaterThan(startX);
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    const width = panel().width;
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'resize'}}));
+    expect(panel().width).toBeGreaterThan(width);
+    expect(tree!.root.findAllByProps({testID: 'scope-move-histogram'})).toHaveLength(0);
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'down'}}));
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'activate'}}));
+    expect(tree!.root.findByProps({testID: 'scope-move-histogram'})).toBeTruthy();
+    expect(tree!.root.findByProps({testID: 'scope-resize-histogram'})).toBeTruthy();
+    expect(tree!.root.findByProps({testID: 'scope-close-histogram'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(tree!.root.findAllByProps({testID: 'scope-close-histogram'})).toHaveLength(0);
+    act(() => reveal().props.onLongPress());
+    expect(tree!.root.findByProps({accessibilityLabel: '关闭RGB 直方图'})).toBeTruthy();
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'close'}}));
+    expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
+  });
+  it('shows long-press progress after 300ms, cancels it on release, and finishes with the controls', () => {
+    const vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    const reveal = () => tree!.root.findByProps({testID: 'scope-reveal-waveform'});
+    const feedback = () => tree!.root.findAllByProps({testID: 'scope-press-feedback-waveform'}).length > 0;
+    act(() => reveal().props.onPressIn());
+    act(() => jest.advanceTimersByTime(SCOPE_PRESS_FEEDBACK_MS - 1));
+    expect(feedback()).toBe(false);
+    act(() => jest.advanceTimersByTime(1));
+    expect(feedback()).toBe(true);
+    act(() => reveal().props.onPressOut());
+    expect(feedback()).toBe(false);
+    act(() => reveal().props.onPressIn());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_REVEAL_MS));
+    act(() => reveal().props.onLongPress());
+    expect(feedback()).toBe(false);
+    expect(tree!.root.findByProps({testID: 'scope-close-waveform'})).toBeTruthy();
+    expect(vibrate).toHaveBeenCalledTimes(1);
+  });
+  it('shows the reveal hint after the first auto-hide only once per connection', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    const hintCount = () => JSON.stringify(tree!.toJSON()).split(SCOPE_REVEAL_HINT).length - 1;
+    expect(hintCount()).toBe(0);
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(1);
+    act(() => jest.advanceTimersByTime(SCOPE_HINT_MS + SCOPE_HINT_FADE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.root.findByProps({testID: 'scope-reveal-waveform'}).props.onLongPress());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.unmount());tree = undefined;
+    act(() => {tree = renderer.create(<Harness/>);});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.unmount());tree = undefined;
+    resetScopeRevealHint();
+    act(() => {tree = renderer.create(<Harness/>);});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(1);
+  });
+  it('keeps axis labels at least 10sp and outlines them for bright previews', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    act(() => mockHandlers.get('cameraScopes')!(event()));
+    const labels = tree!.root.findAllByType(SvgText).filter(node => typeof node.props.children === 'number' || ['L', 'R'].includes(node.props.children));
+    expect(labels).toHaveLength(10);
+    const plotScale = 184 / 316;
+    for (const label of labels) expect(label.props.fontSize * plotScale).toBeGreaterThanOrEqual(9.99);
+    expect(labels.some(label => label.props.stroke === '#080C08')).toBe(true);
+    expect(labels.some(label => label.props.fill === '#F2F6EA')).toBe(true);
+  });
+  it('draws the finer parade grid at one segment per channel column group', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'parade'});});
+    act(() => mockHandlers.get('cameraScopes')!(event()));
+    const scaleX = 256 / 3 / SCOPE_SHAPE.paradeWidth;
+    const scaleY = 120 / SCOPE_SHAPE.levels;
+    expect(JSON.stringify(tree!.toJSON())).toContain(`"matrix":[${scaleX},0,0,${scaleY},24,6]`);
   });
 });

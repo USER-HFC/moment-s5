@@ -1,12 +1,17 @@
 import {describe, expect, it} from '@jest/globals';
 import {decodeScopeBytes, decodeScopeFrame, SCOPE_SHAPE} from '../src/scopes/protocol';
 import {createScopePanelState, scopePanelLayout, updateScopePanelState, SCOPE_KINDS} from '../src/scopes/panelState';
+import {densityPaths, DENSITY_ROW_HEIGHT} from '../src/scopes/ScopePlot';
 
+const histogramBytes = 4 * SCOPE_SHAPE.histogramBins;
+const waveformBytes = SCOPE_SHAPE.waveWidth * SCOPE_SHAPE.levels;
+const paradeBytes = 3 * SCOPE_SHAPE.paradeWidth * SCOPE_SHAPE.levels;
+const vectorBytes = SCOPE_SHAPE.vectorSize ** 2;
 const base64 = (size: number) => Buffer.alloc(size).toString('base64');
 const scopeEvent = () => ({
   version: 1, timestampUs: 123456, width: 240, height: 160, rotation: 0, sourceAspectRatio: 1.5,
   demo: true, postLut: true, pixels: 38400, clipLow: 12, clipHigh: 42,
-  histogram: base64(1024), waveform: base64(4096), parade: base64(6144), vectorscope: base64(4096),
+  histogram: base64(histogramBytes), waveform: base64(waveformBytes), parade: base64(paradeBytes), vectorscope: base64(vectorBytes),
 });
 
 describe('native scopes protocol', () => {
@@ -15,7 +20,7 @@ describe('native scopes protocol', () => {
       const encoded = Buffer.from(bytes).toString('base64');
       expect(Array.from(decodeScopeBytes(encoded, bytes.length)!)).toEqual(bytes);
     }
-    const bytes = Buffer.alloc(6144);
+    const bytes = Buffer.alloc(paradeBytes);
     for (let i = 0; i < bytes.length; i++) bytes[i] = i % 256;
     expect(Array.from(decodeScopeBytes(bytes.toString('base64'), bytes.length)!)).toEqual(Array.from(bytes));
   });
@@ -40,7 +45,7 @@ describe('native scopes protocol', () => {
     for (const patch of [{version: 2}, {postLut: false}, {demo: 1}, {rotation: 180}, {timestampUs: Infinity},
       {sourceAspectRatio: NaN}, {sourceAspectRatio: 0}, {sourceAspectRatio: '1.5'},
       {width: 0}, {width: 257}, {height: 1.5}, {pixels: 1}, {clipLow: -1}, {clipHigh: 38401},
-      {histogram: base64(1023)}, {waveform: 'corrupt'}, {parade: null}, {vectorscope: base64(4097)}])
+      {histogram: base64(histogramBytes - 1)}, {waveform: 'corrupt'}, {parade: null}, {vectorscope: base64(vectorBytes + 1)}])
       expect(decodeScopeFrame({...scopeEvent(), ...patch})).toBeNull();
     expect(decodeScopeFrame(undefined)).toBeNull();
   });
@@ -106,6 +111,18 @@ describe('independent scope panel state', () => {
       }
     }
   });
+  it('can sit on either edge of a portrait or landscape viewfinder', () => {
+    for (const bounds of [
+      {width: 360, height: 540, insets: {top: 0, bottom: 0, left: 0, right: 0}},
+      {width: 640, height: 360, insets: {top: 0, bottom: 0, left: 0, right: 0}},
+    ]) for (const size of ['S', 'M'] as const) {
+      const top = scopePanelLayout(bounds, {x: 0, y: 0}, size);
+      const bottom = scopePanelLayout(bounds, {x: 1, y: 1}, size);
+      expect(top.x).toBe(0); expect(top.y).toBe(0);
+      expect(bottom.x + bottom.width).toBe(bounds.width);
+      expect(bottom.y + bottom.height).toBe(bounds.height);
+    }
+  });
   it('places a newly opened panel in a free tile', () => {
     let state = createScopePanelState();
     state = updateScopePanelState(state, {type: 'toggle', kind: 'waveform'});
@@ -143,4 +160,21 @@ it('resizes one chart without moving or resizing the others, then restores its c
   expect(large.height).toBeGreaterThan(small.height);
   after = updateScopePanelState(after, {type: 'resize', kind: 'waveform', size: 'S'});
   expect(after.waveform.size).toBe('S');
+});
+
+describe('scope density paths', () => {
+  it('merges adjacent cells of the same brightness band in one row', () => {
+    const grid = new Uint8Array([255, 255, 0, 20, 40, 200]);
+    const paths = densityPaths(grid, 3);
+    expect(paths[5]).toBe(`M0 0h2v${DENSITY_ROW_HEIGHT}h-2z`);
+    expect(paths[0]).toBe(`M0 1h2v${DENSITY_ROW_HEIGHT}h-2z`);
+    expect(paths[4]).toBe(`M2 1h1v${DENSITY_ROW_HEIGHT}h-1z`);
+    expect(paths.filter(Boolean)).toHaveLength(3);
+    expect(densityPaths(new Uint8Array([255, 0, 255]), 3)[5]).toBe(`M0 0h1v${DENSITY_ROW_HEIGHT}h-1zM2 0h1v${DENSITY_ROW_HEIGHT}h-1z`);
+    expect(densityPaths(new Uint8Array(4), 2).every(path => path === '')).toBe(true);
+  });
+  it('overlaps rows slightly so a downscaled 128-level grid has no antialiased scanlines', () => {
+    expect(DENSITY_ROW_HEIGHT).toBeGreaterThan(1);
+    expect(DENSITY_ROW_HEIGHT).toBeLessThan(1.2);
+  });
 });

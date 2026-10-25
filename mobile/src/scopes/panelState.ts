@@ -37,7 +37,7 @@ export function updateScopePanelState(state: ScopePanelState, action: ScopePanel
   return {...state, [action.kind]: next};
 }
 
-/** Tile compact charts; enlarged charts can overlap, but never leave the HUD-safe area. */
+/** Tile compact charts; enlarged charts can overlap, but never leave the inset area. */
 export function scopePanelLayout(bounds: ScopeBounds, position: ScopePosition, size: ScopeSize = 'S', slot?: number, panelCount = 4) {
   const inset = bounds.insets || {top: 8, bottom: 8, left: 8, right: 8};
   const minX = Math.min(bounds.width, inset.left), minY = Math.min(bounds.height, inset.top);

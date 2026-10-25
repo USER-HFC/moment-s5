@@ -73,6 +73,14 @@ it('hides debug settings in release and rejects forged debug options', () => {
   expect(() => connectionOptions({...initialConnectionForm, debug: true}, false)).toThrow('仅限 debug APK');
   expect(connectionOptions({...initialConnectionForm, debug: true}, true)).toEqual({manual: true, cameraIp: '192.168.54.1', debugEndpoint: '10.0.2.2:18080', udpPort: 49152});
 });
+it('uses a keyboard that can type every dot in an IPv4 address', () => {
+  wifi();
+  const field = () => tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 IP')!;
+  expect(field().props.keyboardType).toBe('numbers-and-punctuation');
+  act(() => field().props.onChangeText('10.0.0.8'));
+  expect(field().props.value).toBe('10.0.0.8');
+  expect(connectionOptions({...initialConnectionForm, cameraIp: field().props.value}, false).cameraIp).toBe('10.0.0.8');
+});
 it('validates addresses and prevents credentials from entering the manual request', () => {
   expect(() => connectionOptions({...initialConnectionForm, cameraIp: '192.168.54.999'}, false)).toThrow('IPv4');
   expect(() => connectionOptions({...initialConnectionForm, debug: true, udpPort: '65536'}, true)).toThrow('UDP');

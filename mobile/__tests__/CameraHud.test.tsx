@@ -3,9 +3,8 @@ import renderer, {act} from 'react-test-renderer';
 import {describe, expect, it, jest} from '@jest/globals';
 import {StyleSheet} from 'react-native';
 import CameraHud from '../src/hud/CameraHud';
-import {batteryText, exposureReading, hudSafeBounds} from '../src/hud/readings';
+import {batteryText, exposureReading} from '../src/hud/readings';
 import {CameraState} from '../src/native';
-import {scopePanelLayout} from '../src/scopes/panelState';
 
 const connected: CameraState = {active: true, busy: false, ready: true, demo: false, transport: 'usb', lut: null};
 function hud(state: CameraState, motion = false, buffered = 3) {
@@ -74,15 +73,5 @@ describe('truthful four-corner camera HUD', () => {
     const motion = hud(connected, true, 4.5);
     expect(JSON.stringify(motion.toJSON())).toContain('缓存就绪');expect(JSON.stringify(motion.toJSON())).toContain('3.0');
     act(() => motion.unmount());
-  });
-  it('keeps compact, enlarged and dragged charts inside measured HUD space in portrait, landscape and font 1.3', () => {
-    for (const [width, height, top, bottom] of [[360, 540, 52, 52], [600, 360, 52, 52], [360, 540, 72, 88], [480, 320, 72, 88]]) {
-      const bounds = hudSafeBounds({width, height}, top, bottom);
-      for (const size of ['S', 'M'] as const) for (const slot of [0, 1, 2, 3, undefined]) {
-        const panel = scopePanelLayout(bounds, {x: 1, y: 1}, size, slot);
-        expect(panel.x).toBeGreaterThanOrEqual(bounds.insets!.left);expect(panel.x + panel.width).toBeLessThanOrEqual(width - bounds.insets!.right);
-        expect(panel.y).toBeGreaterThanOrEqual(bounds.insets!.top);expect(panel.y + panel.height).toBeLessThanOrEqual(height - bounds.insets!.bottom);
-      }
-    }
   });
 });
