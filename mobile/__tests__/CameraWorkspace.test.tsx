@@ -22,7 +22,11 @@ beforeEach(() => {
   act(() => { tree = renderer.create(<CameraWorkspace {...props}/>); });
 });
 afterEach(() => { act(() => tree.unmount()); jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
-const press = (label: string) => act(() => tree.root.findByProps({accessibilityLabel: label}).props.onPress());
+const press = (label: string) => act(() => {
+  const nodes = tree.root.findAllByProps({accessibilityLabel: label});
+  const target = nodes.find(node => typeof node.props.style === 'function') || nodes[0];
+  target.props.onPress();
+});
 const tick = (ms: number) => act(() => jest.advanceTimersByTime(ms));
 
 it('opens LUTs as a flat side flyout that stays open for live switching', async () => {
@@ -57,16 +61,38 @@ it('keeps the separate AF button removed', () => {
   expect(tree.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);
 });
 
-it('shows near/far focus only on a live USB connection, wired like v0.7.0', () => {
+it('shows one focus control on live USB and keeps near/far in a flat flyout', () => {
   for (const hidden of [{}, {transport: 'wifi' as const}, {transport: 'demo' as const, demo: true}, {transport: 'usb' as const, active: false}]) {
     act(() => tree.update(<CameraWorkspace {...props} state={{...state, ...hidden}}/>));
-    for (const label of ['近对焦', '远对焦']) expect(tree.root.findAllByProps({accessibilityLabel: label})).toHaveLength(0);
+    for (const label of ['对焦', '近对焦', '远对焦']) expect(tree.root.findAllByProps({accessibilityLabel: label})).toHaveLength(0);
   }
   act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb'}}/>));
-  press('远对焦'); press('近对焦');
-  expect(jest.mocked(camera!.focus).mock.calls).toEqual([[-1], [1]]);
+  expect(tree.root.findAllByProps({testID: 'focus-button'}).length).toBeGreaterThan(0);
+  expect(tree.root.findAllByProps({accessibilityLabel: '近对焦'})).toHaveLength(0);
+  press('对焦');
+  const flyout = tree.root.findByProps({testID: 'focus-flyout'});
+  expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(false);
+  const style = StyleSheet.flatten(flyout.props.style);
+  expect(style.elevation).toBe(0);
+  expect(style.shadowOpacity).toBeUndefined();
+  press('近对焦'); press('近对焦'); press('远对焦');
+  expect(jest.mocked(camera!.focus).mock.calls).toEqual([[1], [1], [-1]]);
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'}).length).toBeGreaterThan(0);
+  press('收起对焦面板');
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'})).toHaveLength(0);
+  press('对焦'); press('LUT 风格');
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'})).toHaveLength(0);
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+  press('对焦');
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'}).length).toBeGreaterThan(0);
+  press('对焦');
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'})).toHaveLength(0);
+  press('对焦');
   act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb', busy: true}}/>));
-  expect(tree.root.findByProps({accessibilityLabel: '远对焦'}).props.disabled).toBe(true);
+  expect(tree.root.findByProps({accessibilityLabel: '近对焦'}).props.disabled).toBe(true);
+  const focusControl = tree.root.findAllByProps({testID: 'focus-button'}).find(node => typeof node.props.style === 'function')!;
+  expect(focusControl.props.disabled).toBe(true);
 });
 
 it('captures an ordinary still with no prebuffer and with a selected LUT', () => {

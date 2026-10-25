@@ -12,10 +12,11 @@ import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
+import FocusFlyout from './FocusFlyout';
 import CameraHud from './hud/CameraHud';
 import {hudSafeBounds} from './hud/readings';
 
-type Panel = 'lut' | 'delay' | null;
+type Panel = 'lut' | 'delay' | 'focus' | null;
 type Props = {
   onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
@@ -124,10 +125,10 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
         {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
             0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
             not flip either side without checking on a real S5. */}
-        {canManualFocus && <>
-          <CameraControl label="远焦" accessibilityLabel="远对焦" accessibilityHint="镜头向远处步进一档" icon="far" disabled={state.busy || waiting} onPress={() => camera?.focus(-1)}/>
-          <CameraControl label="近焦" accessibilityLabel="近对焦" accessibilityHint="镜头向近处步进一档" icon="near" disabled={state.busy || waiting} onPress={() => camera?.focus(1)}/>
-        </>}
+        {canManualFocus && <CameraControl testID="focus-button" label="对焦" accessibilityLabel="对焦"
+          accessibilityHint={panel === 'focus' ? '收起近/远对焦面板' : '展开近/远对焦面板'}
+          icon="focus" active={panel === 'focus'} disabled={state.busy || waiting}
+          onPress={() => setPanel(value => value === 'focus' ? null : 'focus')}/>}
       </View>
       <View style={[styles.railEnd, landscape && styles.railEndLandscape]}>
         <CameraControl testID="settings-button" label="设置" icon="settings" accessibilityLabel="设置" accessibilityHint="打开设置" onPress={() => {cancelCountdown(); setPanel(null); onSettings?.();}}/>
@@ -178,6 +179,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     </View>
     {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} rail={rail}
       onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
+    {panel === 'focus' && canManualFocus && <FocusFlyout landscape={landscape} rail={rail} disabled={state.busy || waiting}
+      onFocus={direction => camera?.focus(direction)} onClose={() => setPanel(null)}/>}
     <CameraSheet visible={panel === 'delay'} title="快门延时" onClose={() => setPanel(null)}>
       {panel === 'delay' && <View style={styles.options}>
         <Button textColor={timerEnabled ? ui.color.text : ui.color.accent} contentStyle={styles.touch} accessibilityLabel="关闭定时" mode={!timerEnabled ? 'contained-tonal' : 'outlined'} onPress={() => {cancelCountdown(); setTimerEnabled(false); setPanel(null);}}>关闭</Button>
