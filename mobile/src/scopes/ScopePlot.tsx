@@ -8,13 +8,32 @@ const INK = '#DCE7D1';
 const GRID = '#FFFFFF70';
 const DENSITY_STEPS = 6;
 
-/** One path per intensity band, rather than thousands of React/SVG rect nodes. */
+function densityBand(value: number) {
+  return Math.min(DENSITY_STEPS - 1, Math.floor(value * DENSITY_STEPS / 256));
+}
+
+/** One path per intensity band. Adjacent cells of the same band share a segment so a finer grid does not multiply SVG commands. */
 export function densityPaths(data: Uint8Array, columns: number): string[] {
   const paths = new Array<string>(DENSITY_STEPS).fill('');
-  for (let i = 0; i < data.length; i++) {
-    const value = data[i];
-    if (value) paths[Math.min(DENSITY_STEPS - 1, Math.floor(value * DENSITY_STEPS / 256))] +=
-      `M${i % columns} ${Math.floor(i / columns)}h1v1h-1z`;
+  const rows = Math.ceil(data.length / columns);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < columns;) {
+      const index = y * columns + x;
+      if (index >= data.length) break;
+      const value = data[index];
+      if (!value) {x++; continue;}
+      const band = densityBand(value);
+      let end = x + 1;
+      while (end < columns) {
+        const nextIndex = y * columns + end;
+        const next = nextIndex < data.length ? data[nextIndex] : 0;
+        if (!next || densityBand(next) !== band) break;
+        end++;
+      }
+      const width = end - x;
+      paths[band] += `M${x} ${y}h${width}v1h-${width}z`;
+      x = end;
+    }
   }
   return paths;
 }
@@ -71,12 +90,12 @@ export default React.memo(function ScopePlot({kind, data, displayWidth = 184, di
       {[...RGB, INK].map((color, i) => <SvgText stroke="#000A" strokeWidth={.55} key={color} x={112 + i * 18} y={144} fill={color} fontSize={axisSize}>{['R', 'G', 'B', 'Y'][i]}</SvgText>)}
     </>}
     {kind === 'waveform' && <>
-      <LevelGrid axisSize={axisSize}/><G transform="translate(24 6) scale(4 1.875)"><Density paths={paths[0]} color={INK}/></G>
+      <LevelGrid axisSize={axisSize}/><G transform={`translate(24 6) scale(${256 / SCOPE_SHAPE.waveWidth} ${120 / SCOPE_SHAPE.levels})`}><Density paths={paths[0]} color={INK}/></G>
       <SvgText stroke="#000A" strokeWidth={.55} x={24} y={143} fill={INK} fontSize={axisSize}>L</SvgText><SvgText stroke="#000A" strokeWidth={.55} x={280} y={143} textAnchor="end" fill={INK} fontSize={axisSize}>R</SvgText>
     </>}
     {kind === 'parade' && <>
       <LevelGrid axisSize={axisSize}/>{RGB.map((color, i) => <G key={color}>
-        <G transform={`translate(${24 + i * 256 / 3} 6) scale(${256 / 3 / 32} 1.875)`}><Density paths={paths[i]} color={color}/></G>
+        <G transform={`translate(${24 + i * 256 / 3} 6) scale(${256 / 3 / SCOPE_SHAPE.paradeWidth} ${120 / SCOPE_SHAPE.levels})`}><Density paths={paths[i]} color={color}/></G>
         {i > 0 && <Line x1={24 + i * 256 / 3} x2={24 + i * 256 / 3} y1={6} y2={126} stroke={GRID}/>}
         <SvgText stroke="#000A" strokeWidth={.55} x={24 + (i + .5) * 256 / 3} y={143} textAnchor="middle" fill={color} fontSize={axisSize}>{['R', 'G', 'B'][i]}</SvgText>
       </G>)}

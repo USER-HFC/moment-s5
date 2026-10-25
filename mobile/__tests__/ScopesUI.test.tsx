@@ -17,6 +17,7 @@ jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
 import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS} from '../src/scopes/ScopesOverlay';
 import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
+import {SCOPE_SHAPE} from '../src/scopes/protocol';
 import CameraWorkspace from '../src/CameraWorkspace';
 
 function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: number}) {
@@ -27,8 +28,10 @@ function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: nu
 function event(rotation = 90) {
   return {version: 1, timestampUs: 1000, width: 160, height: 240, rotation, sourceAspectRatio: 1.5, demo: true, postLut: true,
     pixels: 38400, clipLow: 0, clipHigh: 0,
-    histogram: Buffer.alloc(1024, 255).toString('base64'), waveform: Buffer.alloc(4096).toString('base64'),
-    parade: Buffer.alloc(6144).toString('base64'), vectorscope: Buffer.alloc(4096).toString('base64')};
+    histogram: Buffer.alloc(4 * SCOPE_SHAPE.histogramBins, 255).toString('base64'),
+    waveform: Buffer.alloc(SCOPE_SHAPE.waveWidth * SCOPE_SHAPE.levels).toString('base64'),
+    parade: Buffer.alloc(3 * SCOPE_SHAPE.paradeWidth * SCOPE_SHAPE.levels).toString('base64'),
+    vectorscope: Buffer.alloc(SCOPE_SHAPE.vectorSize ** 2).toString('base64')};
 }
 
 describe('scope overlays and native subscription lifecycle', () => {
@@ -100,6 +103,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(tree!.root.findAllByProps({accessibilityLabel: '亮度波形 实时图表'})).toHaveLength(0);
     act(() => mockHandlers.get('cameraScopes')!(event()));
     expect(tree!.root.findByProps({accessibilityLabel: '亮度波形 实时图表'})).toBeTruthy();
+    expect(JSON.stringify(tree!.toJSON())).toContain(`"matrix":[${256 / SCOPE_SHAPE.waveWidth},0,0,${120 / SCOPE_SHAPE.levels},24,6]`);
     act(() => jest.advanceTimersByTime(1500));
     expect(JSON.stringify(tree!.toJSON())).toContain('取景暂停');
     act(() => appStateChanged('background'));
@@ -249,5 +253,12 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
     act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'close'}}));
     expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
+  });
+  it('draws the finer parade grid at one segment per channel column group', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'parade'});});
+    act(() => mockHandlers.get('cameraScopes')!(event()));
+    const scaleX = 256 / 3 / SCOPE_SHAPE.paradeWidth;
+    const scaleY = 120 / SCOPE_SHAPE.levels;
+    expect(JSON.stringify(tree!.toJSON())).toContain(`"matrix":[${scaleX},0,0,${scaleY},24,6]`);
   });
 });
