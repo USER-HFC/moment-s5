@@ -6,8 +6,8 @@ android {
         applicationId 'cn.moment.lumix'
         minSdk 33
         targetSdk 35
-        versionCode 24
-        versionName "0.8.0-beta.3"
+        versionCode 25
+        versionName "0.8.0-beta.4"
         testInstrumentationRunner 'cn.moment.lumix.DeviceChecks'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

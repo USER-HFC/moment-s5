@@ -121,8 +121,8 @@ android {
         applicationId "cn.moment.lumix"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 24
-        versionName "0.8.0-beta.3"
+        versionCode 25
+        versionName "0.8.0-beta.4"
         buildConfigField 'String', 'MOMENT_GIT', '"' + momentGit + '"'
         buildConfigField 'String', 'MOMENT_BUILT_AT', '"' + momentBuiltAt + '"'
         buildConfigField 'String', 'MOMENT_ABI', '"' + momentAbi.replace('\\', '\\\\').replace('"', '\\"') + '"'
