@@ -52,6 +52,8 @@ public final class WifiS5Transport implements CameraTransport {
     private InetAddress localAddress;
     private long subscriptionSeconds=300,renewAtNs,lastExposureNs;
     private int keepaliveFailures;
+    private boolean encryptedHandshake;
+    private volatile String cameraModel;
     private Catalog prepared;
     private WifiS5Protocol.Media selected;
     private String token;
@@ -80,7 +82,9 @@ public final class WifiS5Transport implements CameraTransport {
             try(WifiCameraHttp.Response response=request(new URL(base,query.toString()),"GET",null,Map.of(),timeout)) {
                 WifiS5Protocol.Reply reply=WifiS5Protocol.reply(response.bytes(WifiS5Protocol.MAX_XML));
                 if(mode.equals("accctrl") && reply.result().equalsIgnoreCase("ok")) {
+                    // CSV reply: ok,<name>,<mode>,<enc>[,<session id>]; the S5 sends no session field.
                     String supplied=response.headers.get("x-session_id");if(supplied==null)supplied=reply.first("session_id");
+                    if(supplied==null && reply.fields().size()>=4)supplied=reply.fields().get(3);
                     if(supplied!=null && !supplied.isEmpty()){if(supplied.length()>512 || supplied.indexOf('\r')>=0 || supplied.indexOf('\n')>=0)throw new IOException("相机 session header 无效");token=supplied;}
                 }
                 return reply;
@@ -115,14 +119,37 @@ public final class WifiS5Transport implements CameraTransport {
             keeper.scheduleWithFixedDelay(this::keepAlive,keepaliveMs,keepaliveMs,TimeUnit.MILLISECONDS);
         }catch(Exception e){terminalError=e.getMessage();state=State.FAILED;abort();throw e;}
     }
+    private static final class EncryptionRequired extends IOException {EncryptionRequired(){super("机身要求加密握手");}}
+    /**
+     * Plain req_acc unless the description asks for the encrypted handshake (LUMIX Sync's rule).
+     * A body that refuses req_acc_g gets plain req_acc; one that answers plain req_acc with a
+     * challenge gets the encrypted handshake. The encrypted path is unverified on hardware.
+     */
     private void authenticate() throws IOException {
+        if(encryptedHandshake) {
+            Long nonce=WifiS5Protocol.nonce(command("accctrl","req_acc_g",null,null));
+            if(nonce!=null){pairEncrypted(nonce);return;}
+            log.accept("机身未接受加密握手，改用普通握手");
+        }
+        try{pair("req_acc",clientId,DEVICE_NAME);}
+        catch(EncryptionRequired e) {
+            Long nonce=WifiS5Protocol.nonce(command("accctrl","req_acc_g",null,null));
+            if(nonce==null)throw new IOException("机身要求加密握手，但没有返回随机数；请把机身固件更新后重试");
+            pairEncrypted(nonce);
+        }
+    }
+    private void pairEncrypted(long nonce) throws IOException {
+        log.accept("使用 LUMIX Sync 加密握手（未经真机验证）");
+        pair("req_acc_e",WifiS5Protocol.encryptAccess(clientId,nonce),WifiS5Protocol.encryptAccess(DEVICE_NAME,nonce));
+    }
+    private void pair(String type,String value,String value2) throws IOException {
         long deadline=System.nanoTime()+pairTimeoutMs*1_000_000L;boolean asked=false;
         while(true) {
-            WifiS5Protocol.Reply auth=command("accctrl","req_acc",clientId,DEVICE_NAME);
-            if(auth.gen2())throw new IOException("Gen2 认证需要真机抓包确认；未发送 req_acc_e");
+            WifiS5Protocol.Reply auth=command("accctrl",type,value,value2);
+            if(type.equals("req_acc") && auth.gen2())throw new EncryptionRequired();
             String result=auth.result();if(result.equalsIgnoreCase("ok"))return;
             // ok_under_research[_no_msg]: the body is asking (or auto-approving) and expects the same request every second.
-            if(!result.toLowerCase(Locale.ROOT).startsWith("ok_under_research"))throw new IOException("Wi-Fi 认证被拒绝（"+WifiS5Protocol.safe(result)+"）；请在机身接受设备登记，Gen2 需要真机抓包确认");
+            if(!result.toLowerCase(Locale.ROOT).startsWith("ok_under_research"))throw new IOException("Wi-Fi 认证被拒绝（"+WifiS5Protocol.safe(result)+"）；请在机身接受设备登记");
             if(!asked){log.accept("请在机身上确认连接请求");asked=true;}
             if(System.nanoTime()>=deadline){try{command("accctrl","req_acc_can",clientId,null);}catch(IOException ignored){/* best effort */}throw new IOException("机身未在时限内确认 Wi-Fi 连接；已取消请求");}
             sleep(pairPollMs);
@@ -134,9 +161,11 @@ public final class WifiS5Transport implements CameraTransport {
             URL location=new URL("http",base.getHost(),port,path);
             try(WifiCameraHttp.Response response=request(location,"GET",null,Map.of(),5000)) {
                 WifiS5Protocol.Description description=WifiS5Protocol.description(response.bytes(WifiS5Protocol.MAX_XML),location);
-                String model=description.model();if(model==null || !(model.equalsIgnoreCase("DC-S5")||model.equalsIgnoreCase("S5")||debug && model.equals("MOCK-DC-S5")))throw new IOException("Wi-Fi 驱动限定初代 S5；检测型号不匹配");
+                // Any Lumix: the body is in modelNumber, modelName is just "LUMIX".
+                if(!debug && !description.panasonic())throw new IOException("不是松下 LUMIX 相机（厂商："+WifiS5Protocol.safe(description.manufacturer())+"）");
                 cds=description.control();eventUrl=description.events();localAddress=response.socket.getLocalAddress();
-                log.accept("相机 description 已读取 · "+model+" · 协议仍需真机验证");return;
+                encryptedHandshake=description.encryptedHandshake();cameraModel=description.model();
+                log.accept("相机 "+WifiS5Protocol.safe(cameraModel)+(description.firmware()==null?"":" · 固件 "+WifiS5Protocol.safe(description.firmware()))+" · "+(encryptedHandshake?"加密握手":"普通握手")+" · 协议仍需真机验证");return;
             }catch(HttpFailure e){if(e.status!=404)throw e;last=e;}
         }
         throw new IOException("未读取到相机 DLNA description；相机 IP 或实验协议不兼容",last);

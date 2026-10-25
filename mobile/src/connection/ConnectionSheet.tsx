@@ -58,7 +58,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
         {mode === 'demo' && <Text style={styles.detail}>合成演示素材；不连接相机。</Text>}
         {mode === 'wifi' && <>
           <Text style={styles.experimental}>实验性 · 未经真机验证</Text>
-          <Text style={styles.detail}>初代 S5 固件 2.9 的无线协议尚未实机确认。请关闭其他遥控 App，在相机开启 Wi-Fi；推荐继续使用 USB。</Text>
+          <Text style={styles.detail}>支持使用 LUMIX Sync / Image App 遥控协议的 LUMIX 相机，各机型尚未逐一实机确认。请关闭其他遥控 App，在相机开启 Wi-Fi 遥控拍摄；推荐继续使用 USB。</Text>
           <View style={styles.row}><Text style={styles.rowLabel}>已手动连接相机 Wi-Fi</Text><Switch accessibilityLabel="已手动连接相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/></View>
           {!form.manual && !form.debug && <><TextInput mode="outlined" label="相机 Wi-Fi SSID" accessibilityLabel="相机 Wi-Fi SSID" autoCapitalize="none" autoCorrect={false} value={form.ssid} onChangeText={value => set('ssid', value)}/><TextInput mode="outlined" label="Wi-Fi 密码（开放网络可留空）" accessibilityLabel="相机 Wi-Fi 密码" secureTextEntry value={form.password} onChangeText={value => set('password', value)}/></>}
           {!form.debug && <TextInput mode="outlined" label="相机 IP" accessibilityLabel="相机 IP" autoCapitalize="none" autoCorrect={false} keyboardType="decimal-pad" value={form.cameraIp} onChangeText={value => set('cameraIp', value)}/>}

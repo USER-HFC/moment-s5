@@ -56,9 +56,9 @@ public final class UsbS5 implements AutoCloseable {
     }
     public void open() throws IOException {
         Result description=exchange(0x1001,null,65536);description.ok();info=new Ptp.DeviceInfo(description.data);
-        log.accept(info.manufacturer+" "+info.model+" / "+info.version);
-        if(!info.model.equalsIgnoreCase("DC-S5") && !info.model.equalsIgnoreCase("S5"))
-            throw new IOException("当前驱动限定初代 S5；检测到 "+info.model);
+        // Any Lumix that offers Panasonic PTP tethering (VID 0x04da is checked in the constructor);
+        // the vendor operations follow tethr/libgphoto2, which share them across bodies.
+        log.accept(info.manufacturer+" "+info.model+" / "+info.version+(info.model.equalsIgnoreCase("DC-S5")?"":" · 非 S5 机型，按通用 LUMIX 协议连接"));
         Result opened=exchange(0x1002,null,0,1);opened.ok();session=true;
         if(opened.code==0x201e) log.accept("PTP OpenSession 0x1002 返回 0x201E：继续使用已存在的会话");
         exchange(0x9102,null,0,0x00010001).ok(); vendorSession=true;

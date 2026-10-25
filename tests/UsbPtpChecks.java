@@ -18,13 +18,14 @@ public final class UsbPtpChecks {
     private static void ptpString(ByteArrayOutputStream out,String value) throws IOException {
         out.write(value.length()+1);out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_16LE));out.write(0);out.write(0);
     }
-    private static byte[] description() throws IOException {
+    private static byte[] description(String model) throws IOException {
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(new byte[8]);out.write(0);out.write(new byte[2+5*4]);
-        ptpString(out,"Panasonic");ptpString(out,"DC-S5");ptpString(out,"2.9");return out.toByteArray();
+        ptpString(out,"Panasonic");ptpString(out,model);ptpString(out,"2.9");return out.toByteArray();
     }
     /** Every operation answers OK; GetDeviceInfo also returns a DC-S5 dataset. */
-    private static UsbManager manager() throws IOException {
-        UsbManager manager=new UsbManager();byte[] info=description();
+    private static UsbManager manager() throws IOException {return manager("DC-S5");}
+    private static UsbManager manager(String model) throws IOException {
+        UsbManager manager=new UsbManager();byte[] info=description(model);
         manager.connection.respond=command->{ByteBuffer bytes=Ptp.le(command);int op=bytes.getShort(6)&65535,tx=bytes.getInt(8);
             byte[] ok=container(3,0x2001,tx,new byte[0]);
             return op==0x1001?join(container(2,op,tx,info),ok):ok;
@@ -80,8 +81,15 @@ public final class UsbPtpChecks {
         check(!camera.closed(),"an unsupported vendor read keeps the session");
         camera.close();
     }
+    private static void anyLumix() throws Exception {
+        for(String model:List.of("DC-GH6","DC-S5M2","DC-G9")) {
+            UsbS5 camera=open(manager(model));
+            check(!camera.closed() && camera.info.model.equals(model),model+" opens a PTP session like the S5");
+            camera.close();
+        }
+    }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();
+        timeouts();exposure();anyLumix();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }
