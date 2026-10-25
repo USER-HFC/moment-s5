@@ -1,12 +1,21 @@
 import React, {useMemo} from 'react';
+import {PixelRatio} from 'react-native';
 import Svg, {Circle, G, Line, Path, Rect, Text as SvgText} from 'react-native-svg';
 import {ScopeKind, SCOPE_TITLES} from './panelState';
 import {ScopeFrame, SCOPE_SHAPE} from './protocol';
 
-const RGB = ['#FF6B70', '#65ED99', '#6EA9FF'];
-const INK = '#DCE7D1';
+const RGB = ['#FF9AA0', '#8BF0B3', '#A8C8FF'];
+const INK = '#F2F6EA';
+const HALO = '#080C08';
 const GRID = '#FFFFFF70';
 const DENSITY_STEPS = 6;
+// The analyzer grid is 128 levels tall but the plot is 120 units; abutting antialiased
+// row edges leave horizontal scanlines at that sub-unit scale, so rows overlap slightly.
+export const DENSITY_ROW_HEIGHT = 1.06;
+const AXIS_MIN_DP = 10;
+const AXIS_MAX_DP = 18;
+const AXIS_REFERENCE_WIDTH = 184;
+const AXIS_MAX_FONT_SCALE = 1.2;
 
 function densityBand(value: number) {
   return Math.min(DENSITY_STEPS - 1, Math.floor(value * DENSITY_STEPS / 256));
@@ -31,7 +40,7 @@ export function densityPaths(data: Uint8Array, columns: number): string[] {
         end++;
       }
       const width = end - x;
-      paths[band] += `M${x} ${y}h${width}v1h-${width}z`;
+      paths[band] += `M${x} ${y}h${width}v${DENSITY_ROW_HEIGHT}h-${width}z`;
       x = end;
     }
   }
@@ -42,11 +51,21 @@ function Density({paths, color}: {paths: string[]; color: string}) {
   return <>{paths.map((d, i) => d && <Path key={i} d={d} fill={color} opacity={(i + 1) / DENSITY_STEPS}/>)}</>;
 }
 
+/** SVG text does not follow Android's font scale, so keep a dark keyline for bright previews and size the glyphs below. */
+function AxisText({x, y, size, color = INK, anchor = 'start', children}: {
+  x: number; y: number; size: number; color?: string; anchor?: 'start' | 'middle' | 'end'; children: React.ReactNode;
+}) {
+  return <>
+    <SvgText x={x} y={y} fontSize={size} fill={HALO} stroke={HALO} strokeWidth={size * .2} strokeLinejoin="round" textAnchor={anchor}>{children}</SvgText>
+    <SvgText x={x} y={y} fontSize={size} fill={color} textAnchor={anchor}>{children}</SvgText>
+  </>;
+}
+
 function LevelGrid({axisSize}: {axisSize: number}) {
   return <>
     <Rect x={24} y={6} width={256} height={120} fill="none" stroke={GRID}/>
     {[0, 25, 50, 75, 100].map(level => <Line key={level} x1={24} x2={280} y1={126 - level * 1.2} y2={126 - level * 1.2} stroke={GRID}/>)}
-    {[0, 50, 100].map(level => <SvgText stroke="#000A" strokeWidth={.55} key={level} x={20} y={129 - level * 1.2} fontSize={axisSize} textAnchor="end" fill={INK}>{level}</SvgText>)}
+    {[0, 50, 100].map(level => <AxisText key={level} x={20} y={129 - level * 1.2} size={axisSize} anchor="end">{level}</AxisText>)}
   </>;
 }
 
@@ -72,8 +91,13 @@ const TARGETS = [
 ];
 
 export default React.memo(function ScopePlot({kind, data, displayWidth = 184, displayHeight = 104}: {kind: ScopeKind; data: ScopeFrame; displayWidth?: number; displayHeight?: number}) {
-  const plotScale = Math.min(Math.max(1, displayWidth) / (kind === 'vectorscope' ? 136 : 316), Math.max(1, displayHeight) / 150);
-  const axisSize = Math.min(28, 9 / plotScale);
+  // The keyline needs room above the top tick at 100, so the shared view box starts at -16.
+  const viewBox = kind === 'vectorscope' ? {x: 0, y: 0, width: 136, height: 150} : {x: -28, y: -16, width: 316, height: 166};
+  const plotScale = Math.min(Math.max(1, displayWidth) / viewBox.width, Math.max(1, displayHeight) / viewBox.height);
+  // Labels grow with the enlarged chart but never drop below 10sp; cap system scaling so they stay inside the plot.
+  const fontScale = Math.min(AXIS_MAX_FONT_SCALE, Math.max(1, PixelRatio.getFontScale()));
+  const labelDp = fontScale * Math.min(AXIS_MAX_DP, Math.max(AXIS_MIN_DP, displayWidth * AXIS_MIN_DP / AXIS_REFERENCE_WIDTH));
+  const axisSize = labelDp / plotScale;
   const paths = useMemo(() => {
     if (kind === 'histogram') return [histogramPaths(data.histogram)];
     if (kind === 'waveform') return [densityPaths(data.waveform, SCOPE_SHAPE.waveWidth)];
@@ -81,23 +105,23 @@ export default React.memo(function ScopePlot({kind, data, displayWidth = 184, di
     const size = SCOPE_SHAPE.paradeWidth * SCOPE_SHAPE.levels;
     return [0, 1, 2].map(channel => densityPaths(data.parade.subarray(channel * size, (channel + 1) * size), SCOPE_SHAPE.paradeWidth));
   }, [kind, data]);
-  return <Svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox={kind === 'vectorscope' ? '0 0 136 150' : '-28 0 316 150'} accessibilityLabel={`${SCOPE_TITLES[kind]} 实时图表`}>
+  return <Svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`} accessibilityLabel={`${SCOPE_TITLES[kind]} 实时图表`}>
     {kind === 'histogram' && <>
       <Rect x={24} y={6} width={256} height={120} fill="none" stroke={GRID}/>
       {[64, 128, 192].map(bin => <Line key={bin} x1={24 + bin} x2={24 + bin} y1={6} y2={126} stroke={GRID}/>)}
       {paths[0].map((d, i) => <Path key={i} d={d} fill={i === 3 ? 'none' : RGB[i]} fillOpacity={.13} stroke={i === 3 ? INK : RGB[i]} strokeWidth={1.2}/>)}
-      <SvgText stroke="#000A" strokeWidth={.55} x={24} y={139} fill={INK} fontSize={axisSize}>0</SvgText><SvgText stroke="#000A" strokeWidth={.55} x={280} y={139} textAnchor="end" fill={INK} fontSize={axisSize}>255</SvgText>
-      {[...RGB, INK].map((color, i) => <SvgText stroke="#000A" strokeWidth={.55} key={color} x={112 + i * 18} y={144} fill={color} fontSize={axisSize}>{['R', 'G', 'B', 'Y'][i]}</SvgText>)}
+      <AxisText x={24} y={139} size={axisSize}>0</AxisText><AxisText x={280} y={139} size={axisSize} anchor="end">255</AxisText>
+      {[...RGB, INK].map((color, i) => <AxisText key={color} color={color} x={112 + i * 18} y={144} size={axisSize}>{['R', 'G', 'B', 'Y'][i]}</AxisText>)}
     </>}
     {kind === 'waveform' && <>
       <LevelGrid axisSize={axisSize}/><G transform={`translate(24 6) scale(${256 / SCOPE_SHAPE.waveWidth} ${120 / SCOPE_SHAPE.levels})`}><Density paths={paths[0]} color={INK}/></G>
-      <SvgText stroke="#000A" strokeWidth={.55} x={24} y={143} fill={INK} fontSize={axisSize}>L</SvgText><SvgText stroke="#000A" strokeWidth={.55} x={280} y={143} textAnchor="end" fill={INK} fontSize={axisSize}>R</SvgText>
+      <AxisText x={24} y={143} size={axisSize}>L</AxisText><AxisText x={280} y={143} size={axisSize} anchor="end">R</AxisText>
     </>}
     {kind === 'parade' && <>
       <LevelGrid axisSize={axisSize}/>{RGB.map((color, i) => <G key={color}>
         <G transform={`translate(${24 + i * 256 / 3} 6) scale(${256 / 3 / SCOPE_SHAPE.paradeWidth} ${120 / SCOPE_SHAPE.levels})`}><Density paths={paths[i]} color={color}/></G>
         {i > 0 && <Line x1={24 + i * 256 / 3} x2={24 + i * 256 / 3} y1={6} y2={126} stroke={GRID}/>}
-        <SvgText stroke="#000A" strokeWidth={.55} x={24 + (i + .5) * 256 / 3} y={143} textAnchor="middle" fill={color} fontSize={axisSize}>{['R', 'G', 'B'][i]}</SvgText>
+        <AxisText x={24 + (i + .5) * 256 / 3} y={143} size={axisSize} color={color} anchor="middle">{['R', 'G', 'B'][i]}</AxisText>
       </G>)}
     </>}
     {kind === 'vectorscope' && <G transform="translate(-76 0)">
@@ -105,8 +129,8 @@ export default React.memo(function ScopePlot({kind, data, displayWidth = 184, di
       <Circle cx={144} cy={66} r={30} fill="none" stroke={GRID}/>
       <Line x1={84} x2={204} y1={66} y2={66} stroke={GRID}/><Line x1={144} x2={144} y1={6} y2={126} stroke={GRID}/>
       <G transform="translate(84 6) scale(1.875)"><Density paths={paths[0]} color={INK}/></G>
-      {TARGETS.map(target => <G key={target.name}><Rect x={target.x - 3} y={target.y - 3} width={6} height={6} fill="none" stroke={target.color}/><SvgText stroke="#000A" strokeWidth={.55} x={target.x + 6} y={target.y + 3} fontSize={axisSize} fill={target.color}>{target.name}</SvgText></G>)}
-      <SvgText stroke="#000A" strokeWidth={.55} x={144} y={143} textAnchor="middle" fill={INK} fontSize={axisSize}>75%</SvgText>
+      {TARGETS.map(target => <G key={target.name}><Rect x={target.x - 3} y={target.y - 3} width={6} height={6} fill="none" stroke={target.color}/><AxisText x={target.x + 6} y={target.y + 3} size={axisSize} color={target.color}>{target.name}</AxisText></G>)}
+      <AxisText x={144} y={143} size={axisSize} anchor="middle">75%</AxisText>
     </G>}
   </Svg>;
 });

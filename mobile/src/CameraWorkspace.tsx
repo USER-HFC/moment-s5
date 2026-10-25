@@ -10,7 +10,7 @@ import useCaptureCountdown from './useCaptureCountdown';
 import {requestMicrophonePermission} from './microphonePermission';
 import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
-import {useScopePanels} from './scopes/useScopes';
+import {resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
 import CameraHud from './hud/CameraHud';
 
@@ -65,6 +65,8 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   } : StyleSheet.absoluteFillObject;
 
   useEffect(() => { if (state.audio !== undefined) setAudio(state.audio); }, [state.audio]);
+  // A new connection starts a new reveal-hint session; the album does not (it keeps active true).
+  useEffect(() => { if (!state.active) resetScopeRevealHint(); }, [state.active]);
   useEffect(() => {
     if (!preview) return;
     const nextSlot = (1 - activeSlotRef.current) as 0 | 1;

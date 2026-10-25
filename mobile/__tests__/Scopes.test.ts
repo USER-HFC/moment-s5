@@ -1,7 +1,7 @@
 import {describe, expect, it} from '@jest/globals';
 import {decodeScopeBytes, decodeScopeFrame, SCOPE_SHAPE} from '../src/scopes/protocol';
 import {createScopePanelState, scopePanelLayout, updateScopePanelState, SCOPE_KINDS} from '../src/scopes/panelState';
-import {densityPaths} from '../src/scopes/ScopePlot';
+import {densityPaths, DENSITY_ROW_HEIGHT} from '../src/scopes/ScopePlot';
 
 const histogramBytes = 4 * SCOPE_SHAPE.histogramBins;
 const waveformBytes = SCOPE_SHAPE.waveWidth * SCOPE_SHAPE.levels;
@@ -166,11 +166,15 @@ describe('scope density paths', () => {
   it('merges adjacent cells of the same brightness band in one row', () => {
     const grid = new Uint8Array([255, 255, 0, 20, 40, 200]);
     const paths = densityPaths(grid, 3);
-    expect(paths[5]).toBe('M0 0h2v1h-2z');
-    expect(paths[0]).toBe('M0 1h2v1h-2z');
-    expect(paths[4]).toBe('M2 1h1v1h-1z');
+    expect(paths[5]).toBe(`M0 0h2v${DENSITY_ROW_HEIGHT}h-2z`);
+    expect(paths[0]).toBe(`M0 1h2v${DENSITY_ROW_HEIGHT}h-2z`);
+    expect(paths[4]).toBe(`M2 1h1v${DENSITY_ROW_HEIGHT}h-1z`);
     expect(paths.filter(Boolean)).toHaveLength(3);
-    expect(densityPaths(new Uint8Array([255, 0, 255]), 3)[5]).toBe('M0 0h1v1h-1zM2 0h1v1h-1z');
+    expect(densityPaths(new Uint8Array([255, 0, 255]), 3)[5]).toBe(`M0 0h1v${DENSITY_ROW_HEIGHT}h-1zM2 0h1v${DENSITY_ROW_HEIGHT}h-1z`);
     expect(densityPaths(new Uint8Array(4), 2).every(path => path === '')).toBe(true);
+  });
+  it('overlaps rows slightly so a downscaled 128-level grid has no antialiased scanlines', () => {
+    expect(DENSITY_ROW_HEIGHT).toBeGreaterThan(1);
+    expect(DENSITY_ROW_HEIGHT).toBeLessThan(1.2);
   });
 });

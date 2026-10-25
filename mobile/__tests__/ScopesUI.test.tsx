@@ -1,7 +1,8 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {AppState, NativeModules, PanResponder, StyleSheet, View} from 'react-native';
+import {AppState, NativeModules, PanResponder, StyleSheet, Vibration, View} from 'react-native';
+import {Text as SvgText} from 'react-native-svg';
 
 const mockHandlers = new Map<string, (event: unknown) => void>();
 jest.mock('../src/native', () => {
@@ -15,8 +16,8 @@ jest.mock('../src/native', () => {
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: {children: React.ReactNode}) => children}));
 
 import ScopeToolbar from '../src/scopes/ScopeToolbar';
-import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS} from '../src/scopes/ScopesOverlay';
-import {changeScopePanel, useScopePanels} from '../src/scopes/useScopes';
+import ScopesOverlay, {SCOPE_CONTROLS_IDLE_MS, SCOPE_CONTROLS_REVEAL_MS, SCOPE_HINT_FADE_MS, SCOPE_HINT_MS, SCOPE_PRESS_FEEDBACK_MS, SCOPE_REVEAL_HINT} from '../src/scopes/ScopesOverlay';
+import {changeScopePanel, resetScopeRevealHint, useScopePanels} from '../src/scopes/useScopes';
 import {scopePanelLayout} from '../src/scopes/panelState';
 import {SCOPE_SHAPE} from '../src/scopes/protocol';
 import CameraWorkspace from '../src/CameraWorkspace';
@@ -43,6 +44,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     jest.useFakeTimers();jest.clearAllMocks();mockHandlers.clear();
     AppState.currentState = 'active';
     changeScopePanel({type: 'closeAll'});
+    resetScopeRevealHint();
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_, listener: any) => {
       appStateChanged = listener;return {remove: jest.fn()};
     });
@@ -261,6 +263,57 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
     act(() => reveal().props.onAccessibilityAction({nativeEvent: {actionName: 'close'}}));
     expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
+  });
+  it('shows long-press progress after 300ms, cancels it on release, and finishes with the controls', () => {
+    const vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    const reveal = () => tree!.root.findByProps({testID: 'scope-reveal-waveform'});
+    const feedback = () => tree!.root.findAllByProps({testID: 'scope-press-feedback-waveform'}).length > 0;
+    act(() => reveal().props.onPressIn());
+    act(() => jest.advanceTimersByTime(SCOPE_PRESS_FEEDBACK_MS - 1));
+    expect(feedback()).toBe(false);
+    act(() => jest.advanceTimersByTime(1));
+    expect(feedback()).toBe(true);
+    act(() => reveal().props.onPressOut());
+    expect(feedback()).toBe(false);
+    act(() => reveal().props.onPressIn());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_REVEAL_MS));
+    act(() => reveal().props.onLongPress());
+    expect(feedback()).toBe(false);
+    expect(tree!.root.findByProps({testID: 'scope-close-waveform'})).toBeTruthy();
+    expect(vibrate).toHaveBeenCalledTimes(1);
+  });
+  it('shows the reveal hint after the first auto-hide only once per connection', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    const hintCount = () => JSON.stringify(tree!.toJSON()).split(SCOPE_REVEAL_HINT).length - 1;
+    expect(hintCount()).toBe(0);
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(1);
+    act(() => jest.advanceTimersByTime(SCOPE_HINT_MS + SCOPE_HINT_FADE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.root.findByProps({testID: 'scope-reveal-waveform'}).props.onLongPress());
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.unmount());tree = undefined;
+    act(() => {tree = renderer.create(<Harness/>);});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(0);
+    act(() => tree!.unmount());tree = undefined;
+    resetScopeRevealHint();
+    act(() => {tree = renderer.create(<Harness/>);});
+    act(() => jest.advanceTimersByTime(SCOPE_CONTROLS_IDLE_MS));
+    expect(hintCount()).toBe(1);
+  });
+  it('keeps axis labels at least 10sp and outlines them for bright previews', () => {
+    act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'waveform'});});
+    act(() => mockHandlers.get('cameraScopes')!(event()));
+    const labels = tree!.root.findAllByType(SvgText).filter(node => typeof node.props.children === 'number' || ['L', 'R'].includes(node.props.children));
+    expect(labels).toHaveLength(10);
+    const plotScale = 184 / 316;
+    for (const label of labels) expect(label.props.fontSize * plotScale).toBeGreaterThanOrEqual(9.99);
+    expect(labels.some(label => label.props.stroke === '#080C08')).toBe(true);
+    expect(labels.some(label => label.props.fill === '#F2F6EA')).toBe(true);
   });
   it('draws the finer parade grid at one segment per channel column group', () => {
     act(() => {tree = renderer.create(<Harness/>); changeScopePanel({type: 'toggle', kind: 'parade'});});
