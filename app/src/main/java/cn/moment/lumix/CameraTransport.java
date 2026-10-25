@@ -26,6 +26,8 @@ public interface CameraTransport extends AutoCloseable {
     void shutter() throws IOException;
     Original awaitNewJpeg(Baseline baseline,BooleanSupplier sessionValid) throws Exception;
     void downloadOriginal(Original original,File destination) throws Exception;
+    /** An original kept in this session. A later shutter must not pair it again. */
+    default void noteSaved(Original photo) {}
     default void completeWithoutDownload() {}
     /** True when the camera announces every stored object, so photos taken on the body can be synced. */
     default boolean reportsNewPhotos() {return false;}

@@ -16,6 +16,7 @@
 | P2 | 当前 ISO 和光圈取自 ListProperty（`0x9108`）的描述值；libgphoto2 读的是 `ISO_Param 0x02000021` / `Aperture_Param 0x02000041`（GetProperty `0x9402`） | HUD 可能显示过时的值或 0 | 先读 GetProperty `0x9402`，不支持时回退到 ListProperty，并把 `0x9402` 加入白名单 |
 | P3 | 快门值解码错误：`0xFFFFFFFF`（B 门）显示成很大的秒数；1/1.3 被截成 "1/1"；值为 0 时显示 "1/0" | 曝光读数错误 | 新增 `Ptp.shutterLabel()`，规则与 libgphoto2 一致：B 门、整秒/十分之一秒、分数快门 |
 | P4 | OpenSession 未使用事务号 0；响应容器缺少校验 | — | 已在 `feat/s5-wifi-beta` 修复，`main` 分支仍有此问题 |
+| P5 | 快门后把「不在基线里的 JPEG」立刻当成这次的照片，并用句柄最大值当最新。假设备上复现：基线漏了 `P1000005.JPG`，新的 `P1000006.JPG` 还没出现在 `GetObjectHandles` 里时，第一次列表就返回了上一张。句柄也不保证按拍摄顺序增大（`P1010001.JPG` 的句柄可以小于 `P1009999.JPG`）。ObjectAdded 的参数可能是已保存的旧对象；对象还在写入时格式暂时不是 JPEG，或 ObjectInfo 暂时读不到，原先会放进 `rejected` 不再重试，于是旧 JPEG 获胜 | 普通照片和动态照片都会存成第二新的那张。定时遥控或机身快门漏进基线是 312cf10 修过的一种；App 自己刚保存的照片如果没出现在下一次基线里，同样会配错 | 列表要连续两次结果一致才接受。多个候选按 Lumix 文件名序号（`P` + 三位文件夹号 + 四位序号，如 `P1xx####.JPG` / `P1010001.JPG`）取最新，不比句柄大小。序号相同则不选。本会话已保存的句柄（`CaptureEngine.savedOriginals`，经 `noteSaved`）以及序号不大于已保存最新一张的候选，一律不选。事件里暂时读不到格式、或格式还不是 JPEG 的对象改为稍后重试，不永久排除。已有保存记录时，序号更高的 JPEG 事件仍可立即采用；否则只信两次一致的列表。对不上就超时，不用旧文件。诊断日志记录快门前索引数量、每个事件的句柄/格式/文件名、每次列表的新候选，以及最终选中哪个和原因。不记录机身序列号 |
 
 ## Wi-Fi
 
@@ -49,7 +50,7 @@ USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 bash tools/check-core.sh   # 61 core checks
-bash tools/check-usb.sh    # 9 USB PTP checks（新增）
+bash tools/check-usb.sh    # 41 USB PTP checks
 bash tools/check-wifi.sh   # 104 Wi-Fi checks
 ```
 

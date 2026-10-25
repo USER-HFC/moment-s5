@@ -45,7 +45,7 @@ public final class FrameRing {
     public synchronized long lastUs() { return frames.isEmpty()?0:frames.getLast().us; }
     public synchronized void clear() { frames.clear(); bytes=0; }
     public static long maxGap(List<Frame> fs) { long max=0; for(int i=1;i<fs.size();i++) max=Math.max(max,fs.get(i).us-fs.get(i-1).us); return max; }
-    /** Select a post-shutter handle only when a pre-shutter baseline exists. */
+    /** Highest handle outside the baseline. Not capture pairing: handles are not Lumix file order. */
     public static Integer newestFreshHandle(Set<Integer> handles,Set<Integer> baseline) {
         if(handles==null || baseline==null) return null;
         Integer newest=null;

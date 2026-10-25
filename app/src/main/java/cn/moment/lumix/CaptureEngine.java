@@ -188,7 +188,7 @@ public final class CaptureEngine {
             File original=new File(dir,"original.jpg"),part=new File(dir,"original.jpg.part");
             try {session.downloadOriginal(photo,part);Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);}
             finally {Files.deleteIfExists(part.toPath());}
-            savedOriginals.add(photo.key());
+            savedOriginals.add(photo.key());session.noteSaved(photo);
             CameraTransport.Baseline before=preparedHandles;if(before!=null)preparedHandles=session.withPhoto(before,photo);
             boolean lutApplied=renderLut(dir,original,filter,false);
             meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);meta.put("complete",true);
@@ -266,7 +266,7 @@ public final class CaptureEngine {
                         cameraAtTap.downloadOriginal(source,part);
                         Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
                     } finally {Files.deleteIfExists(part.toPath());}
-                    savedOriginals.add(source.key());
+                    savedOriginals.add(source.key());cameraAtTap.noteSaved(source);
                     // Refresh the next button boundary after this transfer. This
                     // USB index read is deliberately after the shutter and can
                     // never delay the current capture.

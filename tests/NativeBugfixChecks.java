@@ -224,7 +224,7 @@ public final class NativeBugfixChecks {
         final Baseline baseline=new Baseline(){};
         final byte[] jpeg={-1,-40,12,34,-1,-39};
         final List<String> calls=new ArrayList<>();
-        final boolean wifi;boolean closed,failDownload;int shutters;
+        final boolean wifi;boolean closed,failDownload;int shutters,noted;
         StillCamera(boolean wifi){this.wifi=wifi;}
         public String kind(){return wifi?"wifi":"usb";}
         public void open(){}public Preview preview(){return null;}
@@ -239,6 +239,7 @@ public final class NativeBugfixChecks {
             if(before!=baseline || !valid.getAsBoolean())throw new IOException("wrong capture baseline/session");
             calls.add("await");return new Original(this,"THIS_SHUTTER.JPG",jpeg.length);
         }
+        public void noteSaved(Original photo){noted++;}
         public void downloadOriginal(Original original,File destination)throws IOException{
             if(original.key()!=this)throw new IOException("wrong original");calls.add("download");
             Files.write(destination.toPath(),jpeg);if(failDownload)throw new IOException("incomplete transfer");
@@ -280,6 +281,7 @@ public final class NativeBugfixChecks {
                 resume.countDown();settle(engine);File dir=saved.get();
                 check(dir!=null && !savedBusy.get() && failed.get()==null,"still completes with busy cleared before notification");
                 check(camera.shutters==1,"duplicate ordinary capture dispatches exactly one shutter");
+                check(camera.noted==1,"a saved still is recorded so the next shutter cannot pair it");
                 check(camera.calls.indexOf("clear")<camera.calls.indexOf("shutter") && camera.calls.indexOf("shutter")<camera.calls.indexOf("await"),"same hardened event correlation orders clear, shutter, await");
                 check(!wifi || camera.calls.get(0).equals("baseline"),"Wi-Fi still refreshes pre-shutter baseline");
                 check(Arrays.equals(Files.readAllBytes(new File(dir,"original.jpg").toPath()),camera.jpeg),"original JPEG bytes remain immutable");
