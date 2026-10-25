@@ -74,9 +74,11 @@ public final class UsbS5 implements AutoCloseable {
     public void shutter() throws IOException { exchange(0x9404,null,0,0x03000011).ok(); }
     public void autofocus() throws IOException { exchange(0x9405,null,0,0x03000024).ok(); }
     public void focus(boolean far) throws IOException {
-        if(!info.supports(0x9416)) throw new IOException("机身未声明手动对焦指令支持");
+        // Panasonic leaves its vendor operations out of DeviceInfo, so do not gate on it (tethr
+        // does not either); ask the body and report what it actually answers.
         ByteBuffer b=Ptp.le(new byte[10]);b.putInt(0x03010011).putInt(2).putShort((short)(far?2:3));
-        exchange(0x9416,b.array(),0,0x03010011).ok();
+        Result r=exchange(0x9416,b.array(),0,0x03010011);
+        if(r.code!=0x2001) throw new IOException(String.format(Locale.ROOT,"机身未执行对焦步进（响应 0x%04X）；部分机型需在菜单开启 AF+MF 或切到 MF",r.code));
     }
     public Set<Integer> handles() throws IOException {
         Result r=exchange(0x1007,null,4*1024*1024,0xffffffff,0,0);r.ok();

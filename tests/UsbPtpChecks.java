@@ -27,6 +27,7 @@ public final class UsbPtpChecks {
     private static UsbManager manager(String model) throws IOException {
         UsbManager manager=new UsbManager();byte[] info=description(model);
         manager.connection.respond=command->{ByteBuffer bytes=Ptp.le(command);int op=bytes.getShort(6)&65535,tx=bytes.getInt(8);
+            if((bytes.getShort(4)&65535)==2) return new byte[0]; // the host's data phase gets no reply of its own
             byte[] ok=container(3,0x2001,tx,new byte[0]);
             return op==0x1001?join(container(2,op,tx,info),ok):ok;
         };return manager;
@@ -88,8 +89,19 @@ public final class UsbPtpChecks {
             camera.close();
         }
     }
+    private static void focus() throws Exception {
+        // The fake DeviceInfo lists no operations at all, like a body that omits vendor ops.
+        UsbManager manager=manager();UsbS5 camera=open(manager);camera.focus(true);camera.focus(false);
+        List<byte[]> drives=new ArrayList<>();for(byte[] c:manager.connection.commands)if(c.length>=8 && (Ptp.le(c).getShort(6)&65535)==0x9416)drives.add(c);
+        check(drives.size()>=2,"focus steps are sent even when DeviceInfo does not list 0x9416");
+        manager.connection.respond=command->(Ptp.le(command).getShort(4)&65535)==2?new byte[0]:container(3,0x2002,Ptp.le(command).getInt(8),new byte[0]);
+        try{camera.focus(true);throw new AssertionError("refused focus step accepted");}
+        catch(IOException expected){check(expected.getMessage().contains("0x2002") && expected.getMessage().contains("AF+MF"),"a refused step reports the camera's response code");}
+        check(!camera.closed(),"a refused focus step keeps the session");
+        camera.close();
+    }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();anyLumix();
+        timeouts();exposure();anyLumix();focus();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }
