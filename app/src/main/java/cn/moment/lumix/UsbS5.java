@@ -56,9 +56,9 @@ public final class UsbS5 implements AutoCloseable {
     }
     public void open() throws IOException {
         Result description=exchange(0x1001,null,65536);description.ok();info=new Ptp.DeviceInfo(description.data);
-        log.accept(info.manufacturer+" "+info.model+" / "+info.version);
-        if(!info.model.equalsIgnoreCase("DC-S5") && !info.model.equalsIgnoreCase("S5"))
-            throw new IOException("当前驱动限定初代 S5；检测到 "+info.model);
+        // Any Lumix that offers Panasonic PTP tethering (VID 0x04da is checked in the constructor);
+        // the vendor operations follow tethr/libgphoto2, which share them across bodies.
+        log.accept(info.manufacturer+" "+info.model+" / "+info.version+(info.model.equalsIgnoreCase("DC-S5")?"":" · 非 S5 机型，按通用 LUMIX 协议连接"));
         Result opened=exchange(0x1002,null,0,1);opened.ok();session=true;
         if(opened.code==0x201e) log.accept("PTP OpenSession 0x1002 返回 0x201E：继续使用已存在的会话");
         exchange(0x9102,null,0,0x00010001).ok(); vendorSession=true;
@@ -74,15 +74,19 @@ public final class UsbS5 implements AutoCloseable {
     public void shutter() throws IOException { exchange(0x9404,null,0,0x03000011).ok(); }
     public void autofocus() throws IOException { exchange(0x9405,null,0,0x03000024).ok(); }
     public void focus(boolean far) throws IOException {
-        if(!info.supports(0x9416)) throw new IOException("机身未声明手动对焦指令支持");
+        // Panasonic leaves its vendor operations out of DeviceInfo, so do not gate on it (tethr
+        // does not either); ask the body and report what it actually answers.
         ByteBuffer b=Ptp.le(new byte[10]);b.putInt(0x03010011).putInt(2).putShort((short)(far?2:3));
-        exchange(0x9416,b.array(),0,0x03010011).ok();
+        Result r=exchange(0x9416,b.array(),0,0x03010011);
+        if(r.code!=0x2001) throw new IOException(String.format(Locale.ROOT,"机身未执行对焦步进（响应 0x%04X）；部分机型需在菜单开启 AF+MF 或切到 MF",r.code));
     }
     public Set<Integer> handles() throws IOException {
         Result r=exchange(0x1007,null,4*1024*1024,0xffffffff,0,0);r.ok();
         Set<Integer> s=new HashSet<>(); for(int h:new Ptp.Reader(r.data).array(4)) s.add(h);return s;
     }
     public void clearCaptureEvents() { added.clear(); }
+    /** True when the body has an interrupt endpoint, so ObjectAdded events arrive for every new file. */
+    public boolean hasEvents() { return events!=null; }
     public Integer nextAdded() { return added.poll(); }
     public boolean closed() { return closed; }
     public Ptp.ObjectInfo objectInfo(int h) throws IOException { Result r=exchange(0x1008,null,65536,h);r.ok();return new Ptp.ObjectInfo(r.data); }

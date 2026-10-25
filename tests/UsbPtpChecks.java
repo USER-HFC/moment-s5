@@ -18,14 +18,16 @@ public final class UsbPtpChecks {
     private static void ptpString(ByteArrayOutputStream out,String value) throws IOException {
         out.write(value.length()+1);out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_16LE));out.write(0);out.write(0);
     }
-    private static byte[] description() throws IOException {
+    private static byte[] description(String model) throws IOException {
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(new byte[8]);out.write(0);out.write(new byte[2+5*4]);
-        ptpString(out,"Panasonic");ptpString(out,"DC-S5");ptpString(out,"2.9");return out.toByteArray();
+        ptpString(out,"Panasonic");ptpString(out,model);ptpString(out,"2.9");return out.toByteArray();
     }
     /** Every operation answers OK; GetDeviceInfo also returns a DC-S5 dataset. */
-    private static UsbManager manager() throws IOException {
-        UsbManager manager=new UsbManager();byte[] info=description();
+    private static UsbManager manager() throws IOException {return manager("DC-S5");}
+    private static UsbManager manager(String model) throws IOException {
+        UsbManager manager=new UsbManager();byte[] info=description(model);
         manager.connection.respond=command->{ByteBuffer bytes=Ptp.le(command);int op=bytes.getShort(6)&65535,tx=bytes.getInt(8);
+            if((bytes.getShort(4)&65535)==2) return new byte[0]; // the host's data phase gets no reply of its own
             byte[] ok=container(3,0x2001,tx,new byte[0]);
             return op==0x1001?join(container(2,op,tx,info),ok):ok;
         };return manager;
@@ -80,8 +82,52 @@ public final class UsbPtpChecks {
         check(!camera.closed(),"an unsupported vendor read keeps the session");
         camera.close();
     }
+    private static void anyLumix() throws Exception {
+        for(String model:List.of("DC-GH6","DC-S5M2","DC-G9")) {
+            UsbS5 camera=open(manager(model));
+            check(!camera.closed() && camera.info.model.equals(model),model+" opens a PTP session like the S5");
+            camera.close();
+        }
+    }
+    private static void focus() throws Exception {
+        // The fake DeviceInfo lists no operations at all, like a body that omits vendor ops.
+        UsbManager manager=manager();UsbS5 camera=open(manager);camera.focus(true);camera.focus(false);
+        List<byte[]> drives=new ArrayList<>();for(byte[] c:manager.connection.commands)if(c.length>=8 && (Ptp.le(c).getShort(6)&65535)==0x9416)drives.add(c);
+        check(drives.size()>=2,"focus steps are sent even when DeviceInfo does not list 0x9416");
+        manager.connection.respond=command->(Ptp.le(command).getShort(4)&65535)==2?new byte[0]:container(3,0x2002,Ptp.le(command).getInt(8),new byte[0]);
+        try{camera.focus(true);throw new AssertionError("refused focus step accepted");}
+        catch(IOException expected){check(expected.getMessage().contains("0x2002") && expected.getMessage().contains("AF+MF"),"a refused step reports the camera's response code");}
+        check(!camera.closed(),"a refused focus step keeps the session");
+        camera.close();
+    }
+    private static byte[] objectInfo(int format,String name) throws IOException {
+        ByteArrayOutputStream out=new ByteArrayOutputStream();ByteBuffer head=Ptp.le(new byte[52]);
+        head.putInt(0x00010001).putShort((short)format).putShort((short)0).putInt(4096);out.write(head.array());ptpString(out,name);return out.toByteArray();
+    }
+    @SuppressWarnings("unchecked") private static void cameraPhotos() throws Exception {
+        UsbManager manager=manager();UsbS5Transport camera=new UsbS5Transport(manager,new UsbDevice(),s->{});camera.open();
+        manager.connection.respond=command->{ByteBuffer b=Ptp.le(command);int op=b.getShort(6)&65535,tx=b.getInt(8),h=command.length>=16?b.getInt(12):0;
+            byte[] ok=container(3,0x2001,tx,new byte[0]);
+            try {
+                if(op==0x1008) return join(container(2,op,tx,h==5?objectInfo(0x3000,"P1000005.RW2"):objectInfo(0x3801,"P100000"+h+".JPG")),ok);
+                if(op==0x1007) {ByteBuffer list=Ptp.le(new byte[12]).putInt(2).putInt(1).putInt(2);return join(container(2,op,tx,list.array()),ok);}
+            } catch(IOException e) {throw new UncheckedIOException(e);}
+            return ok;
+        };
+        CameraTransport.Baseline baseline=camera.prepareCaptureBaseline();
+        java.lang.reflect.Field usbField=UsbS5Transport.class.getDeclaredField("usb");usbField.setAccessible(true);
+        java.lang.reflect.Field queue=UsbS5.class.getDeclaredField("added");queue.setAccessible(true);
+        java.util.concurrent.LinkedBlockingQueue<Integer> added=(java.util.concurrent.LinkedBlockingQueue<Integer>)queue.get(usbField.get(camera));
+        added.addAll(List.of(2,5,7,8));
+        CameraTransport.Original photo=camera.nextCameraPhoto(baseline,Set.of(7));
+        check(photo!=null && photo.key().equals(8) && photo.filename().equals("P1000008.JPG"),"body photo sync skips known handles, saved photos and RAW, and returns the JPEG");
+        check(camera.nextCameraPhoto(baseline,Set.of())==null,"no further body photos after the queue drains");
+        CameraTransport.Baseline next=camera.withPhoto(baseline,photo);added.add(8);
+        check(camera.nextCameraPhoto(next,Set.of())==null,"a synced photo joins the baseline and is never imported twice");
+        camera.close();
+    }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();
+        timeouts();exposure();anyLumix();focus();cameraPhotos();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }

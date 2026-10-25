@@ -1,6 +1,6 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {AppState} from 'react-native';
+import {AppState, Modal, StyleSheet} from 'react-native';
 import {afterEach, beforeEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
@@ -8,6 +8,7 @@ jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: je
 jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true)}));
 
 import CameraWorkspace from '../src/CameraWorkspace';
+import LutFlyout from '../src/LutFlyout';
 import {camera, CameraState} from '../src/native';
 import {requestMicrophonePermission} from '../src/microphonePermission';
 
@@ -23,6 +24,34 @@ beforeEach(() => {
 afterEach(() => { act(() => tree.unmount()); jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
 const press = (label: string) => act(() => tree.root.findByProps({accessibilityLabel: label}).props.onPress());
 const tick = (ms: number) => act(() => jest.advanceTimersByTime(ms));
+
+it('opens LUTs as a flat side flyout that stays open for live switching', async () => {
+  const onLut = jest.fn(async (_id: string) => {});
+  const luts = [{id: 'builtin:acros', name: 'Fuji 风格 · Acros', size: 1, builtIn: true, readOnly: true}, {id: 'mine.cube', name: '我的 LUT', size: 1}];
+  act(() => tree.update(<CameraWorkspace {...props} luts={luts} onLut={onLut}/>));
+  press('LUT 风格');
+  const flyout = tree.root.findByProps({testID: 'lut-flyout'});
+  expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(false);
+  const style = StyleSheet.flatten(flyout.props.style);
+  expect(style.elevation).toBe(0);
+  expect(style.shadowOpacity).toBeUndefined();
+  for (const label of ['选择 LUT Acros', '选择 LUT 我的 LUT', '选择 LUT 原色']) {
+    await act(async () => {await tree.root.findByProps({accessibilityLabel: label}).props.onPress();});
+    expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+  }
+  expect(onLut.mock.calls.map(call => call[0])).toEqual(['builtin:acros', 'mine.cube', 'off']);
+  press('LUT 风格');
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  press('LUT 风格'); press('收起 LUT 面板');
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+});
+
+it('keeps the delay picker as a sheet and closes the LUT flyout when opening it', () => {
+  press('LUT 风格');
+  act(() => tree.root.findByProps({accessibilityLabel: '定时'}).props.onLongPress());
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(true);
+});
 
 it('keeps the separate AF button removed', () => {
   expect(tree.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);

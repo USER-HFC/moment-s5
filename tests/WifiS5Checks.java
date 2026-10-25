@@ -29,8 +29,18 @@ public final class WifiS5Checks {
         reject(()->WifiS5Protocol.xml(bytes("<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///private-fixture'>]><x>&e;</x>")),"external entity refused");
         check(WifiS5Protocol.reply(bytes("ok,\"Camera, fixture\",remote,open,private-fixture-token")).fields().size()==4,"quoted CSV fields preserved");
         reject(()->WifiS5Protocol.reply(bytes("ok,\"unterminated")),"truncated CSV refused");
-        check(WifiS5Protocol.gen2("req_acc_g",bytes("ok,01020304"),null).reason().equals("需要真机抓包确认"),"gen2 challenge parses with explicit unverified boundary");
-        check(WifiS5Protocol.gen2("req_acc_e",bytes("ok,\"Fixture, name\",remote,open,fixture-token"),"fixture-header").sessionHeader().equals("fixture-header"),"gen2 session envelope only, no response calculation");
+        check(WifiS5Protocol.nonce(WifiS5Protocol.reply(bytes("ok,0a0b0c0d")))==0x0a0b0c0dL,"req_acc_g nonce parsed");
+        check(WifiS5Protocol.nonce(WifiS5Protocol.reply(bytes("err_param")))==null && WifiS5Protocol.nonce(WifiS5Protocol.reply(bytes("ok,MOCK-DC-S5,remote")))==null,"non-nonce replies rejected");
+        check(WifiS5Protocol.encryptAccess("A",0x01020304L).equals("fbfcfd40"),"access transform pads with 0xFF, XORs big-endian, prints byte-swapped");
+        check(WifiS5Protocol.encryptAccess("ABCD",0).equals("683b70d1"),"zero nonce uses LUMIX Sync's stand-in key");
+        // Real DC-S5 fw 2.03 description (lumix-remote evidence): modelName is only "LUMIX".
+        URL ddd=new URL("http://192.168.54.1:60606/Lumix/Server0/ddd");
+        String services="<serviceList><service><serviceType>"+WifiS5Protocol.CDS+"</serviceType><controlURL>/Server0/CDS_control</controlURL></service><service><serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType><eventSubURL>/Server0/CMS_event</eventSubURL></service></serviceList>";
+        var s5Description=WifiS5Protocol.description(bytes("<root xmlns='urn:schemas-upnp-org:device-1-0' xmlns:pana='urn:schemas-panasonic-com:pana'><device><manufacturer>Panasonic</manufacturer><modelName>LUMIX</modelName><modelNumber>DC-S5</modelNumber><pana:X_FirmVersion>2.03</pana:X_FirmVersion>"+services+"</device></root>"),ddd);
+        check(s5Description.panasonic() && s5Description.model().equals("DC-S5") && "2.03".equals(s5Description.firmware()) && !s5Description.encryptedHandshake() && s5Description.events()!=null,"real S5 description is identified by modelNumber, plain handshake");
+        var newer=WifiS5Protocol.description(bytes("<root xmlns:pana='urn:schemas-panasonic-com:pana'><device><manufacturer>Panasonic</manufacturer><modelName>LUMIX</modelName><modelNumber>DC-XX9</modelNumber><pana:X_CamCapability>0000000000000001</pana:X_CamCapability>"+services+"</device></root>"),ddd);
+        check(newer.panasonic() && newer.model().equals("DC-XX9") && newer.encryptedHandshake(),"any Lumix accepted; X_CamCapability ending in 1 selects the encrypted handshake");
+        check(!WifiS5Protocol.description(bytes("<root><device><manufacturer>Other</manufacturer><modelName>LUMIX</modelName>"+services+"</device></root>"),ddd).panasonic(),"non-Panasonic description is not treated as a Lumix");
         reject(()->WifiS5Protocol.cameraUrl("8.8.8.8",false),"production refuses public IP");
         reject(()->WifiS5Protocol.cameraUrl("10.0.2.2:18080",false),"custom port debug only");
         reject(()->WifiS5Protocol.cameraUrl("192.168.54.1/path",false),"endpoint cannot contain command path");
@@ -82,7 +92,7 @@ public final class WifiS5Checks {
         // S5 behaviour taken from lumix-remote's published real-body notes, not from our own hardware.
         final AtomicInteger subscribes=new AtomicInteger(),unsubscribes=new AtomicInteger(),playmodes=new AtomicInteger(),recmodes=new AtomicInteger();
         final List<String> browsed=Collections.synchronizedList(new ArrayList<>());
-        volatile boolean events=true,browseNeedsPlay,inPlay,folders,pad;volatile String cammode;volatile int underResearch,busyReplies,failStates,busyStates;
+        volatile boolean events=true,browseNeedsPlay,inPlay,folders,pad,encrypted,refuseChallenge;volatile String cammode;volatile int underResearch,busyReplies,failStates,busyStates;
         Fixture(Path root,int oldCount) throws Exception {
             preview=Files.readAllBytes(root.resolve("preview.jpg"));original=Files.readAllBytes(root.resolve("original.jpg"));
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);base="http://127.0.0.1:"+server.getAddress().getPort();
@@ -97,7 +107,7 @@ public final class WifiS5Checks {
                 String path=exchange.getRequestURI().getPath();Map<String,String> query=new HashMap<>();String raw=exchange.getRequestURI().getRawQuery();
                 if(raw!=null)for(String field:raw.split("&")){String[] pair=field.split("=",2);query.put(pair[0],URLDecoder.decode(pair.length==2?pair[1]:"",StandardCharsets.UTF_8));}
                 String cms=events?"<service><serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType><eventSubURL>/Server0/CMS_event</eventSubURL></service>":"";
-                if(path.equals("/Lumix/Server0/ddd")){send(exchange,"<root><device><modelName>MOCK-DC-S5</modelName><serviceList><service><serviceType>"+WifiS5Protocol.CDS+"</serviceType><controlURL>/CDS_control</controlURL></service>"+cms+"</serviceList></device></root>");return;}
+                if(path.equals("/Lumix/Server0/ddd")){send(exchange,"<root><device><manufacturer>Panasonic</manufacturer><modelName>LUMIX</modelName><modelNumber>MOCK-DC-S5</modelNumber>"+(encrypted?"<X_CamCapability>0000000000000001</X_CamCapability>":"")+"<serviceList><service><serviceType>"+WifiS5Protocol.CDS+"</serviceType><controlURL>/CDS_control</controlURL></service>"+cms+"</serviceList></device></root>");return;}
                 if(path.equals("/Server0/CMS_event")){gena(exchange);return;}
                 if(path.equals("/CDS_control")){
                     browse.incrementAndGet();var doc=WifiS5Protocol.xml(exchange.getRequestBody().readAllBytes());int start=Integer.parseInt(WifiS5Protocol.text(doc,"StartingIndex"));String object=WifiS5Protocol.text(doc,"ObjectID");browsed.add(object);
@@ -123,6 +133,10 @@ public final class WifiS5Checks {
                 if(!path.equals("/cam.cgi")){exchange.sendResponseHeaders(404,-1);exchange.close();return;}
                 String mode=query.get("mode"),kind=query.get("type"),value=query.get("value");controls.add(mode+":"+kind+":"+value);
                 if("accctrl".equals(mode) && "req_acc_can".equals(kind)){send(exchange,ok(""));return;}
+                if("accctrl".equals(mode) && "req_acc_g".equals(kind)){auth.incrementAndGet();send(exchange,encrypted && !refuseChallenge?"ok,0a0b0c0d":"err_param");return;}
+                if("accctrl".equals(mode) && "req_acc_e".equals(kind)){auth.incrementAndGet();
+                    boolean valid=value.equals(WifiS5Protocol.encryptAccess(CLIENT,0x0a0b0c0dL)) && query.get("value2").equals(WifiS5Protocol.encryptAccess(WifiS5Transport.DEVICE_NAME,0x0a0b0c0dL));
+                    send(exchange,valid?"ok,MOCK-DC-S5,remote,enc":"err_param");return;}
                 if("accctrl".equals(mode)){auth.incrementAndGet();if(underResearch>0){underResearch--;send(exchange,"ok_under_research,MOCK-DC-S5,remote");return;}
                     exchange.getResponseHeaders().set("X-SESSION_ID","self-authored-token");send(exchange,gen2?ok("<challenge>self-authored-envelope</challenge>"):refuseAuth?"<camrply><result>err-reject</result></camrply>":ok(""));return;}
                 if("setsetting".equals(mode))names.incrementAndGet();
@@ -232,7 +246,7 @@ public final class WifiS5Checks {
         for(String kind:List.of("auth-refused","gen2","shutter-refused"))try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
             if(kind.equals("auth-refused"))fixture.refuseAuth=true;if(kind.equals("gen2"))fixture.gen2=true;
             if(kind.equals("shutter-refused")){fixture.refuseShutter=true;camera.open();camera.prepareCaptureBaseline();reject(camera::shutter,"refused shutter accepted");check(fixture.shots.get()==1,"refused shutter never retried");}
-            else {reject(camera::open,"unsupported auth accepted");check(fixture.auth.get()==1 && fixture.shots.get()==0 && fixture.names.get()==0,"auth refusal/gen2 stops before registration or shutter");}
+            else {reject(camera::open,"unsupported auth accepted");check(fixture.auth.get()==(kind.equals("gen2")?2:1) && fixture.shots.get()==0 && fixture.names.get()==0,"auth refusal/gen2 without a nonce stops before registration or shutter");}
             check(camera.closed(),"failed connection cleans up");
         }
     }
@@ -253,6 +267,14 @@ public final class WifiS5Checks {
         try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
             fixture.underResearch=1000;camera.pairTimeoutMs=150;reject(camera::open,"pairing never approved accepted");
             check(index(fixture.controls,"accctrl:req_acc_can:")>=0 && fixture.shots.get()==0 && fixture.subscribes.get()==0,"pairing timeout cancels the request and stops");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.encrypted=true;camera.open();
+            check(index(fixture.controls,"accctrl:req_acc_g:")==0 && index(fixture.controls,"accctrl:req_acc_e:")==1 && index(fixture.controls,"accctrl:req_acc:")<0,"X_CamCapability ...1 pairs with req_acc_g + transformed req_acc_e");
+        }
+        try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
+            fixture.encrypted=true;fixture.refuseChallenge=true;camera.open();
+            check(index(fixture.controls,"accctrl:req_acc_g:")==0 && index(fixture.controls,"accctrl:req_acc:"+CLIENT)==1,"a refused req_acc_g falls back to plain req_acc");
         }
         try(Fixture fixture=new Fixture(fixtures,1);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
             fixture.busyReplies=2;camera.open();check(fixture.recmodes.get()==1 && count(fixture.controls,"camcmd:null:recmode")==3,"recmode err_busy is retried, not fatal");

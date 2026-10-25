@@ -60,11 +60,29 @@ final class WifiS5Protocol {
         }
         if(quoted)throw new IOException("相机 CSV 被截断");fields.add(current.toString().trim());return fields;
     }
-    record Gen2Envelope(String phase,Reply reply,String sessionHeader,String reason) {}
-    /** Parsing only; no challenge calculation, constants, or req_acc_e dispatch exists. */
-    static Gen2Envelope gen2(String phase,byte[] data,String sessionHeader) throws IOException {
-        if(!phase.equals("req_acc_g") && !phase.equals("req_acc_e"))throw new IOException("未知认证阶段");
-        return new Gen2Envelope(phase,reply(data),sessionHeader,"需要真机抓包确认");
+    /** req_acc_g answers {@code ok,<8 hex>}; returns that 32-bit nonce, or null for any other reply. */
+    static Long nonce(Reply reply) {
+        if(!reply.result().equalsIgnoreCase("ok") || reply.fields().isEmpty())return null;
+        String value=reply.fields().get(0);return value.matches("[0-9A-Fa-f]{8}")?Long.parseLong(value,16):null;
+    }
+    /** LUMIX Sync's stand-in when the body returns a zero nonce. */
+    static final long ZERO_NONCE=-1875740628L & 0xffffffffL;
+    /**
+     * LUMIX Sync's req_acc_e field transform: pad the UTF-8 bytes with 0xFF to a multiple of four,
+     * XOR each big-endian 32-bit block with the nonce, then print it byte-swapped as %08x.
+     * Read from the LUMIX Sync app by lumix-remote; not verified on an encrypted body.
+     */
+    static String encryptAccess(String text,long nonce) {
+        long key=(nonce & 0xffffffffL)==0?ZERO_NONCE:nonce & 0xffffffffL;
+        byte[] raw=text.getBytes(StandardCharsets.UTF_8);byte[] padded=Arrays.copyOf(raw,(raw.length+3)/4*4);
+        Arrays.fill(padded,raw.length,padded.length,(byte)0xff);
+        StringBuilder out=new StringBuilder();
+        for(int i=0;i<padded.length;i+=4) {
+            long block=((padded[i]&255L)<<24|(padded[i+1]&255L)<<16|(padded[i+2]&255L)<<8|(padded[i+3]&255L))^key;
+            long swapped=(block&0xff)<<24|(block>>8&0xff)<<16|(block>>16&0xff)<<8|(block>>24&0xff);
+            out.append(String.format(Locale.ROOT,"%08x",swapped));
+        }
+        return out.toString();
     }
     static URL cameraUrl(String endpoint,boolean debug) throws IOException {
         try {
@@ -83,17 +101,25 @@ final class WifiS5Protocol {
         if(!url.getProtocol().equals("http") || !url.getHost().equalsIgnoreCase(base.getHost()) || url.getUserInfo()!=null || url.getRef()!=null || url.getPort()==0 || url.getPort()>65535 || path.toLowerCase(Locale.ROOT).contains("cam.cgi") || path.matches("(?s).*[\r\n\\\\].*") || url.toString().matches("(?s).*[\r\n ].*"))throw new IOException("拒绝非相机或控制指令资源 URL");
         return url;
     }
-    /** {@code events} is the ConnectionManager GENA URL, or null when the description has none. */
-    record Description(String model,URL control,URL events) {}
+    /**
+     * A Lumix announces modelName "LUMIX" and the body in modelNumber (real DC-S5: "DC-S5").
+     * {@code events} is the ConnectionManager GENA URL, or null when the description has none.
+     */
+    record Description(String manufacturer,String modelName,String modelNumber,String firmware,String capability,URL control,URL events) {
+        String model(){return modelNumber!=null && !modelNumber.isEmpty()?modelNumber:modelName;}
+        boolean panasonic(){return manufacturer!=null && manufacturer.trim().equalsIgnoreCase("Panasonic");}
+        /** LUMIX Sync uses the encrypted req_acc_g / req_acc_e handshake only when X_CamCapability ends in 1. */
+        boolean encryptedHandshake(){return capability!=null && capability.trim().endsWith("1");}
+    }
     static Description description(byte[] data,URL location) throws IOException {
-        Document doc=xml(data);String model=text(doc,"modelName");URL control=null,events=null;
+        Document doc=xml(data);URL control=null,events=null;
         for(Element service:elements(doc,"service")) {
             String type=text(service,"serviceType");if(type==null)continue;
             if(control==null && CDS.equals(type)){String value=text(service,"controlURL");if(value!=null && !value.isEmpty())control=resource(location,value);}
             if(events==null && type.contains("ConnectionManager")){String value=text(service,"eventSubURL");if(value!=null && !value.isEmpty())events=resource(location,value);}
         }
         if(control==null)throw new IOException("相机未公布 DLNA ContentDirectory 控制地址");
-        return new Description(model,control,events);
+        return new Description(text(doc,"manufacturer"),text(doc,"modelName"),text(doc,"modelNumber"),text(doc,"X_FirmVersion"),text(doc,"X_CamCapability"),control,events);
     }
     /** Leaf values of a GENA NOTIFY propertyset, e.g. X_Panasonic_Cam_Sync. */
     static Map<String,List<String>> events(byte[] data) throws IOException {

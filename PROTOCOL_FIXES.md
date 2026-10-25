@@ -30,6 +30,12 @@
 | W7 | 模式、码流相关命令遇到 `err_busy` 立即失败 | 机身短暂忙碌就会导致连接或拍摄失败 | `recmode`、`playmode`、`startstream` 按 LUMIX Sync 的做法重试 5 次、每次间隔 1 秒。快门仍然不重试 |
 | W8 | 每次拍摄都遍历整张卡，且最多 10000 个条目 | 实机卡约有 12 个文件夹 × 960 张，**超过上限直接失败**；即使没超限，每张也要发 100 多个 SOAP 请求 | 基线只取根目录和最新文件夹；之后只列出新增的容器或 `childCount` 变化的容器。分页期间目录变化时改为重试，不再中止 |
 | W9 | 浏览失败后切到 `playmode`，浏览完马上切回 `recmode` 并重新开流，而且每 600 ms 轮询都重复一次 | 频繁切换模式是 lumix-remote 记录的 S5 卡死诱因 | 进入播放模式后一直停留到原片下载完毕，再执行一次 `recmode` 和 `startstream`。切回失败只结束会话，已下载的原片保留 |
+| W10 | Wi-Fi 用 description 的 `modelName` 判断机型，只接受 `DC-S5` | 真实 S5 的 `modelName` 是 `LUMIX`，型号在 `modelNumber`（`DC-S5`）。**实机连接一律报「检测型号不匹配」**（用户实测确认） | 改为以 `manufacturer=Panasonic` 识别 LUMIX，型号取自 `modelNumber`，日志记录型号和固件版本 |
+| W11 | Wi-Fi 遇到加密握手直接失败 | 新款 LUMIX（description 的 `X_CamCapability` 以 1 结尾）无法连接 | 按 LUMIX Sync 规则选择握手方式：用 `req_acc_g` 取随机数，再发送变换后的 `req_acc_e`；机身拒绝 `req_acc_g` 时退回普通握手，普通握手收到 challenge 时改走加密握手。变换算法来自 lumix-remote 对 LUMIX Sync 的分析，**未在加密机型上验证** |
+
+## 机型范围
+
+USB 和 Wi-Fi 都不再限定初代 S5：USB 接受任何提供松下 PTP 联机的 LUMIX（VID `0x04da`），Wi-Fi 接受任何 description 厂商为 Panasonic 的 LUMIX。所有机型都沿用 S5 的安全规则（与 lumix-remote 的 generic 配置一致）。除 S5 的 Wi-Fi 型号识别经用户实测之外，其余机型均未经真机验证。
 
 ## 尚未处理（需要真机数据）
 

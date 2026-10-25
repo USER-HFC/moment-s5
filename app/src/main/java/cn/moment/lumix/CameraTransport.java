@@ -27,6 +27,12 @@ public interface CameraTransport extends AutoCloseable {
     Original awaitNewJpeg(Baseline baseline,BooleanSupplier sessionValid) throws Exception;
     void downloadOriginal(Original original,File destination) throws Exception;
     default void completeWithoutDownload() {}
+    /** True when the camera announces every stored object, so photos taken on the body can be synced. */
+    default boolean reportsNewPhotos() {return false;}
+    /** The next JPEG the camera stored outside an app capture (its own shutter), or null; {@code saved} keys are skipped. */
+    default Original nextCameraPhoto(Baseline baseline,java.util.Set<Object> saved) throws IOException {return null;}
+    /** {@code baseline} plus a synced photo, so a later app capture never mistakes it for its own. */
+    default Baseline withPhoto(Baseline baseline,Original photo) {return baseline;}
     boolean closed();
     void abort();
     @Override void close();

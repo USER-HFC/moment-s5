@@ -11,7 +11,7 @@ import {requestMicrophonePermission} from './microphonePermission';
 import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {useScopePanels} from './scopes/useScopes';
-import LutPresetList from './LutPresetList';
+import LutFlyout from './LutFlyout';
 import CameraHud from './hud/CameraHud';
 import {hudSafeBounds} from './hud/readings';
 
@@ -29,6 +29,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
   const landscape = width > height;
   const scopePanels = useScopePanels();
   const [panel, setPanel] = useState<Panel>(null);
+  const [rail, setRail] = useState({width: 0, height: 0});
   const [grid, setGrid] = useState(true);
   const [audio, setAudio] = useState(!!state.audio);
   const audioPending = useRef(false);
@@ -115,10 +116,10 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
 
   return <View style={styles.screen} onLayout={event => setWorkspaceSize(event.nativeEvent.layout)}>
     <View style={[styles.root, landscape && styles.rootLandscape, landscape && workspaceSize.width > 0 && {width: Math.min(workspaceSize.width, workspaceSize.height * sourceRatio + 184), alignSelf: 'center'}]} testID="camera-workspace">
-    <View style={[styles.toolsRail, landscape && styles.toolsRailLandscape]} testID="camera-tools">
+    <View style={[styles.toolsRail, landscape && styles.toolsRailLandscape]} testID="camera-tools" onLayout={event => setRail(event.nativeEvent.layout)}>
       <View style={[styles.viewTools, landscape && styles.viewToolsLandscape]}>
         <CameraControl label="网格" accessibilityLabel="构图网格" icon="grid" active={grid} checked={grid} onPress={() => setGrid(value => !value)}/>
-        <CameraControl label="LUT" accessibilityLabel="LUT 风格" icon="lut" active={!!state.lut} onPress={() => setPanel('lut')}/>
+        <CameraControl label="LUT" accessibilityLabel="LUT 风格" accessibilityHint={panel === 'lut' ? '收起 LUT 面板' : '在侧边展开 LUT 面板，切换时实时预览'} icon="lut" active={!!state.lut || panel === 'lut'} onPress={() => setPanel(value => value === 'lut' ? null : 'lut')}/>
         <ScopeToolbar panels={scopePanels} landscape={landscape}/>
         {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
             0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
@@ -163,7 +164,7 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
           <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} disabled={disabled} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
           <View style={styles.captureSide}>
             <CameraControl label={ratioMode} icon="ratio" accessibilityLabel={`画幅 ${ratioMode}`} accessibilityHint="在 3:2 与 16:9 之间切换" onPress={() => setRatioMode(value => value === '3:2' ? '16:9' : '3:2')}/>
-            <CameraControl label="相册" icon="album" thumbnail={latestPhoto} accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); onAlbum();}}/>
+            <CameraControl label="相册" icon="album" thumbnail={latestPhoto} accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); setPanel(null); onAlbum();}}/>
           </View>
         </View>
         <View testID="camera-modes" accessibilityRole="radiogroup" style={[styles.modes, landscape && styles.modesLandscape]}>
@@ -172,13 +173,13 @@ export default function CameraWorkspace({onAlbum, state, preview, buffered, luts
         </View>
       </View>
     </View>
-    <CameraSheet visible={panel !== null} title={panel === 'lut' ? 'LUT 风格' : '快门延时'} onClose={() => setPanel(null)}
-      actions={panel === 'lut' && <><CameraControl icon="import" accessibilityLabel="导入 LUT" disabled={working || state.busy} onPress={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}}/><CameraControl icon="refresh" accessibilityLabel="刷新 LUT" disabled={working} onPress={() => {void onRefresh();}}/></>}>
+    {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} rail={rail}
+      onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
+    <CameraSheet visible={panel === 'delay'} title="快门延时" onClose={() => setPanel(null)}>
       {panel === 'delay' && <View style={styles.options}>
         <Button textColor={timerEnabled ? ui.color.text : ui.color.accent} contentStyle={styles.touch} accessibilityLabel="关闭定时" mode={!timerEnabled ? 'contained-tonal' : 'outlined'} onPress={() => {cancelCountdown(); setTimerEnabled(false); setPanel(null);}}>关闭</Button>
         {[2, 5, 10, 30].map(value => <Button key={value} textColor={timerEnabled && delay === value ? ui.color.accent : ui.color.text} contentStyle={styles.touch} accessibilityLabel={`延时 ${value} 秒`} accessibilityState={{selected: timerEnabled && delay === value}} mode={timerEnabled && delay === value ? 'contained-tonal' : 'outlined'} onPress={() => {cancelCountdown(); setDelay(value); setTimerEnabled(true); setPanel(null);}}>{value}秒</Button>)}
       </View>}
-      {panel === 'lut' && <><LutPresetList luts={luts} activeName={state.lut} disabled={working || state.busy} onSelect={chooseLut}/>{!luts.length && <Text style={styles.muted}>导入 .cube 或 .zip 文件</Text>}</>}
     </CameraSheet>
     </View>
   </View>;
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   emptyViewport: {...StyleSheet.absoluteFillObject},
   empty: {flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: ui.space.sm, paddingHorizontal: ui.space.gutter},
   emptyLandscape: {flexDirection: 'row', gap: ui.space.lg}, emptyCopy: {alignItems: 'center', gap: ui.space.sm}, emptyCopyLandscape: {flexShrink: 1, alignItems: 'flex-start'},
-  emptyTitle: {...ui.type.title}, muted: {...ui.type.body, color: ui.color.muted}, touch: {minHeight: ui.icon.touch},
+  emptyTitle: {...ui.type.title}, touch: {minHeight: ui.icon.touch},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'},
   focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: ui.color.accent},
   focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
