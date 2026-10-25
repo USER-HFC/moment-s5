@@ -4,6 +4,10 @@ import android.hardware.usb.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Host checks against the fake bulk transport in tests/android-stubs; no physical S5 claim. */
 public final class UsbPtpChecks {
@@ -100,9 +104,242 @@ public final class UsbPtpChecks {
         check(!camera.closed(),"a refused focus step keeps the session");
         camera.close();
     }
-    private static byte[] objectInfo(int format,String name) throws IOException {
+    private static byte[] objectInfo(int format,String name) throws IOException {return objectInfo(format,name,4096,0x00010001);}
+    private static byte[] objectInfo(int format,String name,int size,int storageId) throws IOException {
         ByteArrayOutputStream out=new ByteArrayOutputStream();ByteBuffer head=Ptp.le(new byte[52]);
-        head.putInt(0x00010001).putShort((short)format).putShort((short)0).putInt(4096);out.write(head.array());ptpString(out,name);return out.toByteArray();
+        head.putInt(storageId).putShort((short)format).putShort((short)0).putInt(size);out.write(head.array());ptpString(out,name);return out.toByteArray();
+    }
+    private static byte[] handleList(int... values) {
+        ByteBuffer list=Ptp.le(new byte[4+values.length*4]);list.putInt(values.length);for(int value:values)list.putInt(value);return list.array();
+    }
+    private interface Catalog {int[] handles();byte[] object(int handle) throws IOException;}
+    private static void serve(UsbManager manager,Catalog catalog) {
+        manager.connection.respond=command->{ByteBuffer b=Ptp.le(command);int op=b.getShort(6)&65535,tx=b.getInt(8),h=command.length>=16?b.getInt(12):0;
+            byte[] ok=container(3,0x2001,tx,new byte[0]);
+            try {
+                if(op==0x1007) return join(container(2,op,tx,handleList(catalog.handles())),ok);
+                if(op==0x1008) return join(container(2,op,tx,catalog.object(h)),ok);
+            } catch(IOException e) {throw new UncheckedIOException(e);}
+            return ok;
+        };
+    }
+    private static UsbS5Transport connect(UsbManager manager,List<String> logs) throws IOException {
+        UsbS5Transport camera=new UsbS5Transport(manager,new UsbDevice(),logs::add);camera.open();return camera;
+    }
+    private static CameraTransport.Baseline baseline(UsbManager manager,UsbS5Transport camera,int... handles) throws Exception {
+        serve(manager,new Catalog(){public int[] handles(){return handles;}public byte[] object(int handle){return new byte[0];}});
+        return camera.prepareCaptureBaseline();
+    }
+    @SuppressWarnings("unchecked") private static LinkedBlockingQueue<Integer> addedQueue(UsbS5Transport camera) throws Exception {
+        java.lang.reflect.Field usbField=UsbS5Transport.class.getDeclaredField("usb");usbField.setAccessible(true);
+        java.lang.reflect.Field queue=UsbS5.class.getDeclaredField("added");queue.setAccessible(true);
+        return (LinkedBlockingQueue<Integer>)queue.get(usbField.get(camera));
+    }
+    private static CameraTransport.Original awaitPhoto(UsbS5Transport camera,CameraTransport.Baseline baseline) throws Exception {
+        AtomicBoolean valid=new AtomicBoolean(true);AtomicReference<CameraTransport.Original> result=new AtomicReference<>();AtomicReference<Throwable> error=new AtomicReference<>();
+        Thread thread=new Thread(()->{try{result.set(camera.awaitNewJpeg(baseline,valid::get));}catch(Throwable e){error.set(e);}},"pairing");
+        thread.start();thread.join(10000);
+        if(thread.isAlive()){valid.set(false);thread.join(3000);} 
+        if(thread.isAlive()){camera.abort();thread.join(2000);throw new AssertionError("pairing did not finish");}
+        if(error.get() instanceof Exception ex) throw ex;
+        if(error.get()!=null) throw new AssertionError(error.get());
+        return result.get();
+    }
+    private static void staysUnpaired(UsbS5Transport camera,CameraTransport.Baseline baseline,String message) throws Exception {
+        AtomicBoolean valid=new AtomicBoolean(true);AtomicReference<CameraTransport.Original> result=new AtomicReference<>();AtomicReference<Throwable> error=new AtomicReference<>();
+        Thread thread=new Thread(()->{try{result.set(camera.awaitNewJpeg(baseline,valid::get));}catch(Throwable e){error.set(e);}},"pairing");
+        thread.start();Thread.sleep(2500);valid.set(false);thread.join(3000);
+        CameraTransport.Original photo=result.get();
+        check(photo==null && error.get() instanceof IOException,message+(photo==null?"":" got "+photo.key()+" "+photo.filename()));
+    }
+    private static void paired(CameraTransport.Original photo,int handle,String filename,String message) {
+        check(photo!=null && Integer.valueOf(handle).equals(photo.key()) && filename.equals(photo.filename()),
+            message+" got "+(photo==null?"nothing":photo.key()+" "+photo.filename()));
+    }
+    private static boolean saw(List<String> logs,String fragment) {for(String line:logs) if(line.contains(fragment)) return true;return false;}
+    /** Baseline omits an older JPEG. The new file appears on a later listing and has the smaller handle. */
+    private static void pairing() throws Exception {
+        check(UsbS5Transport.lumixSequence("P1000005.JPG")==1_000_005,"folder 100 file 5");
+        check(UsbS5Transport.lumixSequence("P1009999.JPG")==1_009_999 && UsbS5Transport.lumixSequence("P1010001.JPG")==1_010_001,"folder then file number");
+        check(UsbS5Transport.lumixSequence("P1009999.JPG")<UsbS5Transport.lumixSequence("P1010001.JPG"),"a new folder is newer than the previous folder's last file");
+        check(UsbS5Transport.lumixSequence("p1000006.jpeg")==1_000_006,"JPEG extension and case");
+        check(UsbS5Transport.lumixSequence("_1010001.JPG")==1_010_001,"an AdobeRGB underscore name carries the same folder+file sequence");
+        check(UsbS5Transport.lumixSequence("IMG_0006.JPG")<0 && UsbS5Transport.lumixSequence(null)<0,"a name that is not a Lumix sequence is not ordered");
+
+        List<String> logs=Collections.synchronizedList(new ArrayList<>());UsbManager manager=manager();UsbS5Transport camera=connect(manager,logs);
+        CameraTransport.Baseline baseline=baseline(manager,camera,1,2);
+        AtomicInteger lists=new AtomicInteger();
+        serve(manager,new Catalog(){
+            public int[] handles(){return lists.incrementAndGet()<2?new int[]{1,2,30}:new int[]{1,2,30,4};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==4?"P1000006.JPG":"P1000005.JPG");}
+        });
+        try {
+            paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","an older JPEG missing from the baseline must not win while the new file is still absent");
+            check(saw(logs,"快门前照片索引 2 个") && saw(logs,"句柄 30 P1000005.JPG") && saw(logs,"句柄 4 P1000006.JPG"),"diagnostics list the baseline and each new candidate");
+            check(saw(logs,"本次照片选中句柄 4 P1000006.JPG：连续两次索引一致，文件名序号最新"),"diagnostics say why the new file was paired");
+            check(!saw(logs,"序列号"),"diagnostics do not record a camera serial number");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,90,3};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==3?"P1010001.JPG":"P1009999.JPG");}
+        });
+        try {paired(awaitPhoto(camera,baseline),3,"P1010001.JPG","Lumix folder+file order beats a larger handle");}
+        finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        camera.noteSaved(new CameraTransport.Original(30,"P1000005.JPG",4096));
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,30,99};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==99?"P1000004.JPG":"P1000008.JPG");}
+        });
+        try {
+            paired(awaitPhoto(camera,baseline),99,"P1000004.JPG","a file number below the saved one is accepted only as the single new JPEG");
+            check(saw(logs,"本会话已保存") && saw(logs,"序号回退（可能换卡或重置编号），按唯一新文件接受"),"diagnostics record the number-reset rule");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        camera.noteSaved(new CameraTransport.Original(30,"P1000005.JPG",4096));
+        AtomicInteger flips=new AtomicInteger();
+        serve(manager,new Catalog(){
+            public int[] handles(){return flips.incrementAndGet()%2==1?new int[]{1,2,30,99}:new int[]{1,2,30};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==99?"P1000004.JPG":"P1000008.JPG");}
+        });
+        try {
+            staysUnpaired(camera,baseline,"a reset number must stay in two agreeing listings before it is accepted");
+            check(saw(logs,"连续两次一致则按换卡/重置编号接受"),"diagnostics say the reset candidate is waiting for the second listing");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        camera.noteSaved(new CameraTransport.Original(30,"P1000005.JPG",4096));
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,30,99,4};}
+            public byte[] object(int handle) throws IOException {
+                if(handle==99) return objectInfo(0x3801,"P1000004.JPG");
+                if(handle==4) return objectInfo(0x3801,"P1000002.JPG");
+                return objectInfo(0x3801,"P1000008.JPG");
+            }
+        });
+        try {
+            staysUnpaired(camera,baseline,"two reset-number files are not guessed");
+            check(saw(logs,"候选文件名序号不大于已保存的 P1000005.JPG，跳过"),"diagnostics say both reset candidates were skipped");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4,8};}
+            public byte[] object(int handle) throws IOException {
+                if(handle==4) return objectInfo(0x3801,"P1000006.JPG",4096,0x00020001);
+                return objectInfo(0x3801,"P1000006.JPG",4096,0x00010001);
+            }
+        });
+        try {
+            paired(awaitPhoto(camera,baseline),8,"P1000006.JPG","the two cards' copies of one photo are paired once, preferring the smaller StorageID");
+            check(saw(logs,"同名同大小的备份副本视为同一张照片") && saw(logs,"选 StorageID 较小的句柄 8"),"diagnostics explain the backup copy choice");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4,8};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,"P1000006.JPG",handle==4?4096:5000,0x00010001);}
+        });
+        try {
+            staysUnpaired(camera,baseline,"same name but different sizes are different files, so pairing must time out");
+            check(saw(logs,"同名 JPEG 大小不同，不配对"),"diagnostics explain the rejected name collision");
+        } finally {camera.close();}
+
+        manager=manager();camera=connect(manager,new ArrayList<>());baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,"_1010001.JPG");}
+        });
+        try {paired(awaitPhoto(camera,baseline),4,"_1010001.JPG","AdobeRGB underscore names are ordered and paired like P names");}
+        finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,"DSCF0001.JPG");}
+        });
+        try {
+            addedQueue(camera).add(4);
+            paired(awaitPhoto(camera,baseline),4,"DSCF0001.JPG","one new JPEG with a name outside the sequence rule is paired after two listings");
+            check(saw(logs,"不选：文件名不符合序号规则，等待两次索引一致") && saw(logs,"只有一个新 JPEG（文件名不符合序号规则）") && saw(logs,"连续两次一致则按唯一新 JPEG 接受"),"diagnostics say the single-new-file fallback was used, not the event shortcut");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4,8};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==4?"DSCF0004.JPG":"DSCF0005.JPG");}
+        });
+        try {
+            staysUnpaired(camera,baseline,"two new JPEGs whose names cannot be ordered are not guessed");
+            check(saw(logs,"多个新 JPEG 中有文件名不符合序号规则，无法判断，不配对"),"diagnostics explain the unordered fallback rejection");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        AtomicInteger reads=new AtomicInteger();
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,30,4};}
+            public byte[] object(int handle) throws IOException {
+                if(handle!=4) return objectInfo(0x3801,"P1000005.JPG");
+                return reads.incrementAndGet()<3?objectInfo(0x3000,"P1000006"):objectInfo(0x3801,"P1000006.JPG");
+            }
+        });
+        addedQueue(camera).add(4);
+        try {
+            paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","a handle that is not JPEG yet is retried, not replaced by the older JPEG");
+            check(saw(logs,"格式 0x3000") && saw(logs,"还不是 JPEG"),"diagnostics keep the not-yet-JPEG event and listing");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        AtomicInteger failures=new AtomicInteger();
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,30,4};}
+            public byte[] object(int handle) throws IOException {
+                if(handle==4 && failures.incrementAndGet()<3) return new byte[4];
+                return objectInfo(0x3801,handle==4?"P1000006.JPG":"P1000005.JPG");
+            }
+        });
+        addedQueue(camera).add(4);
+        try {
+            paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","an object whose format cannot be read yet is retried");
+            check(saw(logs,"暂时读不到格式"),"diagnostics record the unreadable event");
+        } finally {camera.close();}
+
+        logs=Collections.synchronizedList(new ArrayList<>());manager=manager();camera=connect(manager,logs);baseline=baseline(manager,camera,1,2);
+        camera.noteSaved(new CameraTransport.Original(30,"P1000005.JPG",4096));
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,30,4};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==4?"P1000006.JPG":"P1000005.JPG");}
+        });
+        addedQueue(camera).add(30);
+        try {
+            paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","an ObjectAdded for the saved photo is not this shutter");
+            check(saw(logs,"照片事件 句柄 30") && saw(logs,"不选：本会话已保存") && !saw(logs,"选中句柄 30"),"the older event is logged and not paired");
+        } finally {camera.close();}
+
+        manager=manager();camera=connect(manager,new ArrayList<>());baseline=baseline(manager,camera,1,2);
+        camera.noteSaved(new CameraTransport.Original(30,"P1000005.JPG",4096));
+        AtomicInteger indexReads=new AtomicInteger();
+        serve(manager,new Catalog(){
+            public int[] handles(){indexReads.incrementAndGet();return new int[]{1,2,30,4};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,handle==4?"P1000006.JPG":"P1000005.JPG");}
+        });
+        addedQueue(camera).add(4);
+        try {
+            paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","a newer JPEG event is the shutter file");
+            check(indexReads.get()==0,"a newer JPEG event does not wait for another index listing");
+        } finally {camera.close();}
+
+        manager=manager();camera=connect(manager,new ArrayList<>());baseline=baseline(manager,camera,1,2);
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2,4,7};}
+            public byte[] object(int handle) throws IOException {return handle==7?objectInfo(0x3000,"P1000006.RW2"):objectInfo(0x3801,"P1000006.JPG");}
+        });
+        try {paired(awaitPhoto(camera,baseline),4,"P1000006.JPG","a RAW sibling is not paired and does not block the JPEG");}
+        finally {camera.close();}
     }
     @SuppressWarnings("unchecked") private static void cameraPhotos() throws Exception {
         UsbManager manager=manager();UsbS5Transport camera=new UsbS5Transport(manager,new UsbDevice(),s->{});camera.open();
@@ -125,9 +362,21 @@ public final class UsbPtpChecks {
         CameraTransport.Baseline next=camera.withPhoto(baseline,photo);added.add(8);
         check(camera.nextCameraPhoto(next,Set.of())==null,"a synced photo joins the baseline and is never imported twice");
         camera.close();
+
+        manager=manager();camera=new UsbS5Transport(manager,new UsbDevice(),s->{});camera.open();
+        serve(manager,new Catalog(){
+            public int[] handles(){return new int[]{1,2};}
+            public byte[] object(int handle) throws IOException {return objectInfo(0x3801,"P1000008.JPG",4096,handle==8?0x00020001:0x00010001);}
+        });
+        baseline=camera.prepareCaptureBaseline();
+        addedQueue(camera).addAll(List.of(8,9));
+        photo=camera.nextCameraPhoto(baseline,Set.of());
+        check(photo!=null && photo.key().equals(8),"body sync takes the first of two backup-recording copies");
+        check(camera.nextCameraPhoto(baseline,Set.of())==null,"the other card's copy of the same name+size is not synced twice");
+        camera.close();
     }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();anyLumix();focus();cameraPhotos();
+        timeouts();exposure();anyLumix();focus();cameraPhotos();pairing();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }

@@ -64,11 +64,11 @@ public final class Ptp {
         public boolean supports(int op) { for(int x:operations) if(x==op) return true; return false; }
     }
     public static final class ObjectInfo {
-        public final int format, width, height;
+        public final int storageId, format, width, height;
         public final long size;
         public final String filename;
         public ObjectInfo(byte[] bytes) throws IOException {
-            Reader r=new Reader(bytes); r.skip(4); format=r.u16(); r.skip(2); size=Integer.toUnsignedLong(r.i32());
+            Reader r=new Reader(bytes); storageId=r.i32(); format=r.u16(); r.skip(2); size=Integer.toUnsignedLong(r.i32());
             r.skip(14); width=r.i32(); height=r.i32(); r.position(52); filename=r.string();
         }
         public boolean jpeg() { return format == 0x3801 || filename.toLowerCase(java.util.Locale.ROOT).endsWith(".jpg"); }
