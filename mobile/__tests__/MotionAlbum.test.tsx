@@ -344,6 +344,8 @@ it('shows the original while the photo is held in the LUT sheet', async () => {
   act(() => { tree = renderer.create(<MotionAlbum moments={moments} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onPreview={onPreview} onRender={async () => {}}/>); });
   open(tree!);
   act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  expect(JSON.stringify(tree!.toJSON())).toContain('按住照片对比原片 · 动态照片会用新静态图重新封装');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('实况');
   await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
   expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
   const hold = latest('longPress')!;
@@ -360,9 +362,10 @@ it('shares the original when that option is chosen', () => {
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onShare={onShare}/>); });
   open(tree!);
-  act(() => tree!.root.findByProps({accessibilityLabel: '分享照片'}).props.onPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '分享动态照片'}).props.onPress());
   const buttons = alert.mock.calls[0][2]!;
-  expect(buttons.map((button) => button.text)).toEqual(['分享当前画面', '分享原片', '分享动态视频', '分享实况文件', '取消']);
+  expect(alert.mock.calls[0][0]).toBe('分享动态照片');
+  expect(buttons.map((button) => button.text)).toEqual(['分享当前画面', '分享原片', '分享动态视频', '分享动态照片', '取消']);
   act(() => buttons[1].onPress!());
   expect(onShare).toHaveBeenCalledWith('M1', 'original');
   act(() => tree!.unmount()); alert.mockRestore();

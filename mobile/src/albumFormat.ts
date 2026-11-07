@@ -107,7 +107,7 @@ export function fileLabel(name: string) {
     case 'original.jpg': return '原片';
     case 'rendered.jpg': return 'LUT 成片';
     case 'motion.mp4': return '动态视频';
-    case 'MOMENT_MP.jpg': return '实况文件';
+    case 'MOMENT_MP.jpg': return '动态照片';
     default: return name;
   }
 }
@@ -116,8 +116,12 @@ export const shareKindLabel: Record<ShareKind, string> = {
   display: '分享当前画面',
   original: '分享原片',
   video: '分享动态视频',
-  motion: '分享实况文件',
+  motion: '分享动态照片',
 };
+
+export function shareDialogTitle(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete'>) {
+  return shareKinds(moment).includes('motion') ? '分享动态照片' : '分享照片';
+}
 
 export function shareKinds(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete'>): ShareKind[] {
   const kinds: ShareKind[] = ['display', 'original'];

@@ -42,7 +42,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     @ReactMethod public void connect(Promise promise){try{if(usb==null)throw new IOException("当前设备不支持 USB 主机连接");List<UsbDevice> devices=new ArrayList<>();for(UsbDevice d:usb.getDeviceList().values())if(UsbS5.candidate(d))devices.add(d);if(devices.isEmpty()){promise.reject("NO_S5","未发现 Panasonic S5，请确认 OTG、数据线和 PC(Tether)");return;}if(devices.size()>1){promise.reject("MULTIPLE_S5","检测到多台 Panasonic 相机");return;}UsbDevice d=devices.get(0);if(usb.hasPermission(d))lifecycle.connect(d);else{PendingIntent p=PendingIntent.getBroadcast(context,0,new Intent(USB_PERMISSION).setPackage(context.getPackageName()),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE);lifecycle.request(d);usb.requestPermission(d,p);}}catch(Exception e){lifecycle.cancel();promise.reject("USB_CONNECT",e.getMessage(),e);return;}promise.resolve(null);}
     private void connectDevice(UsbDevice d){wifi.close();engine.connect(usb,d);}
     @ReactMethod public void connectWifi(ReadableMap options,Promise promise){
-        if(engine.busy()){promise.reject("WIFI_BUSY","正在保存实况，请稍候");return;}
+        if(engine.busy()){promise.reject("WIFI_BUSY","正在保存，请稍候");return;}
         boolean debug=options.hasKey("debugEndpoint") && !options.isNull("debugEndpoint");
         boolean debuggable=(context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0;
         if(debug && !debuggable){promise.reject("WIFI_DEBUG_DISABLED","任意主机调试仅限 debug APK");return;}
@@ -103,7 +103,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         }catch(Exception e){promise.reject("MOMENT_THUMBNAIL",e.getMessage(),e);}});
     }
     @ReactMethod public void describeMoment(String id,Promise promise){files.execute(()->{try{promise.resolve(detailsMap(MomentDetails.read(context,momentDir(id))));}catch(Exception e){promise.reject("MOMENT_DETAILS",e.getMessage(),e);}});}
-    @ReactMethod public void shareMoment(String id,String kind,Promise promise){try{File dir=momentDir(id);File file=MomentRender.shareFile(dir,MomentStore.metadata(dir),kind);if(!file.isFile()||file.length()==0)throw new IOException("文件尚未生成");Activity activity=getCurrentActivity();if(activity==null)throw new IOException("当前无法打开分享");Uri uri=ShareProvider.uri(context,file);String mime=file.getName().endsWith(".mp4")?"video/mp4":"image/jpeg";Intent intent=new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.setClipData(ClipData.newRawUri(file.getName(),uri));activity.startActivity(Intent.createChooser(intent,"分享照片"));promise.resolve(null);}catch(Exception e){promise.reject("MOMENT_SHARE",e.getMessage(),e);}}
+    @ReactMethod public void shareMoment(String id,String kind,Promise promise){try{File dir=momentDir(id);File file=MomentRender.shareFile(dir,MomentStore.metadata(dir),kind);if(!file.isFile()||file.length()==0)throw new IOException("文件尚未生成");Activity activity=getCurrentActivity();if(activity==null)throw new IOException("当前无法打开分享");Uri uri=ShareProvider.uri(context,file);String mime=file.getName().endsWith(".mp4")?"video/mp4":"image/jpeg";Intent intent=new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.setClipData(ClipData.newRawUri(file.getName(),uri));activity.startActivity(Intent.createChooser(intent,shareTitle(kind)));promise.resolve(null);}catch(Exception e){promise.reject("MOMENT_SHARE",e.getMessage(),e);}}
     @ReactMethod public void importLut(String uri,String displayName,Promise promise){
         File temp=null;
         try {
@@ -140,6 +140,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     private File momentDir(String id)throws IOException {if(id==null||!id.equals(new File(id).getName()))throw new IOException("非法动态照片路径");for(File dir:new MomentStore(context).list())if(dir.getName().equals(id))return dir;throw new IOException("动态照片不存在");}
     private File uniqueFile(String name)throws IOException {File f=safeFile(name);if(!f.exists())return f;String stem=name.replaceFirst("(?i)\\.cube$","");for(int i=2;i<10000;i++){f=safeFile(stem+"-"+i+".cube");if(!f.exists())return f;}throw new IOException("LUT 仓库已存在太多同名文件");}
     private static String cleanName(String raw){String name=raw==null?"imported.cube":new File(raw).getName().trim();name=name.replaceAll("[^A-Za-z0-9._-]","_");return name.isEmpty()?"imported.cube":name;}
+    private static String shareTitle(String kind){if("video".equals(kind))return "分享动态视频";if("motion".equals(kind))return "分享动态照片";if("original".equals(kind))return "分享原片";if("display".equals(kind))return "分享当前画面";return "分享照片";}
     private void status(String message){WritableMap m=Arguments.createMap();m.putString("message",message);m.putBoolean("ready",false);emit("cameraStatus",m);}
     private void emit(String name,WritableMap map){if(context.hasActiveCatalystInstance())context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(name,map);}
 }

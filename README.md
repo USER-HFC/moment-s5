@@ -1,14 +1,14 @@
 # 瞬间 Lumix / Moment
 
-为 Panasonic LUMIX 系列相机打造的 React Native 实况照片应用。USB-C 数据线直连或实验 Wi-Fi，不需要视频采集卡、不依赖云端、不刷机。界面按通用 LUMIX 设计；S5 的 Wi-Fi 型号问题由用户实测发现，修复后尚待实测，其他机型尚未逐一验证。
+为 Panasonic LUMIX 系列相机打造的 React Native 动态照片应用。USB-C 数据线直连或实验 Wi-Fi，不需要视频采集卡、不依赖云端、不刷机。界面按通用 LUMIX 设计；S5 的 Wi-Fi 型号问题由用户实测发现，修复后尚待实测，其他机型尚未逐一验证。
 
-Experimental Android Motion Photo companion for Panasonic LUMIX cameras over USB or experimental Wi-Fi. Unofficial, MIT-licensed. **Physical camera compatibility is not yet verified beyond the user-tested S5 Wi-Fi model identification.**
+Experimental Android companion for Panasonic LUMIX dynamic photos over USB or experimental Wi-Fi. Unofficial, MIT-licensed. **Physical camera compatibility is not yet verified beyond the user-tested S5 Wi-Fi model identification.**
 
 [预发布 v0.8.0-beta.4](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.4) · [最新稳定版 v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0) · [MIT 许可证](LICENSE) · [测试范围](TEST_REPORT.md)
 
 **v0.8.0-beta.4（code 25）是预发布版。v0.7.0 仍是最新稳定版。** 日常使用请安装 [v0.7.0](https://github.com/USER-HFC/moment-s5/releases/tag/v0.7.0)；想试用本版的通用 LUMIX、LUT 侧边面板、机身照片同步、相册重设计、示波器和设置页时，再下载 [v0.8.0-beta.4 arm64 APK](https://github.com/USER-HFC/moment-s5/releases/tag/v0.8.0-beta.4)。
 
-本版继续提供两种拍摄：普通照片下载这一次的 JPEG，动态照片在约 3 秒取景缓存就绪后保存 Motion Photo。USB 是默认和推荐的连接方式；Wi-Fi 仍是实验功能，界面标明「未经真机验证」。LUT、透明示波器、相册和设置都可从拍摄页直接进入。
+本版继续提供两种拍摄：普通照片下载这一次的 JPEG，动态照片在约 3 秒取景缓存就绪后保存。USB 是默认和推荐的连接方式；Wi-Fi 仍是实验功能，界面标明「未经真机验证」。LUT、透明示波器、相册和设置都可从拍摄页直接进入。
 
 USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)：
 
@@ -18,16 +18,16 @@ USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXE
 - 实验 Wi-Fi 按公开的 LUMIX Sync 顺序等待机身确认、订阅事件后再取景，兼容普通握手和加密握手（加密机型未验证），并以较疏的保活和有限的目录读取减少整卡遍历。原片允许 512 字节填充。快门仍然只发一次。
 - 机身自己按快门保存的 JPEG 会在 USB 连接时同步进 App 相册：按 Lumix 文件名序号配对，双卡备份只导入一次，已经同步过的文件不会重复导入。
 
-**尚未在真实相机上验证。** 没有实体 S5 或 Find X8，协议修复只用自写的假设备测过，界面只在模拟器 DEMO 上跑过。模拟器截图见 [v0.8.0-beta.4 截图记录](evidence/v0.8.0-beta.4/REPORT.md)。从 v0.7.0 升级须先把照片导出到系统相册并确认，再卸载 v0.7.0，因为签名不同；beta 系列之间的签名兼容性以发布页记录的证书 SHA-256 为准。
+**尚未在真实相机上验证。** 没有实体 S5 或 Find X8，协议修复只用自写的假设备测过，界面只在模拟器演示里跑过。模拟器截图见 [v0.8.0-beta.4 截图记录](evidence/v0.8.0-beta.4/REPORT.md)。从 v0.7.0 升级须先把照片导出到系统相册并确认，再卸载 v0.7.0，因为签名不同；beta 系列之间的签名兼容性以发布页记录的证书 SHA-256 为准。
 
-<img src="evidence/v0.8.0-beta.4/09-scopes-all.png" alt="竖屏 DEMO 拍摄页：Classic Chrome LUT、四张透明示波器、曝光 HUD 和快门" width="720">
+<img src="evidence/v0.8.0-beta.4/09-scopes-all.png" alt="竖屏演示拍摄页：Classic Chrome LUT、四张透明示波器、曝光 HUD 和快门" width="720">
 
 ## 当前交付
 
 - React Native Android APK，最低 Android 13（API 33），只提供 `arm64-v8a`。支持竖屏和双向横屏，工具栏、取景和快门区随方向重排。`mobile/` 是 RN 工程，产品名为「瞬间 Lumix」。启动后直接进入拍摄页。
-- 连接面板默认是 USB。同一面板提供「Wi-Fi（实验）」和合成演示。演示画面与元数据标为 DEMO / SYNTHETIC DEMO。
+- 连接面板默认是 USB。同一面板提供「Wi-Fi（实验）」和演示。界面把这种状态标为「演示」；图片水印仍是 MOMENT / SYNTHETIC DEMO。
 - **照片**：下载本次 JPEG，可选 LUT，写入 App 相册，并可导出到 `DCIM/MomentS5`。无三秒预缓存，不生成视频。机身 SD 卡原片保持不动。
-- **动态**：手机保留快门前约 3 秒取景。缓存就绪后，快门冻结这段队列并触发机身拍摄，再接收本次 JPEG，打包为 Android Motion Photo。视频里只有快门前的取景帧。
+- **动态**：手机保留快门前约 3 秒取景。缓存就绪后，快门冻结这段队列并触发机身拍摄，再接收本次 JPEG，打包为动态照片。视频里只有快门前的取景帧。
 - **LUT 侧边面板**：拍摄页工具栏的「LUT」在左侧展开侧边面板，列出内置 Fuji 风格预设、导入的 `.cube` / `.zip` 和「原色」。切换时立即作用于实时取景、快门前缓存和之后的 `rendered.jpg`；拍摄处理中会暂时禁用。导入和刷新也在同一面板里。
 - **机身照片同步**：USB 连接时，用机身快门拍的照片会作为新文件被同步进 App 相册，标记「机身快门同步」。配对按 Lumix 文件名序号和大小去重，双卡备份不会导入两份；不会把上一次的照片当成这一次。
 - 监看有实时取景和构图网格。LUT 同时作用于监看和手机端渲染；`original.jpg` 永远是相机原始 JPEG，`rendered.jpg` 才是派生文件。可导入 LUMIX Lab 的 33-grid `.cube` 或包含它的 `.zip`。内置 8 个只读 Fuji 风格近似预设，说明见 [NOTICE.md](NOTICE.md)。LUT 必须和输入色彩空间匹配，App 不会把普通 JPEG 自动变成 V-Log。
@@ -38,7 +38,7 @@ USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXE
 - 可选手机麦克风，默认关闭，授权后才把 AAC 音轨并入动态照片。
 - 连接诊断可以分享。记录里不包含机身序列号，日志不上传。
 
-**状态：当前 release 能在 Android 模拟器里启动并完成上述 DEMO 界面和本地相册流程。尚未在真实相机上验证 USB 会话、Wi-Fi 握手、镜头步进方向、机身照片同步、曝光刷新、取景连续性或 ColorOS 相册识别。** iOS 页面工程已由 RN 生成，ImageCaptureCore / PTP 原生桥还没接入，不能把 iPhone / iPad 当成已支持。Android Motion Photo 也不能直接当作 Apple Live Photo。
+**状态：当前 release 能在 Android 模拟器里启动并完成上述演示界面和本地相册流程。尚未在真实相机上验证 USB 会话、Wi-Fi 握手、镜头步进方向、机身照片同步、曝光刷新、取景连续性或 ColorOS 相册识别。** iOS 页面工程已由 RN 生成，ImageCaptureCore / PTP 原生桥还没接入，不能把 iPhone / iPad 当成已支持。动态照片也不能直接当作 Apple Live Photo。
 
 交互取舍见 [DESIGN.md](DESIGN.md)，更早的测试范围见 [TEST_REPORT.md](TEST_REPORT.md)。
 
@@ -56,18 +56,18 @@ USB 与实验 Wi-Fi 的协议修复概括如下，完整清单在 [PROTOCOL_FIXE
 
 **定时**：点「定时」后选择延时，再点「开始倒计时」。指令发出前可以取消。离开页面、退到后台或断开连接会取消还没到点的任务。这里没有后台定时、间隔连拍或失败自动重拍。定时照片同样下载本次 JPEG。相册只看手机里的 App 副本，不浏览相机存储卡。
 
-没有相机时点「体验演示」。照片模式会走 JPEG 保存、LUT 和导出；动态模式另外走缓存和编码。画面上的 MOMENT / SYNTHETIC DEMO 表示这是合成素材。
+没有相机时点「体验演示」。照片模式会走 JPEG 保存、LUT 和导出；动态模式另外走缓存和编码。画面上的 MOMENT / SYNTHETIC DEMO 水印表示这是演示素材。
 
 ## 重要的能力边界
 
 - **照片**是相机这一次的 JPEG。RAW 留在机身，本版不下载、不处理 RW2，也不会主动删除相机里的文件。
 - **机身照片同步**只处理 USB 会话期间新出现的 JPEG。相机在 App 未连接、没有建立基线时拍的照片不会被追溯导入；RAW 不会同步。
 - **动态**来自取景流，最长边 960 像素、输出 15 fps。重复帧按真实时间间隔显示。它是快门前的监看，不是机内 4K，也不是事后补出来的 RAW。
-- 动态视频停在发出快门指令之前的缓存。Motion Photo 里静态照片的时间标记落在视频最后一个编码帧。照片和动态的对齐还要在真机上校准。
+- 动态视频停在发出快门指令之前的缓存。动态照片里，静态照片的时间标记落在视频最后一个编码帧。照片和动态的对齐还要在真机上校准。
 - 只有动态模式要求预缓存满 3 秒，并且帧间隔不超过 500 ms。间隔更大时快门会停用。App 不用快门之后的画面补这段视频。
 - 声音来自手机麦克风。缓存不够或没有录音权限时，动态照片可以是无声的。
 - 首次真机测试建议先用横构图。竖拍静态 JPEG 的 EXIF 会原样保留；机身取景方向和动态画面是否一致，还没在真机上看过。
-- 系统相册会不会把文件认成实况，取决于 ColorOS 版本。App 内长按回放不依赖这个识别。
+- 系统相册会不会把文件认成动态照片，取决于 ColorOS 版本。App 内长按回放不依赖这个识别。
 - 退到后台会断开连接，没有后台连续预录。同一时间只有一个拍摄任务。原片接收上限 64 MB，压缩 JPEG 环形缓存上限 32 MB。
 - 对焦没有独立的自动对焦按钮，也没有精确的 A/B 拉焦。中央对焦框是点按自动对焦；近 / 远是对焦面板里的 USB 相对步进，方向尚未在真机上确认。Wi-Fi 侧不提供近 / 远按钮。
 - 实验 Wi-Fi 仍可能在真实机身上失败。已知还要真机数据才能决定的事项写在 [PROTOCOL_FIXES.md](PROTOCOL_FIXES.md)，包括快门前是否必须进出一次播放模式，以及手动对焦档位的方向。USB 仍是默认和推荐方式。
@@ -122,7 +122,7 @@ adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.lumix.test
 | `MainActivity.java` / `PreviewView.java` / `HoldPhotoView.java` | 旧版 Android 界面，仅作迁移参考 |
 | `ShareProvider.java` | 限定输出路径的只读分享 |
 
-每次成功拍摄动态照片包含 `original.jpg`、`motion.mp4`、`MOMENT_MP.jpg`、`moment.json`；启用 LUT 时另有 `rendered.jpg`。静态原片与视频可独立分享，也保留后续转换到 Apple Live Photo 的素材基础；本版未提供该转换器。普通照片（含定时和机身快门同步）只保存 `original.jpg`、`moment.json`，选 LUT 时另有 `rendered.jpg`，不创建 MP4 或 Motion Photo 容器。
+每次成功拍摄动态照片包含 `original.jpg`、`motion.mp4`、`MOMENT_MP.jpg`、`moment.json`；启用 LUT 时另有 `rendered.jpg`。静态原片与视频可独立分享，也保留后续转换到 Apple Live Photo 的素材基础；本版未提供该转换器。普通照片（含定时和机身快门同步）只保存 `original.jpg`、`moment.json`，选 LUT 时另有 `rendered.jpg`，不创建 MP4 或动态照片文件。
 
 ## 开源来源
 
@@ -130,7 +130,7 @@ adb -s emulator-5554 shell am instrument -w -e suite layout cn.moment.lumix.test
 
 相机协议适配自 MIT 许可的 [baku89/tethr](https://github.com/baku89/tethr)，固定参考提交和完整许可见 [NOTICE.md](NOTICE.md)。没有打包松下固件或闭源 SDK DLL。
 
-Motion Photo 容器按照 [Android 官方格式](https://developer.android.com/media/platform/motion-photo-format)实现。USB 访问使用 [Android UsbManager](https://developer.android.com/develop/connectivity/usb/host)。
+动态照片文件使用 Android Motion Photo 格式，说明见 [Android 官方文档](https://developer.android.com/media/platform/motion-photo-format)。USB 访问使用 [Android UsbManager](https://developer.android.com/develop/connectivity/usb/host)。
 
 ## 内置 Fuji 风格 LUT
 
@@ -158,7 +158,7 @@ Android 在独立低优先级线程中分析与监看相同的 LUT 后 JPEG（�
 - 配对使用 `req_acc` 协议：机身弹出确认时会继续等待用户确认，而不是立刻判失败；description 声明支持加密握手（`X_CamCapability` 以 1 结尾）时走 `req_acc_g` / `req_acc_e`，机身拒绝时回退普通握手。加密路径来自对 LUMIX Sync 的公开分析，未在加密机型上验证。
 - Wi-Fi 的自动对焦候选是 `oneshot_af`，手动对焦候选是 `wide-slow` / `tele-slow`。界面不提供 Wi-Fi 的近 / 远按钮。USB 连接时才会出现「对焦」面板；点按取景中央对焦框做自动对焦。曝光只展示读到的字段，并约每 2 秒在机身空闲时刷新。
 - 拍摄前的目录基线只读根目录和最新文件夹；之后只再列新增或 `childCount` 有变化的文件夹，避免把整张卡扫一遍。快门只发一次，超时或拒绝后退出会话，**绝不自动重发**。只接受唯一新对象中的 `CAM_ORG` / `CAM_RAW_JPG` 原 JPEG。请使用单张 JPEG / RAW+JPEG，避免机身或其他 App 同时拍摄。
-- 原片允许 EOI 之后的填充。校验 SOI / SOF / SOS / EOI 后原子发布，再按模式保存：普通照片走 LUT / JPEG / 相册 / 导出；动态照片再用三秒快门前缓冲编码 Motion Photo。满 3 秒且帧间隔不超过 500 ms 的门槛只约束动态模式。
+- 原片允许 EOI 之后的填充。校验 SOI / SOF / SOS / EOI 后原子发布，再按模式保存：普通照片走 LUT / JPEG / 相册 / 导出；动态照片再用三秒快门前的画面封装。满 3 秒且帧间隔不超过 500 ms 的门槛只约束动态模式。
 - 取景按每个 UDP 数据报里的 S5 头部偏移找 JPEG，失败时再在报头附近搜索标记，并截到 EOI。残帧丢弃，队列最多三帧。跨数据报的未知分包仍要真机抓包确认。离开前台会释放取景和网络。暂不包含 BLE 唤醒、自动发现或 iOS Wi-Fi。
 
 模拟器闭环只证明本项目自写 mock 与 App 的协议 / 媒体路径，不能代替真实相机、手机、双 STA / 蜂窝共存、长曝光、双卡或原片 SD 字节一致性验收。证据见 [Wi-Fi beta 验证报告](evidence/v0.8.0-beta.1-wifi/REPORT.md)，实体测试清单见 [无线研究](docs/research/wireless-connection.md)。纯 Java 主机检查运行 `JAVA_HOME=/path/to/JDK17 bash tools/check-wifi.sh`；保留现有 core / native / scopes / LUT / Jest 与 `python3 -I -m unittest discover tools/s5-wifi` 检查。

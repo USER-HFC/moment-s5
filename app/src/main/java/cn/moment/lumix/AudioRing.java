@@ -52,7 +52,7 @@ public final class AudioRing implements AutoCloseable {
             int target=(int)((b.us-from)*RATE/1_000_000),source=Math.max(0,-target),dest=Math.max(0,target),count=Math.min(b.samples.length-source,n-dest);
             if(count>0){System.arraycopy(b.samples,source,out,dest,count);covered.set(dest,dest+count);}
         }}
-        if(covered.cardinality()<n*.85)throw new IOException("环境声缓存不足，本次保存无声实况");return out;
+        if(covered.cardinality()<n*.85)throw new IOException("环境声缓存不足，这次动态照片没有声音");return out;
     }
     @Override public synchronized void close(){
         running=false;if(recorder!=null){try{recorder.stop();}catch(IllegalStateException ignored){}
