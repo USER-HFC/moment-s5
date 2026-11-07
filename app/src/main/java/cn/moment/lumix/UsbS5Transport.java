@@ -39,6 +39,11 @@ public final class UsbS5Transport implements CameraTransport {
     /** Same monotonic microsecond clock as CaptureEngine.now(). */
     private static long now() {return android.os.SystemClock.elapsedRealtimeNanos()/1000;}
     public String kind() {return "usb";}
+    public String cameraModel() {
+        if(usb.info==null || usb.info.model==null) return null;
+        String model=usb.info.model.trim();
+        return model.isEmpty()?null:model;
+    }
     public void open() throws IOException {usb.open();}
     public Preview preview() throws IOException {byte[] bytes=usb.preview();return bytes==null?null:new Preview(bytes,now());}
     public Capabilities capabilities() {return new Capabilities(true,true,true);}

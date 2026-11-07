@@ -7,6 +7,7 @@ import {ui} from './theme';
 type Props = {
   landscape: boolean;
   dock: {width: number; height: number};
+  railWidth: number;
   /** null is off. */
   selected: number | null;
   onSelect: (seconds: number | null) => void;
@@ -22,9 +23,10 @@ const OPTIONS: {value: number | null; label: string; accessibilityLabel: string}
 ];
 
 // Same flat flyout as LUT and focus: no scrim, no shadow, and it closes those panels by taking the one open slot.
-export default function TimerFlyout({landscape, dock, selected, onSelect, onClose}: Props) {
+export default function TimerFlyout({landscape, dock, railWidth, selected, onSelect, onClose}: Props) {
+  // Pin both edges so a 1.3× font wrap stays between the tool rail and the shutter dock.
   const anchor = landscape
-    ? {right: dock.width + ui.space.sm, top: ui.space.sm}
+    ? {left: railWidth + ui.space.sm, right: dock.width + ui.space.sm, top: ui.space.sm}
     : {left: ui.space.sm, right: ui.space.sm, bottom: dock.height + ui.space.sm};
   return <View testID="timer-flyout" accessibilityLabel="定时面板" style={[styles.flyout, anchor]}>
     <View style={styles.header}>
@@ -36,8 +38,8 @@ export default function TimerFlyout({landscape, dock, selected, onSelect, onClos
         const on = option.value === selected;
         return <Pressable key={option.accessibilityLabel} accessibilityRole="button" accessibilityLabel={option.accessibilityLabel} accessibilityState={{selected: on}}
           onPress={() => onSelect(option.value)} android_ripple={{color: ui.color.pressed}}
-          style={({pressed}) => [styles.option, landscape && styles.optionFixed, on && styles.optionOn, pressed && styles.pressed]}>
-          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.optionLabel, on && styles.optionLabelOn]}>{option.label}</Text>
+          style={({pressed}) => [styles.option, on && styles.optionOn, pressed && styles.pressed]}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.3} style={[styles.optionLabel, on && styles.optionLabelOn]}>{option.label}</Text>
         </Pressable>;
       })}
     </View>
@@ -49,10 +51,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.background, elevation: 0},
   header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: ui.space.sm},
   title: {...ui.type.title, color: ui.color.text},
-  options: {flexDirection: 'row', alignItems: 'stretch', gap: ui.space.sm},
-  option: {flex: 1, minWidth: ui.icon.touch, minHeight: ui.icon.touch, paddingHorizontal: ui.space.xs, alignItems: 'center', justifyContent: 'center',
+  options: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: ui.space.sm},
+  option: {flexGrow: 1, flexShrink: 1, flexBasis: 64, minWidth: 64, minHeight: ui.icon.touch, paddingHorizontal: ui.space.xs, alignItems: 'center', justifyContent: 'center',
     borderRadius: ui.radius.small, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.surface},
-  optionFixed: {flexGrow: 0, flexBasis: 'auto'},
   optionOn: {backgroundColor: ui.color.selected, borderColor: ui.color.accent},
   pressed: {backgroundColor: ui.color.raised},
   optionLabel: {...ui.type.label, color: ui.color.text, fontWeight: '600'},

@@ -63,6 +63,27 @@ it('opens connection diagnostics from a failed capture without asking the user t
   jest.useRealTimers();
 });
 
+it('shows photographer copy for bridge failures and keeps the raw text out of the notice', async () => {
+  jest.useFakeTimers();
+  let tree: renderer.ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<App/>); });
+  const listeners: Map<string, Function> = (cameraEvents as any).listeners;
+  await act(async () => listeners.get('cameraStatus')!({message: 'PTP 指令 0x9404，响应 0x2019（机身忙）', ready: false}));
+  expect(JSON.stringify(tree!.toJSON())).toContain('相机正忙，请稍后再按快门');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('0x2019');
+  await act(async () => listeners.get('cameraStatus')!({message: 'USB 已拔出 · 照片保留在机身或本机', ready: false}));
+  expect(JSON.stringify(tree!.toJSON())).toContain('相机已断开，请检查数据线');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('USB 已拔出');
+  await act(async () => listeners.get('cameraFailed')!({error: '机身未在时限内确认 Wi-Fi 连接；已取消请求'}));
+  const json = JSON.stringify(tree!.toJSON());
+  expect(json).toContain('相机没有确认连接，请在相机上点允许');
+  expect(json).not.toContain('照片处理失败');
+  expect(json).not.toContain('机身未在时限内确认');
+  act(() => tree!.unmount());
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
+
 it('continues receiving previews when the wall clock moves backwards', async () => {
   jest.useFakeTimers();
   let tree: renderer.ReactTestRenderer;

@@ -16,6 +16,7 @@ import useCameraReadings from './src/hud/useCameraReadings';
 import SettingsScreen, {SettingsPage} from './src/SettingsScreen';
 import {buildInfoFromModule} from './src/buildInfo';
 import {Notice} from './src/notice';
+import {captureFailureNotice, userFacingError} from './src/captureError';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -53,7 +54,13 @@ export default function App() {
     void refresh();
     if (!cameraEvents) { showNotice('当前平台没有相机桥'); return; }
     const subs = [
-      cameraEvents.addListener('cameraStatus', (e) => { if (typeof e.message === 'string' && !isSavedStatus(e.message)) showNotice(e.message); setConnectionStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
+      cameraEvents.addListener('cameraStatus', (e) => {
+        const raw = typeof e.message === 'string' ? e.message : '';
+        if (raw && !isSavedStatus(raw)) showNotice(userFacingError(raw));
+        setConnectionStatus(raw ? userFacingError(raw) : raw);
+        setState((s) => ({...s, ready: !!e.ready}));
+        void refresh();
+      }),
       cameraEvents.addListener('cameraFrame', (e) => {
         const now = performance.now();
         if (pageRef.current === 'camera' && now - lastPreviewAt.current >= 66) {
@@ -71,7 +78,7 @@ export default function App() {
       }),
       cameraEvents.addListener('cameraFailed', (e) => {
         const detail = typeof e.error === 'string' ? e.error.trim() : '';
-        showNotice(detail ? `照片处理失败：${detail}` : '照片处理失败', {
+        showNotice(captureFailureNotice(detail), {
           label: '查看诊断',
           onPress: () => openDiagnosticsPage(),
         });
@@ -152,7 +159,7 @@ export default function App() {
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
-function errorText(e: unknown) { return String((e as Error)?.message || e); }
+function errorText(e: unknown) { return userFacingError(String((e as Error)?.message || e)); }
 function isSavedStatus(message: string) { return typeof message === 'string' && message.includes('已保存'); }
 function momentIdFromDirectory(directory: unknown) {
   if (typeof directory !== 'string' || !directory) return undefined;

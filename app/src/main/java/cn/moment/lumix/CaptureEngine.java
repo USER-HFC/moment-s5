@@ -61,6 +61,7 @@ public final class CaptureEngine {
     public synchronized void stopAudio() {if(microphone!=null){microphone.close();microphone=null;}}
     public boolean canFocus() {return active && !demo && !busy && camera!=null;}
     public String transportKind() {return demo?"demo":transport;}
+    public String cameraModel() {if(!active || demo)return null;CameraTransport current=camera;return current==null?null:current.cameraModel();}
     public boolean supportsAutofocus() {return camera!=null && camera.capabilities().autofocus();}
     public boolean supportsManualFocus() {return camera!=null && camera.capabilities().manualFocus();}
     public String exposureValue() {if(!active)return "";if(demo)return "演示素材 · 无相机连接";CameraTransport current=camera;return current!=null && "wifi".equals(current.kind())?current.exposure():exposureValue;}
@@ -357,7 +358,7 @@ public final class CaptureEngine {
         CameraTransport c=camera;if(c!=null)c.abort();stopAudio();
         if(!worker.isShutdown())worker.execute(()->disconnectNow(false));
     }
-    public void detach() {if(!"usb".equals(transport))return;disconnect();if(!worker.isShutdown())worker.execute(()->listener.status("USB 已拔出 · 照片保留在机身或本机",false));}
+    public void detach() {if(!"usb".equals(transport))return;disconnect();if(!worker.isShutdown())worker.execute(()->{String raw="USB 已拔出 · 照片保留在机身或本机";log(raw);listener.status(raw,false);});}
     private void disconnectNow() {
         disconnectNow(true);
     }

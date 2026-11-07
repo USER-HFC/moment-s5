@@ -126,7 +126,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     @ReactMethod public void diagnostics(Promise promise){promise.resolve(engine.diagnostics());}
     @ReactMethod public void getState(Promise promise){WritableMap m=Arguments.createMap();m.putBoolean("active",engine.active());m.putBoolean("busy",engine.busy());m.putBoolean("ready",engine.ready());m.putBoolean("demo",engine.demoMode());m.putBoolean("audio",engine.audioEnabled());m.putString("lut",engine.lutTitle());m.putString("transport",engine.transportKind());m.putString("exposure",engine.exposureValue());putExposureAge(m);m.putMap("phoneBattery",batteryMap(battery.latest()));
         // Neither implemented transport exposes a verified camera-battery property.
-        m.putNull("cameraBattery");m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());promise.resolve(m);}
+        m.putNull("cameraBattery");m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());putNullable(m,"cameraModel",engine.cameraModel());promise.resolve(m);}
     @ReactMethod public void addListener(String name) {}
     @ReactMethod public void removeListeners(double count) {}
     @Override public void invalidate(){files.shutdownNow();battery.close();context.removeLifecycleEventListener(battery);scopes.close();wifi.close();context.removeLifecycleEventListener(wifi);lifecycle.cancel();context.removeLifecycleEventListener(lifecycle);if(receiver!=null){try{context.unregisterReceiver(receiver);}catch(Exception ignored){}}if(engine!=null)engine.shutdown();super.invalidate();}

@@ -4,6 +4,7 @@ import {Text} from 'react-native-paper';
 import {CameraState} from '../native';
 import {ui} from '../theme';
 import {lutDisplayName} from '../lutName';
+import {hudSource} from '../cameraLabel';
 import {bufferReadout} from './bufferStatus';
 import {batteryText, exposureReading, exposureShown} from './readings';
 
@@ -11,19 +12,22 @@ type Props = {state: CameraState; buffered: number; motion: boolean; waiting: bo
 
 export default React.memo(function CameraHud({state, buffered, motion, waiting, onTopLayout, onBottomLayout}: Props) {
   const exposure = exposureReading(state);
-  const source = state.demo ? '演示' : state.transport === 'wifi' ? 'Wi-Fi · 实验性' : 'USB · 已连接';
+  const source = hudSource(state);
   const phone = batteryText(state.phoneBattery);
   const camera = batteryText(state.cameraBattery);
   const showCamera = state.active && !state.demo && camera !== '—';
   const showPhone = phone !== '—';
   const showExposure = exposureShown(exposure);
   const buffer = bufferReadout(buffered, state.ready);
-  const capture = state.busy ? '处理中…' : waiting ? '倒计时' : motion ? state.ready ? '可拍' : '缓存中' : '可拍';
   const showBuffer = state.active && motion && !state.busy;
+  const capture = state.busy ? '处理中…' : waiting ? '倒计时' : motion && !state.ready ? '缓存中' : '可拍';
+  const modeName = motion ? '动态' : '照片';
+  // The buffer line already says 可拍 or 缓存中, so the mode line does not repeat it.
+  const modeLine = showBuffer && !waiting ? modeName : `${modeName} · ${capture}`;
   return <>
     <View pointerEvents="none" testID="hud-top" style={[styles.row, styles.top]} onLayout={onTopLayout}>
       <View testID="hud-source" style={styles.source}>
-        {state.active && <Text style={styles.primary}>{source}</Text>}
+        {state.active && <Text numberOfLines={2} style={styles.primary}>{source}</Text>}
         {state.active && state.transport === 'wifi' && !state.demo && <Text testID="experimental-wifi-badge" style={styles.secondary}>未经真机验证</Text>}
         {state.lut && <Text style={styles.secondary}>LUT · {lutDisplayName(state.lut)}</Text>}
       </View>
@@ -43,9 +47,9 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
         {!!exposure.detail && <Text testID="hud-exposure-detail" style={styles.secondary}>{exposure.detail}</Text>}
       </View>}
       {state.active && <View testID="hud-capture" style={styles.capture}>
-        <Text style={styles.secondary}>{motion ? '动态' : '照片'} · {capture}</Text>
+        <Text numberOfLines={2} style={styles.secondary}>{modeLine}</Text>
         {showBuffer && <>
-          <Text testID="hud-buffer" style={styles.primary}>{buffer.label}</Text>
+          <Text testID="hud-buffer" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.primary}>{buffer.label}</Text>
           <View style={styles.track} accessibilityLabel={buffer.label}>
             <View testID="hud-buffer-bar" style={[styles.bar, {width: `${Math.round(buffer.progress * 100)}%`}]}/>
           </View>
@@ -60,7 +64,7 @@ const styles = StyleSheet.create({
   row: {position: 'absolute', zIndex: 1000, left: ui.space.gutter, right: ui.space.gutter, flexDirection: 'row', justifyContent: 'space-between', gap: ui.space.md},
   top: {top: ui.space.gutter, alignItems: 'flex-start'}, bottom: {bottom: ui.space.gutter, alignItems: 'flex-end'},
   source: {flex: 1, minWidth: 0, gap: ui.space.xs}, right: {flexShrink: 0, alignItems: 'flex-end', gap: ui.space.xs},
-  exposure: {flex: 1, minWidth: 0, gap: ui.space.xs}, capture: {maxWidth: '46%', marginLeft: 'auto', alignItems: 'flex-end', gap: ui.space.xs},
+  exposure: {flex: 1, minWidth: 0, gap: ui.space.xs}, capture: {maxWidth: '54%', flexShrink: 1, marginLeft: 'auto', alignItems: 'flex-end', gap: ui.space.xs},
   triangle: {flexDirection: 'row', flexWrap: 'wrap', columnGap: ui.space.md, rowGap: ui.space.xs},
   primary: {...ui.type.caption, ...ink, fontWeight: '600', fontVariant: ['tabular-nums']},
   secondary: {...ui.type.label, ...ink, color: '#D1D8CD'},

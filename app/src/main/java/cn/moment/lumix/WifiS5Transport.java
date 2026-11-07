@@ -64,6 +64,7 @@ public final class WifiS5Transport implements CameraTransport {
         this.route=route;this.http=new WifiCameraHttp(route);requestedPort=port;this.debug=debug;this.clientId=clientId;this.log=log;this.clock=clock;
     }
     public String kind(){return "wifi";}
+    public String cameraModel(){String model=cameraModel;if(model==null)return null;model=model.trim();return model.isEmpty()?null:model;}
     State state(){return state;}
     private static final class HttpFailure extends IOException {final int status;HttpFailure(int status){super("相机 HTTP "+status);this.status=status;}}
     private WifiCameraHttp.Response request(URL url,String method,byte[] body,Map<String,String> headers,int timeout) throws IOException {
