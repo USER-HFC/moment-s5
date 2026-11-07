@@ -14,11 +14,9 @@ export function hudSource(state: Pick<CameraState, 'active' | 'demo' | 'transpor
   return state.transport === 'wifi' ? 'Wi-Fi · 实验性' : 'USB · 已连接';
 }
 
-/** Connection control. Same model line, shorter fallbacks while the body name is unknown. */
-export function connectionControlLabel(state: Pick<CameraState, 'active' | 'demo' | 'transport' | 'cameraModel'>) {
+/** Connection control. The body name stays on the HUD; this button only names the link. */
+export function connectionControlLabel(state: Pick<CameraState, 'active' | 'demo' | 'transport'>) {
   if (!state.active) return '连接';
   if (state.demo) return '演示';
-  const link = linkName(state.transport);
-  const model = state.cameraModel?.trim();
-  return model ? `${model} · ${link}` : link;
+  return linkName(state.transport);
 }

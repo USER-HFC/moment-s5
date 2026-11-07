@@ -174,7 +174,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
       </View>
       <View style={[styles.railEnd, landscape && styles.railEndLandscape]}>
         <CameraControl testID="settings-button" label="设置" icon="settings" accessibilityLabel="设置" accessibilityHint="打开设置" onPress={() => {cancelCountdown(); setPanel(null); onSettings?.();}}/>
-        <CameraControl label={connectionLabel} labelLines={connectionLabel.includes(' · ') ? 2 : 1} accessibilityLabel="相机连接"
+        <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
           accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
           icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
       </View>

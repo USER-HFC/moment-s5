@@ -268,11 +268,21 @@ it('fades a replacement album thumbnail and leaves the first one still', async (
   expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({toValue: 1, duration: 180, useNativeDriver: true}));
 });
 
-it('shows the connected body on the connection control', () => {
+it('shows the body name only on the HUD and highlights a short connection label', () => {
+  const connection = () => tree.root.findAllByProps({accessibilityLabel: '相机连接'}).find(node => typeof node.props.style === 'function')!;
   act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb', cameraModel: 'DC-S5'}}/>));
-  const control = tree.root.findByProps({accessibilityLabel: '相机连接'});
-  expect(control.findByType(Text).props.children).toBe('DC-S5 · USB');
-  expect(control.findByType(Text).props.numberOfLines).toBe(2);
+  const control = connection();
+  expect(control.findByType(Text).props.children).toBe('USB');
+  expect(control.props.accessibilityState.selected).toBe(true);
+  expect(StyleSheet.flatten(control.props.style({pressed: false})).backgroundColor).toBe('#344329');
+  const hud = tree.root.findByProps({testID: 'hud-source'}).findAllByType(Text).map(node => node.props.children).join('');
+  expect(hud).toContain('DC-S5 · USB');
+  expect(control.findAllByType(Text).some(node => String(node.props.children).includes('DC-S5'))).toBe(false);
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'wifi', cameraModel: 'DC-S5'}}/>));
+  const wifi = connection();
+  expect(wifi.findByType(Text).props.children).toBe('Wi-Fi');
+  expect(wifi.props.accessibilityState.selected).toBe(true);
+  expect(tree.root.findByProps({testID: 'hud-source'}).findAllByType(Text).map(node => node.props.children).join('')).toContain('DC-S5 · Wi-Fi');
 });
 
 it('pins the timer between the rail and the dock and wraps the guide on a short landscape screen', () => {
