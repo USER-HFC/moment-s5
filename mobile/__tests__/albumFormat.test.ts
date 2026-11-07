@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, momentOrigin, momentSummary, momentTransport, shareDialogTitle, shareKinds, shortPath} from '../src/albumFormat';
+import {albumFilterCounts, albumFilterEmpty, batchResultMessage, fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, matchesAlbumFilter, momentOrigin, momentSummary, momentTransport, shareDialogTitle, shareKinds, shareOptionHint, shareOptionLabel, shortPath, viewerDismissPastThreshold} from '../src/albumFormat';
 
 it('formats capture time, size and pixel dimensions', () => {
   const stamp = new Date(2024, 0, 2, 3, 4, 5).getTime();
@@ -26,12 +26,48 @@ it('names the shutter origin, transport and shareable files', () => {
   expect(fileLabel('rendered.jpg')).toBe('LUT 成片');
   expect(fileLabel('motion.mp4')).toBe('动态视频');
   expect(fileLabel('MOMENT_MP.jpg')).toBe('动态照片');
-  expect(shareKinds({videoUri: 'file://v', complete: true})).toEqual(['display', 'original', 'video', 'motion']);
-  expect(shareKinds({captureMode: 'photo', complete: true})).toEqual(['display', 'original']);
-  expect(shareKinds({videoUri: 'file://v', complete: false})).toEqual(['display', 'original', 'video']);
-  expect(shareDialogTitle({videoUri: 'file://v', complete: true})).toBe('分享动态照片');
-  expect(shareDialogTitle({captureMode: 'photo', complete: true})).toBe('分享照片');
+  const files = {imageUri: 'file://image', originalUri: 'file://original'};
+  expect(shareKinds({...files, videoUri: 'file://v', complete: true})).toEqual(['motion', 'video', 'original', 'display']);
+  expect(shareKinds({...files, captureMode: 'photo', complete: true})).toEqual(['original', 'display']);
+  expect(shareKinds({...files, videoUri: 'file://v', complete: false})).toEqual(['video', 'original', 'display']);
+  expect(shareKinds({videoUri: 'file://v', complete: true})).toEqual(['motion', 'video']);
+  expect(shareKinds({captureMode: 'photo', complete: true, imageUri: 'file://image'})).toEqual(['display']);
+  expect(shareKinds({captureMode: 'photo', complete: true})).toEqual([]);
+  expect(shareOptionLabel.motion).toBe('动态照片');
+  expect(shareOptionLabel.display).toBe('当前画面');
+  expect(shareOptionHint('display', {lut: 'Velvia'})).toBe('带 LUT 的画面');
+  expect(shareOptionHint('display', {})).toBe('正在查看的画面');
+  expect(shareOptionHint('original', {})).toBe('未套用 LUT');
+  expect(shareDialogTitle({...files, videoUri: 'file://v', complete: true})).toBe('分享动态照片');
+  expect(shareDialogTitle({...files, captureMode: 'photo', complete: true})).toBe('分享照片');
   expect(shareDialogTitle({videoUri: 'file://v', complete: false})).toBe('分享照片');
+});
+
+it('counts album filters and names an empty filter', () => {
+  const moments = [
+    {captureMode: 'photo' as const, cameraTriggered: true},
+    {captureMode: 'photo' as const, demo: true, cameraTriggered: true},
+    {captureMode: 'pre-only' as const, cameraTriggered: true},
+    {},
+  ];
+  expect(albumFilterCounts(moments)).toEqual({all: 4, photo: 2, motion: 2, camera: 2});
+  expect(moments.filter((moment) => matchesAlbumFilter(moment, 'photo')).length).toBe(2);
+  expect(moments.filter((moment) => matchesAlbumFilter(moment, 'camera')).map((moment) => moment.demo)).toEqual([undefined, undefined]);
+  expect(albumFilterEmpty('all').title).toBe('还没有照片');
+  expect(albumFilterEmpty('photo').title).toBe('没有照片');
+  expect(albumFilterEmpty('motion').title).toBe('没有动态照片');
+  expect(albumFilterEmpty('camera').body).toContain('机身快门');
+});
+
+it('summarizes a batch and decides when a downward drag closes the viewer', () => {
+  expect(batchResultMessage('导出', 5, 0)).toBe('已导出 5 张');
+  expect(batchResultMessage('导出', 0, 2)).toBe('2 张失败');
+  expect(batchResultMessage('导出', 3, 2)).toBe('已导出 3 张，2 张失败');
+  expect(batchResultMessage('删除', 4, 0)).toBe('已删除 4 张');
+  expect(viewerDismissPastThreshold(40, 0, 800)).toBe(false);
+  expect(viewerDismissPastThreshold(160, 0, 800)).toBe(true);
+  expect(viewerDismissPastThreshold(20, 900, 800)).toBe(true);
+  expect(viewerDismissPastThreshold(95, 0, 400)).toBe(false);
 });
 
 it('formats viewer titles as today, yesterday or a calendar date', () => {

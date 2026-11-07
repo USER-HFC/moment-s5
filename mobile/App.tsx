@@ -99,19 +99,26 @@ export default function App() {
     try { const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]}); const item = await camera.importLut(file.uri, file.name || 'imported.cube'); await refresh(); await setLut(item.id); }
     catch (e) { if (!DocumentPicker.isCancel(e)) showNotice(errorText(e)); }
   };
-  const exportMoment = async (id: string) => {
+  const exportMoment = async (id: string, quiet = false) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
-      await camera.exportMoment(id); showNotice('已导出到 DCIM/MomentS5');
-    } catch (e) { showNotice(errorText(e)); }
+      await camera.exportMoment(id);
+      if (!quiet) showNotice('已导出到 DCIM/MomentS5');
+    } catch (e) {
+      if (quiet) throw e;
+      showNotice(errorText(e));
+    }
   };
-  const deleteMoment = async (id: string) => {
+  const deleteMoment = async (id: string, quiet = false) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       await camera.deleteMoment(id);
       setMoments((items) => items.filter((item) => item.id !== id));
-      showNotice('已删除 App 内照片；SD 卡原片与系统相册副本保留');
-    } catch (e) { showNotice(errorText(e)); }
+      if (!quiet) showNotice('已删除 App 内照片；SD 卡原片与系统相册副本保留');
+    } catch (e) {
+      if (quiet) throw e;
+      showNotice(errorText(e));
+    }
   };
   const renderMoment = useCallback(async (id: string, lutId: string) => {
     try {
@@ -146,7 +153,7 @@ export default function App() {
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
     {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} notice={notice} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
-    {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
+    {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
     {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}

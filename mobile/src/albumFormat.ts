@@ -119,13 +119,93 @@ export const shareKindLabel: Record<ShareKind, string> = {
   motion: '分享动态照片',
 };
 
-export function shareDialogTitle(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete'>) {
+/** Visible row in the in-app share sheet. The accessibility name stays the longer shareKindLabel. */
+export const shareOptionLabel: Record<ShareKind, string> = {
+  motion: '动态照片',
+  video: '动态视频',
+  original: '原片',
+  display: '当前画面',
+};
+
+export function shareOptionHint(kind: ShareKind, moment: {lut?: string | null}) {
+  switch (kind) {
+    case 'motion': return '可在相册里播放';
+    case 'video': return '单独的视频';
+    case 'original': return '未套用 LUT';
+    case 'display': return moment.lut ? '带 LUT 的画面' : '正在查看的画面';
+    default: return '';
+  }
+}
+
+export function shareDialogTitle(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete' | 'imageUri' | 'originalUri'>) {
   return shareKinds(moment).includes('motion') ? '分享动态照片' : '分享照片';
 }
 
-export function shareKinds(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete'>): ShareKind[] {
-  const kinds: ShareKind[] = ['display', 'original'];
-  if (moment.videoUri) kinds.push('video');
+/**
+ * Options that have a file, in sheet order.
+ * MOMENT_MP.jpg is packed only after a dynamic photo finishes, so an unfinished one cannot offer it.
+ * 当前画面 is the picture on screen (rendered.jpg when a LUT is applied, otherwise the original).
+ */
+export function shareKinds(moment: Pick<MomentItem, 'videoUri' | 'captureMode' | 'complete' | 'imageUri' | 'originalUri'>): ShareKind[] {
+  const kinds: ShareKind[] = [];
   if (moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete) kinds.push('motion');
+  if (moment.videoUri) kinds.push('video');
+  if (moment.originalUri) kinds.push('original');
+  if (moment.imageUri) kinds.push('display');
   return kinds;
+}
+
+export type AlbumFilter = 'all' | 'photo' | 'motion' | 'camera';
+
+export const ALBUM_FILTERS: {id: AlbumFilter; label: string}[] = [
+  {id: 'all', label: '全部'},
+  {id: 'photo', label: '照片'},
+  {id: 'motion', label: '动态'},
+  {id: 'camera', label: '机身同步'},
+];
+
+type FilterableMoment = Pick<MomentItem, 'captureMode' | 'cameraTriggered' | 'demo'>;
+
+/** A demo frame can carry a shutter flag, but it was not synced from a camera body. */
+export function isCameraSyncMoment(moment: FilterableMoment) {
+  return !!moment.cameraTriggered && !moment.demo;
+}
+
+export function matchesAlbumFilter(moment: FilterableMoment, filter: AlbumFilter) {
+  if (filter === 'photo') return moment.captureMode === 'photo';
+  if (filter === 'motion') return moment.captureMode !== 'photo';
+  if (filter === 'camera') return isCameraSyncMoment(moment);
+  return true;
+}
+
+export function albumFilterCounts(moments: FilterableMoment[]) {
+  const counts: Record<AlbumFilter, number> = {all: moments.length, photo: 0, motion: 0, camera: 0};
+  for (const moment of moments) {
+    if (moment.captureMode === 'photo') counts.photo += 1;
+    else counts.motion += 1;
+    if (isCameraSyncMoment(moment)) counts.camera += 1;
+  }
+  return counts;
+}
+
+export function albumFilterEmpty(filter: AlbumFilter) {
+  switch (filter) {
+    case 'photo': return {title: '没有照片', body: '静态照片会出现在这里。'};
+    case 'motion': return {title: '没有动态照片', body: '拍下的动态照片会出现在这里。'};
+    case 'camera': return {title: '没有机身同步的照片', body: '用机身快门拍下的照片会出现在这里。'};
+    default: return {title: '还没有照片', body: '拍下的照片会按日期出现在这里。'};
+  }
+}
+
+/** 「已导出 5 张」when everything worked, 「2 张失败」when nothing did, both clauses when mixed. */
+export function batchResultMessage(verb: '导出' | '删除', ok: number, failed: number) {
+  if (ok > 0 && failed > 0) return `已${verb} ${ok} 张，${failed} 张失败`;
+  if (ok > 0) return `已${verb} ${ok} 张`;
+  return `${failed} 张失败`;
+}
+
+/** Downward travel that closes the viewer. Callers refuse this while the photo is zoomed. */
+export function viewerDismissPastThreshold(translationY: number, velocityY: number, pageHeight: number) {
+  const height = Math.max(pageHeight, 1);
+  return translationY >= Math.max(96, height * 0.18) || velocityY >= 900;
 }
