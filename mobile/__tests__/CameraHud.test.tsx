@@ -19,9 +19,10 @@ describe('truthful four-corner camera HUD', () => {
   it('renders the existing USB exposure, real phone battery, unavailable camera battery and LUT without scopes', () => {
     const tree = hud({...connected, exposure: 'ISO AUTO     f/4.0     1/80', exposureAgeMs: 10, phoneBattery: {percent: 37, charging: true}, lut: 'Fuji 风格 · Classic Chrome'});
     expect(text(tree, 'hud-aperture')).toBe('f/4.0');expect(text(tree, 'hud-shutter')).toBe('1/80');expect(text(tree, 'hud-iso')).toBe('ISO AUTO');
-    expect(tree.root.findByProps({accessibilityLabel: '手机电量37%，充电中'})).toBeTruthy();
-    expect(tree.root.findByProps({accessibilityLabel: '相机电量不可用，当前连接未提供机身电量'})).toBeTruthy();
     const json = JSON.stringify(tree.toJSON());
+    expect(tree.root.findByProps({accessibilityLabel: '手机电量37%，充电中'})).toBeTruthy();
+    expect(tree.root.findAllByProps({accessibilityLabel: '相机电量不可用，当前连接未提供机身电量'})).toHaveLength(0);
+    expect(json).not.toContain('相机 —');
     expect(json).toContain('USB · 已连接');expect(json).toContain('Classic Chrome');expect(json).toContain('可拍');expect(json).not.toContain('scopes-overlay');
     for (const id of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree.root.findByProps({testID: id})).toBeTruthy();
     expect(StyleSheet.flatten(tree.root.findByProps({testID: 'hud-top'}).props.style).zIndex).toBe(1000);
@@ -53,12 +54,23 @@ describe('truthful four-corner camera HUD', () => {
     expect(exposureReading({...connected, exposure, exposureAgeMs: EXPOSURE_STALE_MS}).label).not.toContain('已过期');
     expect(exposureReading({...connected, exposure, exposureAgeMs: EXPOSURE_STALE_MS + 1}).label).toContain('已过期');
     expect(exposureReading({...connected, exposure}).label).toContain('最近读数');
-    for (const state of [{...connected, exposure, demo: true}, {...connected, exposure, active: false}]) {
-      const tree = hud(state, true);
-      expect(text(tree, 'hud-aperture')).toBe('f/—');expect(text(tree, 'hud-iso')).toBe('ISO —');
-      expect(JSON.stringify(tree.toJSON())).not.toContain('640');
-      act(() => tree.unmount());
-    }
+    const demo = hud({...connected, exposure, demo: true}, true);
+    const demoJson = JSON.stringify(demo.toJSON());
+    expect(demo.root.findAllByProps({testID: 'hud-aperture'})).toHaveLength(0);
+    expect(demoJson).toContain('演示');
+    expect(demoJson).not.toContain('DEMO');
+    expect(demoJson).not.toContain('合成演示');
+    expect(demoJson).not.toContain('640');
+    expect(demoJson).not.toContain('相机 —');
+    act(() => demo.unmount());
+    const offline = hud({...connected, exposure, active: false}, true);
+    const offlineJson = JSON.stringify(offline.toJSON());
+    expect(offline.root.findAllByProps({testID: 'hud-aperture'})).toHaveLength(0);
+    expect(offline.root.findAllByProps({testID: 'hud-capture'})).toHaveLength(0);
+    expect(offlineJson).not.toContain('未连接');
+    expect(offlineJson).not.toContain('640');
+    expect(offlineJson).not.toContain('相机 —');
+    act(() => offline.unmount());
   });
   it('uses explicit placeholders for unavailable / invalid batteries and keeps a real zero percent', () => {
     for (const percent of [null, -1, 101, NaN, Infinity]) expect(batteryText({percent})).toBe('—');
@@ -73,7 +85,13 @@ describe('truthful four-corner camera HUD', () => {
     expect(JSON.stringify(tree.toJSON())).toContain('处理中…');expect(JSON.stringify(tree.toJSON())).not.toContain('NaN');
     act(() => tree.unmount());
     const motion = hud(connected, true, 4.5);
-    expect(JSON.stringify(motion.toJSON())).toContain('缓存就绪');expect(JSON.stringify(motion.toJSON())).toContain('3.0');
+    expect(JSON.stringify(motion.toJSON())).toContain('已缓存 3 秒 · 可拍');
+    expect(JSON.stringify(motion.toJSON())).not.toContain('3.0');
+    expect(StyleSheet.flatten(motion.root.findByProps({testID: 'hud-buffer-bar'}).props.style).width).toBe('100%');
     act(() => motion.unmount());
+    const filling = hud({...connected, ready: false}, true, 1.2);
+    expect(JSON.stringify(filling.toJSON())).toContain('缓存中 1.2 秒');
+    expect(StyleSheet.flatten(filling.root.findByProps({testID: 'hud-buffer-bar'}).props.style).width).toBe('40%');
+    act(() => filling.unmount());
   });
 });

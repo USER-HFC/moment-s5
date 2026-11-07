@@ -377,8 +377,9 @@ public final class CaptureEngine {
         p.setColor(0xff2b4942);c.drawOval(-width*.2f,height*.4f,width*.8f,height*1.4f,p);
         p.setColor(0xff112c29);c.drawOval(width*.3f,height*.55f,width*1.3f,height*1.4f,p);
         p.setColor(0xffd6f58b);c.drawCircle(x,height*.55f+(float)Math.sin(t*Math.PI*2)*height*.08f,height*.026f,p);
-        p.setColor(0xffeff3e9);p.setTextSize(height*.036f);p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));
-        c.drawText("MOMENT / SYNTHETIC DEMO",width*.06f,height*.12f,p);
+        // A top-left line rotates onto the battery corner in portrait. Keep the mark low, small, and faint.
+        p.setColor(0x80EFF3E9);p.setTextSize(height*.022f);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));
+        c.drawText("SYNTHETIC DEMO",width*.5f,height*.70f,p);
         ByteArrayOutputStream out=new ByteArrayOutputStream();b.compress(Bitmap.CompressFormat.JPEG,90,out);b.recycle();return out.toByteArray();
     }
 }

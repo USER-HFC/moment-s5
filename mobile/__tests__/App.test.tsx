@@ -29,7 +29,7 @@ it('keeps the camera workspace usable at phone portrait and landscape sizes', as
     await act(async () => { tree = renderer.create(<App/>); });
     expect(tree!.root.findByProps({testID: 'camera-tools'})).toBeTruthy();
     expect(tree!.root.findByProps({accessibilityLabel: '动态照片'})).toBeTruthy();
-    expect(tree!.root.findByProps({accessibilityLabel: '定时'})).toBeTruthy();
+    expect(tree!.root.findByProps({accessibilityLabel: '定时 关'})).toBeTruthy();
     expect(tree!.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);
     expect(tree!.root.findByProps({testID: 'preview-frame'})).toBeTruthy();
     expect(tree!.root.findByProps({testID: 'camera-modes'})).toBeTruthy();

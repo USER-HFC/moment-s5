@@ -1,8 +1,6 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {expect, it, jest} from '@jest/globals';
-import {Snackbar} from 'react-native-paper';
-
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react'); const Context = React.createContext({top: 0, right: 0, bottom: 0, left: 0});
@@ -17,6 +15,7 @@ jest.mock('../src/native', () => {
 import App from '../App';
 import {cameraEvents} from '../src/native';
 import CameraWorkspace from '../src/CameraWorkspace';
+import MotionAlbum from '../src/MotionAlbum';
 
 it('shows native capture errors and removes all camera listeners on unmount', async () => {
   jest.useFakeTimers();
@@ -29,7 +28,12 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   act(() => listeners.get('cameraExposure')!({value: 'ISO AUTO     f/4.0     1/80', exposureAgeMs: 50}));
   expect(tree!.root.findByType(CameraWorkspace).props.state.exposure).toBe('ISO AUTO     f/4.0     1/80');
   await act(async () => listeners.get('cameraStatus')!({message: '未找到本次 JPEG', ready: false}));
-  expect(tree!.root.findByType(Snackbar).props.children).toBe('未找到本次 JPEG');
+  expect(JSON.stringify(tree!.toJSON())).toContain('未找到本次 JPEG');
+  act(() => listeners.get('cameraSaved')!({directory: '/data/moments/M9'}));
+  act(() => listeners.get('cameraStatus')!({message: '实况已保存', ready: false}));
+  expect(JSON.stringify(tree!.toJSON())).toContain('已保存');
+  await act(async () => tree!.root.findByProps({accessibilityLabel: '查看'}).props.onPress());
+  expect(tree!.root.findByType(MotionAlbum).props.initialMomentId).toBe('M9');
   act(() => tree!.unmount()); expect(listeners.size).toBe(0);
   jest.clearAllTimers(); jest.useRealTimers();
 });
