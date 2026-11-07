@@ -1,0 +1,62 @@
+import React, {useState} from 'react';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from 'react-native-paper';
+import {ui} from './theme';
+
+const CARDS = [
+  {title: '连接相机', body: '用数据线连接相机，并在相机里选择 PC(Tether)。也可以先体验演示，熟悉拍摄界面。'},
+  {title: '拍动态照片', body: '在画面底部切到「动态」。等提示可以拍摄后按快门，会保留按下前大约 3 秒的画面。'},
+  {title: '套用 LUT', body: '点 LUT，选一种色彩风格。取景会马上换上这个风格，保存进 App 的是处理后的副本。'},
+];
+
+export default function OnboardingCards({onDone}: {onDone: () => void}) {
+  const [index, setIndex] = useState(0);
+  const card = CARDS[index];
+  const last = index === CARDS.length - 1;
+  return <View testID="onboarding" style={styles.screen}>
+    <View style={styles.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="跳过引导" testID="onboarding-skip" onPress={onDone}
+        style={({pressed}) => [styles.skip, pressed && styles.pressed]}>
+        <Text style={styles.skipLabel}>跳过</Text>
+      </Pressable>
+    </View>
+    <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
+      <View testID={`onboarding-card-${index + 1}`} style={styles.card}>
+        <Text style={styles.kicker}>{`${index + 1} / ${CARDS.length}`}</Text>
+        <Text style={styles.title}>{card.title}</Text>
+        <Text style={styles.body}>{card.body}</Text>
+      </View>
+    </ScrollView>
+    <View style={styles.footer}>
+      <View style={styles.dots} accessibilityLabel={`第 ${index + 1} 张，共 ${CARDS.length} 张`}>
+        {CARDS.map((item, dot) => <View key={item.title} style={[styles.dot, dot === index && styles.dotOn]}/>)}
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={last ? '开始使用' : '下一步'} testID="onboarding-next"
+        onPress={() => { if (last) onDone(); else setIndex(value => value + 1); }}
+        style={({pressed}) => [styles.next, pressed && styles.nextPressed]}>
+        <Text style={styles.nextLabel}>{last ? '开始使用' : '下一步'}</Text>
+      </Pressable>
+    </View>
+  </View>;
+}
+
+const styles = StyleSheet.create({
+  screen: {position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 80, backgroundColor: ui.color.background},
+  flex: {flex: 1},
+  header: {minHeight: 64, paddingHorizontal: ui.space.gutter, alignItems: 'flex-end', justifyContent: 'center'},
+  skip: {minHeight: ui.icon.touch, minWidth: ui.icon.touch, paddingHorizontal: ui.space.md, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control},
+  skipLabel: {...ui.type.body, color: ui.color.muted},
+  pressed: {backgroundColor: ui.color.raised},
+  scroll: {flexGrow: 1, justifyContent: 'center', paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.lg},
+  card: {width: '100%', maxWidth: 520, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, backgroundColor: ui.color.surface},
+  kicker: {...ui.type.caption, color: ui.color.accent, fontVariant: ['tabular-nums']},
+  title: {...ui.type.title, color: ui.color.text},
+  body: {...ui.type.body, color: ui.color.text},
+  footer: {paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.lg, gap: ui.space.md, width: '100%', maxWidth: 520, alignSelf: 'center'},
+  dots: {flexDirection: 'row', justifyContent: 'center', gap: ui.space.sm},
+  dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: ui.color.outline},
+  dotOn: {backgroundColor: ui.color.accent},
+  next: {minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, backgroundColor: ui.color.accent, paddingHorizontal: ui.space.gutter},
+  nextPressed: {opacity: 0.85},
+  nextLabel: {...ui.type.body, color: ui.color.background, fontWeight: '600'},
+});

@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Shared JS contract; Android owns USB/PTP and LUT pixels, iOS can implement the same methods later. */
 public final class MomentS5Module extends ReactContextBaseJavaModule {
     private static final String USB_PERMISSION="cn.moment.lumix.RN_USB_PERMISSION";
+    private static final String PREFS="moment-settings";
     private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private final ScopeEmitter scopes;private CaptureEngine engine;private BroadcastReceiver receiver;private final CameraLifecycle lifecycle;private final WifiConnectionManager wifi;private final PhoneBatteryMonitor battery;private final ExecutorService files=Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"moment-files");thread.setDaemon(true);return thread;});private final AtomicBoolean rerendering=new AtomicBoolean();
     public MomentS5Module(ReactApplicationContext context){super(context);this.context=context;usb=(UsbManager)context.getSystemService(Context.USB_SERVICE);lutDir=new File(context.getFilesDir(),"luts");if(!lutDir.isDirectory())lutDir.mkdirs();
         scopes=new ScopeEmitter(context);
@@ -32,6 +33,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
             @Override public void log(String s){WritableMap m=Arguments.createMap();m.putString("message",s);emit("cameraLog",m);}
             @Override public void exposure(String s){WritableMap m=Arguments.createMap();m.putString("value",s);putExposureAge(m);emit("cameraExposure",m);}
         });
+        engine.setSyncBodyPhotos(preferences().getBoolean("syncBodyPhotos",true));
         battery=new PhoneBatteryMonitor(context,reading->emit("phoneBattery",batteryMap(reading)));context.addLifecycleEventListener(battery);
         lifecycle=new CameraLifecycle(engine,this::connectDevice);context.addLifecycleEventListener(lifecycle);
         wifi=new WifiConnectionManager(context,message->{engine.disconnect();status(message);});context.addLifecycleEventListener(wifi);
@@ -124,6 +126,49 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     }
     @ReactMethod public void activeLut(Promise promise){promise.resolve(engine.lutTitle());}
     @ReactMethod public void diagnostics(Promise promise){promise.resolve(engine.diagnostics());}
+    @ReactMethod public void getPreferences(Promise promise){
+        SharedPreferences prefs=preferences();
+        WritableMap map=Arguments.createMap();
+        map.putBoolean("autoExport",prefs.getBoolean("autoExport",false));
+        map.putBoolean("syncBodyPhotos",prefs.getBoolean("syncBodyPhotos",true));
+        map.putBoolean("rememberCapture",prefs.getBoolean("rememberCapture",false));
+        map.putBoolean("onboardingSeen",prefs.getBoolean("onboardingSeen",false));
+        WritableMap capture=Arguments.createMap();
+        capture.putBoolean("motion",prefs.getBoolean("captureMotion",false));
+        capture.putBoolean("grid",prefs.getBoolean("captureGrid",true));
+        capture.putString("guide",captureGuide(prefs.getString("captureGuide","off")));
+        capture.putInt("timerSeconds",captureTimer(prefs.getInt("captureTimerSeconds",0)));
+        map.putMap("capture",capture);
+        promise.resolve(map);
+    }
+    @ReactMethod public void setPreference(String key,boolean value,Promise promise){
+        if(key==null || !List.of("autoExport","syncBodyPhotos","rememberCapture","onboardingSeen").contains(key)){promise.reject("PREFERENCE","未知的设置项");return;}
+        preferences().edit().putBoolean(key,value).apply();
+        if("syncBodyPhotos".equals(key)) engine.setSyncBodyPhotos(value);
+        promise.resolve(null);
+    }
+    @ReactMethod public void setCaptureSettings(ReadableMap value,Promise promise){
+        try{
+            SharedPreferences.Editor editor=preferences().edit();
+            if(value.hasKey("motion")) editor.putBoolean("captureMotion",value.getBoolean("motion"));
+            if(value.hasKey("grid")) editor.putBoolean("captureGrid",value.getBoolean("grid"));
+            if(value.hasKey("guide")){
+                String raw=value.getString("guide");
+                if(raw==null || !raw.equals(captureGuide(raw))){promise.reject("PREFERENCE","参考框无效");return;}
+                editor.putString("captureGuide",raw);
+            }
+            if(value.hasKey("timerSeconds")){
+                double raw=value.getDouble("timerSeconds");
+                int seconds=(int)raw;
+                if(raw!=seconds || captureTimer(seconds)!=seconds){promise.reject("PREFERENCE","定时时长无效");return;}
+                editor.putInt("captureTimerSeconds",seconds);
+            }
+            editor.apply();
+            promise.resolve(null);
+        }catch(Exception e){promise.reject("PREFERENCE",e.getMessage(),e);}
+    }
+    @ReactMethod public void storageUsage(Promise promise){files.execute(()->{try{MomentStore.Usage usage=new MomentStore(context).usage();WritableMap map=Arguments.createMap();map.putInt("count",usage.count);map.putDouble("bytes",usage.bytes);promise.resolve(map);}catch(Exception e){promise.reject("MOMENT_STORAGE",e.getMessage(),e);}});}
+    @ReactMethod public void clearExportedCopies(Promise promise){files.execute(()->{try{if(engine.busy())throw new IOException("拍摄处理中，请稍后再清理");if(rerendering.get())throw new IOException("正在套用 LUT，请稍后再清理");int removed=new MomentStore(context).deleteExported(context);WritableMap map=Arguments.createMap();map.putInt("removed",removed);promise.resolve(map);}catch(Exception e){promise.reject("MOMENT_STORAGE",e.getMessage(),e);}});}
     @ReactMethod public void getState(Promise promise){WritableMap m=Arguments.createMap();m.putBoolean("active",engine.active());m.putBoolean("busy",engine.busy());m.putBoolean("ready",engine.ready());m.putBoolean("demo",engine.demoMode());m.putBoolean("audio",engine.audioEnabled());m.putString("lut",engine.lutTitle());m.putString("transport",engine.transportKind());m.putString("exposure",engine.exposureValue());putExposureAge(m);m.putMap("phoneBattery",batteryMap(battery.latest()));
         // Neither implemented transport exposes a verified camera-battery property.
         m.putNull("cameraBattery");m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());promise.resolve(m);}
@@ -140,6 +185,9 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     private File momentDir(String id)throws IOException {if(id==null||!id.equals(new File(id).getName()))throw new IOException("非法动态照片路径");for(File dir:new MomentStore(context).list())if(dir.getName().equals(id))return dir;throw new IOException("动态照片不存在");}
     private File uniqueFile(String name)throws IOException {File f=safeFile(name);if(!f.exists())return f;String stem=name.replaceFirst("(?i)\\.cube$","");for(int i=2;i<10000;i++){f=safeFile(stem+"-"+i+".cube");if(!f.exists())return f;}throw new IOException("LUT 仓库已存在太多同名文件");}
     private static String cleanName(String raw){String name=raw==null?"imported.cube":new File(raw).getName().trim();name=name.replaceAll("[^A-Za-z0-9._-]","_");return name.isEmpty()?"imported.cube":name;}
+    private SharedPreferences preferences(){return context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
+    private static String captureGuide(String value){return value!=null && List.of("off","16:9","1:1","4:5").contains(value)?value:"off";}
+    private static int captureTimer(int seconds){return seconds==2||seconds==5||seconds==10||seconds==30?seconds:0;}
     private static String shareTitle(String kind){if("video".equals(kind))return "分享动态视频";if("motion".equals(kind))return "分享动态照片";if("original".equals(kind))return "分享原片";if("display".equals(kind))return "分享当前画面";return "分享照片";}
     private void status(String message){WritableMap m=Arguments.createMap();m.putString("message",message);m.putBoolean("ready",false);emit("cameraStatus",m);}
     private void emit(String name,WritableMap map){if(context.hasActiveCatalystInstance())context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(name,map);}

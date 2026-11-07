@@ -1,0 +1,121 @@
+import React, {useCallback, useEffect, useState} from 'react';
+import {Modal, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from 'react-native-paper';
+import CameraControl from './CameraControl';
+import {camera} from './native';
+import {Notice} from './notice';
+import {formatBytes, StorageUsage} from './preferences';
+import {ui} from './theme';
+
+export default function StorageScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [problem, setProblem] = useState('');
+  const [confirm, setConfirm] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [clearError, setClearError] = useState('');
+
+  const load = useCallback(async () => {
+    if (!camera?.storageUsage) { setProblem('当前平台没有相机桥'); setUsage(null); return; }
+    try {
+      setUsage(await camera.storageUsage());
+      setProblem('');
+    } catch (e) {
+      setProblem(String((e as Error)?.message || e));
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const clear = async () => {
+    if (!camera?.clearExportedCopies || working) return;
+    setWorking(true); setClearError('');
+    try {
+      const result = await camera.clearExportedCopies();
+      setConfirm(false);
+      onNotice({message: result.removed > 0 ? `已清理 ${result.removed} 张已导出的副本` : '没有已导出的副本可清理'});
+      await load();
+    } catch (e) {
+      setClearError(String((e as Error)?.message || e));
+    } finally { setWorking(false); }
+  };
+
+  const count = usage ? `${usage.count} 张` : '…';
+  const bytes = usage ? formatBytes(usage.bytes) : '…';
+  return <View style={styles.screen} testID="storage-screen">
+    <View style={styles.header}>
+      <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
+      <Text style={styles.title}>存储</Text>
+      <View style={styles.headerSpacer}/>
+    </View>
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>照片数量</Text>
+            <Text testID="storage-count" style={styles.statValue}>{count}</Text>
+          </View>
+          <View style={styles.divider}/>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>占用空间</Text>
+            <Text testID="storage-bytes" style={styles.statValue}>{bytes}</Text>
+          </View>
+        </View>
+        {!!problem && <Text testID="storage-error" style={styles.error}>{problem}</Text>}
+        {usage?.count === 0 && <Text style={styles.note}>还没有保存在 App 里的照片。</Text>}
+        <Pressable accessibilityRole="button" accessibilityLabel="清理已导出的 App 内副本" testID="storage-clear"
+          onPress={() => { setClearError(''); setConfirm(true); }}
+          style={({pressed}) => [styles.action, pressed && styles.pressed]}>
+          <Text style={styles.actionLabel}>清理已导出的 App 内副本</Text>
+        </Pressable>
+        <Text style={styles.note}>只删除已经导出的 App 内副本。未导出的照片会保留。</Text>
+      </View>
+    </ScrollView>
+    <Modal visible={confirm} transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={() => { if (!working) setConfirm(false); }}>
+      <View style={styles.scrim}>
+        <View testID="storage-confirm" accessibilityViewIsModal style={styles.dialog}>
+          <Text style={styles.dialogTitle}>清理已导出的副本？</Text>
+          <Text style={styles.dialogBody}>只删除已经导出到系统相册的 App 内副本。机身 SD 卡和系统相册里的照片不受影响。</Text>
+          {!!clearError && <Text testID="storage-clear-error" style={styles.error}>{clearError}</Text>}
+          <View style={styles.dialogActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消清理" disabled={working} onPress={() => setConfirm(false)}
+              style={({pressed}) => [styles.dialogButton, pressed && styles.pressed]}>
+              <Text style={styles.dialogButtonLabel}>取消</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认清理已导出的副本" disabled={working} testID="storage-confirm-clear"
+              onPress={() => { void clear(); }}
+              style={({pressed}) => [styles.dialogButton, styles.dialogConfirm, pressed && styles.pressed]}>
+              <Text style={styles.dialogConfirmLabel}>{working ? '正在清理' : '清理'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  </View>;
+}
+
+const styles = StyleSheet.create({
+  screen: {flex: 1, minHeight: 0, backgroundColor: ui.color.background},
+  header: {minHeight: 64, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  title: {...ui.type.title, color: ui.color.text, flexShrink: 1},
+  headerSpacer: {width: ui.icon.touch},
+  scroll: {paddingBottom: ui.space.xl},
+  content: {width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: ui.space.gutter, paddingTop: ui.space.sm, gap: ui.space.md},
+  card: {backgroundColor: ui.color.surface, borderRadius: ui.radius.sheet, overflow: 'hidden'},
+  stat: {minHeight: 60, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.md},
+  statLabel: {...ui.type.body, flex: 1, color: ui.color.text},
+  statValue: {...ui.type.body, color: ui.color.accent, fontVariant: ['tabular-nums']},
+  divider: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: ui.color.outline},
+  note: {...ui.type.body, color: ui.color.muted},
+  error: {...ui.type.body, color: ui.color.destructive},
+  action: {minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm},
+  actionLabel: {...ui.type.body, color: ui.color.accent, textAlign: 'center'},
+  pressed: {backgroundColor: ui.color.raised},
+  scrim: {flex: 1, justifyContent: 'center', padding: ui.space.gutter, backgroundColor: ui.color.scrim},
+  dialog: {width: '100%', maxWidth: 420, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.background},
+  dialogTitle: {...ui.type.title, color: ui.color.text},
+  dialogBody: {...ui.type.body, color: ui.color.text},
+  dialogActions: {flexDirection: 'row', gap: ui.space.sm},
+  dialogButton: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, paddingHorizontal: ui.space.sm},
+  dialogButtonLabel: {...ui.type.body, color: ui.color.text, textAlign: 'center'},
+  dialogConfirm: {backgroundColor: ui.color.accent, borderColor: ui.color.accent},
+  dialogConfirmLabel: {...ui.type.body, color: ui.color.background, fontWeight: '600', textAlign: 'center'},
+});

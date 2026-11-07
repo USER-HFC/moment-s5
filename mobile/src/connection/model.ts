@@ -14,6 +14,6 @@ export function connectionOptions(form: ConnectionForm, debugAllowed: boolean): 
   const cameraIp = form.cameraIp.trim();
   const ip = cameraIp.split('.');
   if (ip.length !== 4 || ip.some(part => !/^[0-9]{1,3}$/.test(part) || Number(part) > 255)) throw new Error('请输入相机 IPv4 地址');
-  if (!form.manual && !form.ssid.trim()) throw new Error('请输入相机 Wi-Fi SSID');
+  if (!form.manual && !form.ssid.trim()) throw new Error('请输入相机 Wi-Fi 名称');
   return {manual: form.manual, cameraIp, ...(form.manual ? {} : {ssid: form.ssid, password: form.password})};
 }

@@ -1,6 +1,7 @@
 package cn.moment.lumix;
 
 import android.content.*;
+import android.net.Uri;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.usb.*;
@@ -517,9 +518,143 @@ public final class NativeBugfixChecks {
             check(demo.exposureReads==0,"demo capture does not read a camera");
         }finally{engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
     }
+    private static void syncBodyPhoto(CaptureEngine engine,CameraTransport camera)throws Exception {
+        Method method=CaptureEngine.class.getDeclaredMethod("syncCameraPhoto",CameraTransport.class);method.setAccessible(true);
+        try{method.invoke(engine,camera);}catch(InvocationTargetException wrapped){if(wrapped.getCause() instanceof Exception cause) throw cause; throw wrapped;}
+    }
+    /** USB stand-in: one queued body photo, and a later app shutter that must not reuse it. */
+    private static final class BodyCamera implements CameraTransport {
+        final Baseline initial=new Baseline(){};
+        Baseline folded=initial;
+        final List<Original> queued=new ArrayList<>();
+        final List<Object> downloaded=new ArrayList<>();
+        final List<Object> noted=new ArrayList<>();
+        final byte[] jpeg={-1,-40,1,2,-1,-39};
+        Baseline awaited;
+        public String kind(){return "usb";}
+        public void open(){}
+        public Preview preview(){return null;}
+        public Capabilities capabilities(){return new Capabilities(false,false,false);}
+        public void autofocus(){}
+        public void focus(boolean far){}
+        public String exposure(){return "";}
+        public Baseline prepareCaptureBaseline(){return folded;}
+        public void clearCaptureEvents(){}
+        public void shutter(){}
+        public Original awaitNewJpeg(Baseline before,java.util.function.BooleanSupplier valid)throws IOException {
+            awaited=before;
+            if(before==initial) throw new IOException("body photo still in the pairing baseline");
+            return new Original(8,"P1000008.JPG",jpeg.length);
+        }
+        public void downloadOriginal(Original original,File destination)throws IOException {downloaded.add(original.key());Files.write(destination.toPath(),jpeg);}
+        public void noteSaved(Original photo){if(photo!=null) noted.add(photo.key());}
+        public boolean reportsNewPhotos(){return true;}
+        public Original nextCameraPhoto(Baseline before,Set<Object> saved){
+            while(!queued.isEmpty()){Original photo=queued.remove(0);if(!saved.contains(photo.key())) return photo;}
+            return null;
+        }
+        public Baseline withPhoto(Baseline before,Original photo){folded=new Baseline(){};return folded;}
+        public boolean closed(){return false;}
+        public void abort(){}
+        public void close(){}
+    }
+    @SuppressWarnings("unchecked") private static void bodySyncChecks(Path root)throws Exception {
+        Path files=Files.createDirectory(root.resolve("body-sync"));
+        CaptureEngine engine=new CaptureEngine(new Context(files.toFile()),quiet());
+        try {
+            BodyCamera camera=new BodyCamera();
+            camera.queued.add(new CameraTransport.Original(7,"P1000007.JPG",128));
+            field(CaptureEngine.class,"camera").set(engine,camera);
+            field(CaptureEngine.class,"active").set(engine,true);
+            field(CaptureEngine.class,"demo").set(engine,false);
+            field(CaptureEngine.class,"preparedHandles").set(engine,camera.initial);
+            engine.setSyncBodyPhotos(false);
+            syncBodyPhoto(engine,camera);
+            Set<Object> saved=(Set<Object>)field(CaptureEngine.class,"savedOriginals").get(engine);
+            check(camera.downloaded.isEmpty(),"sync off does not download the body photo");
+            check(saved.contains(7),"sync off still records the body photo so it cannot be imported later");
+            check(camera.noted.contains(7),"sync off tells the transport the body photo is already accounted for");
+            check(field(CaptureEngine.class,"preparedHandles").get(engine)==camera.folded,"sync off folds the body photo into the baseline");
+            check(new MomentStore(new Context(files.toFile())).list().isEmpty(),"sync off creates no app copy");
+            check(engine.diagnostics().contains("未下载"),"sync off records that the body photo was not downloaded");
+            engine.captureStill();settle(engine);
+            check(camera.awaited==camera.folded,"the next app capture pairs against the updated baseline");
+            check(camera.downloaded.equals(List.of(8)),"the app capture downloads its own photo, not the skipped body photo");
+            List<File> moments=new MomentStore(new Context(files.toFile())).list();
+            check(moments.size()==1 && "P1000008.JPG".equals(MomentStore.metadata(moments.get(0)).getString("source")),"the saved photo is the app shutter, not the skipped body photo");
+            BodyCamera enabled=new BodyCamera();
+            enabled.queued.add(new CameraTransport.Original(9,"P1000009.JPG",enabled.jpeg.length));
+            field(CaptureEngine.class,"camera").set(engine,enabled);
+            field(CaptureEngine.class,"active").set(engine,true);
+            field(CaptureEngine.class,"preparedHandles").set(engine,enabled.initial);
+            engine.setSyncBodyPhotos(true);
+            syncBodyPhoto(engine,enabled);
+            check(enabled.downloaded.equals(List.of(9)),"sync on still downloads the body photo");
+            boolean imported=false;
+            for(File dir:new MomentStore(new Context(files.toFile())).list()) if("P1000009.JPG".equals(MomentStore.metadata(dir).optString("source"))) imported=true;
+            check(imported,"sync on imports the body photo into app storage");
+        } finally {engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
+    }
+    private static void diagnosticClockChecks(Path root)throws Exception {
+        CaptureEngine engine=new CaptureEngine(new Context(Files.createDirectory(root.resolve("clock")).toFile()),quiet());
+        try {
+            engine.demo();settle(engine);
+            String text=engine.diagnostics();
+            check(text.contains("不代表真实相机画面") && !text.contains("不代表 S5 实测"),"demo log does not claim a measured camera picture");
+            check(text.matches("(?s).*\\d+ \\d{12,16} 进入演示：.*"),"diagnostics record wall-clock millis beside elapsed time");
+        } finally {engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
+    }
+    private static void storageChecks(Path root)throws Exception {
+        Path files=Files.createDirectory(root.resolve("storage"));
+        Context context=new Context(files.toFile());
+        MomentStore store=new MomentStore(context);
+        check(store.usage().count==0 && store.usage().bytes==0 && store.deleteExported(context)==0,"empty storage deletes nothing");
+        File kept=store.create(),exported=store.create(),unknown=store.create(),motionKept=store.create(),motionExported=store.create();
+        byte[] photo={1,2,3,4};
+        for(File dir:List.of(kept,exported,unknown)){
+            Files.write(new File(dir,"original.jpg").toPath(),photo);
+            MomentStore.metadata(dir,new JSONObject().put("captureMode","photo").put("complete",true));
+        }
+        for(File dir:List.of(motionKept,motionExported)){
+            Files.write(new File(dir,"MOMENT_MP.jpg").toPath(),photo);
+            MomentStore.metadata(dir,new JSONObject().put("captureMode","pre-only").put("complete",true));
+        }
+        File outside=new File(files.toFile(),"not-a-moment.txt");Files.write(outside.toPath(),new byte[]{9});
+        File stray=new File(store.root,"stray.txt");Files.write(stray.toPath(),new byte[]{8,8});
+        long expected=0;
+        for(File dir:List.of(kept,exported,unknown,motionKept,motionExported)) for(File file:dir.listFiles()) expected+=file.length();
+        check(store.usage().count==5 && store.usage().bytes==expected,"usage counts moment directories and not neighboring files");
+        Set<String> exportedNames=new HashSet<>(Set.of(exported.getName()+".jpg",motionExported.getName()+"_MP.jpg"));
+        Set<String> unknownNames=new HashSet<>(Set.of(unknown.getName()+".jpg"));
+        context.resolver=new ContentResolver(){
+            @Override public android.database.Cursor query(Uri uri,String[] projection,String selection,String[] args,String sort){
+                String name=args!=null && args.length>0?args[0]:"";
+                if(unknownNames.contains(name)) throw new SecurityException("denied");
+                ExportCursor cursor=new ExportCursor();
+                cursor.row=exportedNames.contains(name);cursor.name=name;cursor.relative="DCIM/MomentS5/";
+                return cursor;
+            }
+        };
+        check(store.deleteExported(context)==2,"only confirmed exports are removed");
+        check(!exported.exists() && !motionExported.exists(),"exported photo and motion copies are gone");
+        check(kept.isDirectory() && new File(kept,"original.jpg").isFile(),"an unexported photo is kept");
+        check(motionKept.isDirectory() && new File(motionKept,"MOMENT_MP.jpg").isFile(),"an unexported motion photo is kept");
+        check(unknown.isDirectory() && new File(unknown,"original.jpg").isFile(),"unknown export status is never deleted");
+        check(outside.isFile() && stray.isFile(),"files outside moment directories stay");
+        check(store.usage().count==3,"usage recounts only the photos that remain");
+        check(store.deleteExported(context)==0,"a second cleanup deletes nothing more");
+        File unsafe=store.create();
+        Files.write(new File(unsafe,"original.jpg").toPath(),photo);
+        MomentStore.metadata(unsafe,new JSONObject().put("captureMode","photo").put("complete",true));
+        Files.createSymbolicLink(new File(unsafe,"link.jpg").toPath(),outside.toPath());
+        exportedNames.add(unsafe.getName()+".jpg");
+        expectIo(()->store.deleteExported(context),"exported copy containing a symlink is deleted");
+        check(unsafe.isDirectory() && new File(unsafe,"original.jpg").isFile() && outside.isFile(),"refusing a symlink leaves the app copy and the link target");
+        check(kept.isDirectory() && unknown.isDirectory(),"the refused cleanup does not remove unexported photos");
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);}
+        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

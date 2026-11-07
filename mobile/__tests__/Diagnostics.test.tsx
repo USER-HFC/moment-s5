@@ -11,10 +11,14 @@ jest.mock('../src/native', () => ({
 
 import DiagnosticsScreen from '../src/DiagnosticsScreen';
 import {camera} from '../src/native';
-import {openDiagnosticsPage, presentDiagnostics, registerDiagnosticsOpener, scrollDiagnosticsToEnd} from '../src/connection/diagnostics';
+import {formatDiagnosticClock, openDiagnosticsPage, presentDiagnostics, registerDiagnosticsOpener, scrollDiagnosticsToEnd} from '../src/connection/diagnostics';
 
-it('drops serial lines and keeps older records above newer ones', () => {
+it('drops serial lines and shows wall-clock time instead of milliseconds since boot', () => {
   expect(presentDiagnostics('1 第一条\n序列号 SECRET\n\nSerial Number ABC\n2 第二条')).toBe('1 第一条\n2 第二条');
+  const epoch = 1_730_000_000_000;
+  expect(formatDiagnosticClock(epoch)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+  expect(presentDiagnostics(`192380 ${epoch} 进入演示：全部图像由 App 生成，不代表真实相机画面`)).toBe(`${formatDiagnosticClock(epoch)} 进入演示：全部图像由 App 生成，不代表真实相机画面`);
+  expect(presentDiagnostics(`192380 ${epoch} 序列号 SECRET`)).toBe('');
   expect(presentDiagnostics('serialNumber=ABC')).toBe('');
   expect(presentDiagnostics('serialized USB step')).toBe('serialized USB step');
   expect(presentDiagnostics('\n  \n')).toBe('');
