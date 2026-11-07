@@ -205,6 +205,7 @@ public final class WifiS5Checks {
         }
         try(Fixture fixture=new Fixture(fixtures,101);WifiS5Transport camera=transport(fixture,new ArrayList<>())) {
             camera.open();check(fixture.auth.get()==1 && fixture.names.get()==1,"single legacy access and device-name registration");
+            check("MOCK-DC-S5".equals(camera.cameraModel()),"Wi-Fi cameraModel is description modelNumber");
             long exposureAt=camera.exposureUpdatedAtUs();check(exposureAt>0,"Wi-Fi exposure records a source-read monotonic timestamp");
             String rawExposure=camera.exposure();check(rawExposure.contains("ISO 400") && rawExposure.contains("f/400") && rawExposure.contains("快门 400"),"Wi-Fi exposure getter preserves source strings without guessing encoded units");
             for(int i=0;i<100;i++){camera.exposure();camera.exposureUpdatedAtUs();}

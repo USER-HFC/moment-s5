@@ -93,6 +93,14 @@ public final class UsbPtpChecks {
             camera.close();
         }
     }
+    private static void exposedModel() throws Exception {
+        UsbS5Transport camera=connect(manager(),new ArrayList<>());
+        check("DC-S5".equals(camera.cameraModel()),"USB cameraModel is the DeviceInfo model");
+        camera.close();
+        UsbS5Transport other=connect(manager("DC-S5M2"),new ArrayList<>());
+        check("DC-S5M2".equals(other.cameraModel()),"USB cameraModel follows the connected body");
+        other.close();
+    }
     private static void focus() throws Exception {
         // The fake DeviceInfo lists no operations at all, like a body that omits vendor ops.
         UsbManager manager=manager();UsbS5 camera=open(manager);camera.focus(true);camera.focus(false);
@@ -394,7 +402,7 @@ public final class UsbPtpChecks {
         camera.close();
     }
     public static void main(String[] args) throws Exception {
-        timeouts();exposure();anyLumix();focus();cameraPhotos();pairing();propertyEvents();
+        timeouts();exposure();anyLumix();exposedModel();focus();cameraPhotos();pairing();propertyEvents();
         System.out.println("PASS "+checks+" USB PTP checks (fake bulk transport; DC-S5 unverified)");
     }
 }

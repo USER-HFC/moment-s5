@@ -11,6 +11,8 @@ public interface CameraTransport extends AutoCloseable {
     record Original(Object key,String filename,long size) {}
     record Capabilities(boolean autofocus,boolean manualFocus,boolean exposure) {}
     String kind();
+    /** Body name from DeviceInfo or the Wi-Fi description. Null until that read succeeds. */
+    default String cameraModel() { return null; }
     void open() throws Exception;
     Preview preview() throws IOException;
     Capabilities capabilities();

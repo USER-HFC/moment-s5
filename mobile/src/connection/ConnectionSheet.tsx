@@ -5,6 +5,7 @@ import CameraSheet from '../CameraSheet';
 import {ui} from '../theme';
 import {CameraState} from '../native';
 import {connectionOptions, ConnectionForm, initialConnectionForm, WifiConnectionOptions} from './model';
+import {userFacingError} from '../captureError';
 
 type Props = {visible: boolean; state: CameraState; status: string; debugAllowed: boolean; onClose: () => void; onUsb: () => Promise<void>; onWifi: (options: WifiConnectionOptions) => Promise<void>; onDemo: () => Promise<void>; onDisconnect: () => void};
 const MODES = [
@@ -59,7 +60,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
         if (!options.manual && !(await requestWifiPermission())) throw new Error('附近 Wi-Fi 设备权限未授权；可在系统设置手动连接相机 Wi-Fi');
         await onWifi(options);
       }
-    } catch (e) { setError(String((e as Error)?.message || e)); }
+    } catch (e) { setError(userFacingError(String((e as Error)?.message || e))); }
     finally { pendingRef.current = false; setPending(false); }
   };
   const currentConnection = !state.active ? '未连接' : state.demo ? '演示中' : state.transport === 'wifi' ? 'Wi-Fi 已连接' : 'USB 已连接';
@@ -89,7 +90,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
           {!form.debug && <TextInput mode="outlined" label="相机 IP" accessibilityLabel="相机 IP" autoCapitalize="none" autoCorrect={false} keyboardType="numbers-and-punctuation" value={form.cameraIp} onChangeText={value => set('cameraIp', value)}/>}
           {debugAllowed && <><View style={styles.row}><Text style={styles.rowLabel}>模拟相机调试（仅 debug）</Text><Switch accessibilityLabel="模拟相机调试" value={form.debug} onValueChange={value => set('debug', value)}/></View>{form.debug && <><TextInput mode="outlined" label="调试主机:端口" accessibilityLabel="调试主机:端口" autoCapitalize="none" autoCorrect={false} value={form.debugEndpoint} onChangeText={value => set('debugEndpoint', value)}/><TextInput mode="outlined" label="UDP 接收端口" accessibilityLabel="UDP 接收端口" keyboardType="number-pad" value={form.udpPort} onChangeText={value => set('udpPort', value)}/><Text style={styles.detail}>使用本项目 mock。模拟器须单独配置 UDP 端口转发。</Text></>}</>}
         </>}
-        {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" style={[styles.detail, error && styles.error]}>{error || status}</Text>}
+        {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" style={[styles.detail, error && styles.error]}>{error || userFacingError(status)}</Text>}
 
         <Button mode="contained" contentStyle={styles.touch} accessibilityLabel={submitLabel} loading={pending} disabled={busy} onPress={() => {void submit();}}>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi' : '体验演示'}</Button>
         {state.active && <Button contentStyle={styles.touch} disabled={busy} onPress={onDisconnect}>{state.demo ? '结束演示' : '断开相机'}</Button>}

@@ -106,7 +106,7 @@ it('keeps failures readable and suppresses duplicate submits while awaiting nati
   await act(async () => release());
   act(() => tree.update(<ConnectionSheet {...props} onWifi={async () => {throw new Error('出现多个新原 JPEG，无法确认本次照片');}}/>));
   await act(async () => button('连接 Wi-Fi 相机').props.onPress());
-  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toContain('无法确认本次照片');
+  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('拍到了多张新照片，无法确定是哪一张，请查看相机存储卡');
 });
 it('hides debug settings in release and rejects forged debug options', () => {
   act(() => tree.update(<ConnectionSheet {...props} debugAllowed={false}/>)); wifi();
@@ -130,7 +130,7 @@ it('validates addresses and prevents credentials from entering the manual reques
 });
 it('shows the native status and the experimental badge only for Wi-Fi', () => {
   act(() => tree.update(<ConnectionSheet {...props} status="Wi-Fi 未收到完整取景帧"/>));
-  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('Wi-Fi 未收到完整取景帧');
+  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('收不到取景画面，请检查相机是否在拍摄模式，以及手机网络');
   act(() => tree.update(<ExperimentalWifiBadge state={{...state, transport: 'usb'}}/>));
   expect(tree.root.findAllByProps({testID: 'experimental-wifi-badge'})).toHaveLength(0);
   act(() => tree.update(<ExperimentalWifiBadge state={{...state, transport: 'wifi', exposure: 'ISO 400'}}/>));

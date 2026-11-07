@@ -1,6 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {AppState, Modal, StyleSheet} from 'react-native';
+import {AccessibilityInfo, Animated, AppState, Dimensions, Modal, StyleSheet, Vibration} from 'react-native';
+import {Text} from 'react-native-paper';
 import {afterEach, beforeEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
@@ -205,6 +206,7 @@ it('draws a reference frame without changing the preview frame', () => {
   const before = frame();
   expect(tree.root.findAllByProps({testID: 'reference-frame'})).toHaveLength(0);
   press('构图参考 关');
+  expect(tree.root.findByProps({testID: 'reference-frame'}).findByType(Text).props.numberOfLines).toBe(1);
   const wide = StyleSheet.flatten(tree.root.findByProps({testID: 'reference-frame'}).props.style);
   expect(wide.width).toBeGreaterThan(wide.height);
   expect(JSON.stringify(tree.toJSON())).toContain('16:9 参考');
@@ -222,4 +224,75 @@ it('hides the AF reticle until a feed is available and separates capture modes',
   press('动态照片'); press('普通照片'); press('拍摄照片');
   expect(camera!.captureStill).toHaveBeenCalledTimes(1);
   expect(camera!.capture).not.toHaveBeenCalled();
+});
+
+it('flashes and vibrates on the shutter, including when a countdown finishes', () => {
+  const vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
+  const timing = jest.spyOn(Animated, 'timing');
+  press('拍摄照片');
+  expect(vibrate).toHaveBeenCalledWith(20);
+  expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({toValue: 0, duration: 140, useNativeDriver: true}));
+  vibrate.mockClear(); timing.mockClear();
+  press('定时 关');
+  press('定时 2 秒');
+  press('开始倒计时');
+  expect(vibrate).not.toHaveBeenCalled();
+  expect(timing).not.toHaveBeenCalled();
+  tick(2100);
+  expect(vibrate).toHaveBeenCalledWith(20);
+  expect(camera!.captureStill).toHaveBeenCalledTimes(2);
+});
+
+it('vibrates without covering the frame when reduce motion is on', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+  act(() => tree.unmount());
+  await act(async () => { tree = renderer.create(<CameraWorkspace {...props}/>); });
+  const vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
+  const timing = jest.spyOn(Animated, 'timing');
+  press('拍摄照片');
+  expect(vibrate).toHaveBeenCalledWith(20);
+  expect(timing).not.toHaveBeenCalled();
+  const opacity = tree.root.findByProps({testID: 'shutter-flash'}).props.style.find((item: {opacity?: {_value?: number}}) => item?.opacity);
+  expect(opacity.opacity._value).toBe(0);
+});
+
+it('fades a replacement album thumbnail and leaves the first one still', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+  const timing = jest.spyOn(Animated, 'timing');
+  act(() => tree.update(<CameraWorkspace {...props} latestPhoto="file://first.jpg"/>));
+  await act(async () => { await Promise.resolve(); });
+  expect(tree.root.findByProps({testID: 'album-thumbnail'})).toBeTruthy();
+  expect(timing).not.toHaveBeenCalled();
+  act(() => tree.update(<CameraWorkspace {...props} latestPhoto="file://second.jpg"/>));
+  await act(async () => { await Promise.resolve(); });
+  expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({toValue: 1, duration: 180, useNativeDriver: true}));
+});
+
+it('shows the connected body on the connection control', () => {
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb', cameraModel: 'DC-S5'}}/>));
+  const control = tree.root.findByProps({accessibilityLabel: '相机连接'});
+  expect(control.findByType(Text).props.children).toBe('DC-S5 · USB');
+  expect(control.findByType(Text).props.numberOfLines).toBe(2);
+});
+
+it('pins the timer between the rail and the dock and wraps the guide on a short landscape screen', () => {
+  const original = Dimensions.get('window');
+  act(() => tree.unmount());
+  Dimensions.set({window: {...original, width: 900, height: 400, fontScale: 1.3}, screen: {...original, width: 900, height: 400, fontScale: 1.3}});
+  act(() => { tree = renderer.create(<CameraWorkspace {...props} state={{...state, active: false}} notice={{message: '相机正忙，请稍后再按快门', action: {label: '查看诊断', onPress: () => {}}}}/>); });
+  expect(tree.root.findByProps({testID: 'notice-bar'}).findAllByType(Text).some(node => node.props.numberOfLines === 3)).toBe(true);
+  expect(StyleSheet.flatten(tree.root.findByProps({accessibilityLabel: '连接步骤'}).props.style).flex).toBe(1);
+  act(() => tree.root.findByProps({testID: 'camera-tools'}).props.onLayout({nativeEvent: {layout: {width: 64, height: 400, x: 0, y: 0}}}));
+  act(() => tree.root.findByProps({testID: 'camera-dock'}).props.onLayout({nativeEvent: {layout: {width: 120, height: 400, x: 0, y: 0}}}));
+  press('定时 关');
+  const flyout = StyleSheet.flatten(tree.root.findByProps({testID: 'timer-flyout'}).props.style);
+  expect(flyout.left).toBe(72);
+  expect(flyout.right).toBe(128);
+  expect(flyout.top).toBe(8);
+  const optionNode = tree.root.findByProps({accessibilityLabel: '定时 2 秒'});
+  const option = StyleSheet.flatten(optionNode.props.style({pressed: false}));
+  expect(option.flexBasis).toBe(64);
+  expect(option.minWidth).toBe(64);
+  expect(StyleSheet.flatten(optionNode.parent?.props.style).flexWrap).toBe('wrap');
+  act(() => { Dimensions.set({window: original, screen: original}); });
 });
