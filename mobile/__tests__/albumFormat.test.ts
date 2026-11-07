@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, momentOrigin, momentSummary, momentTransport, shareKinds, shortPath} from '../src/albumFormat';
+import {fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, momentOrigin, momentSummary, momentTransport, shareDialogTitle, shareKinds, shortPath} from '../src/albumFormat';
 
 it('formats capture time, size and pixel dimensions', () => {
   const stamp = new Date(2024, 0, 2, 3, 4, 5).getTime();
@@ -25,10 +25,13 @@ it('names the shutter origin, transport and shareable files', () => {
   expect(fileLabel('original.jpg')).toBe('原片');
   expect(fileLabel('rendered.jpg')).toBe('LUT 成片');
   expect(fileLabel('motion.mp4')).toBe('动态视频');
-  expect(fileLabel('MOMENT_MP.jpg')).toBe('实况文件');
+  expect(fileLabel('MOMENT_MP.jpg')).toBe('动态照片');
   expect(shareKinds({videoUri: 'file://v', complete: true})).toEqual(['display', 'original', 'video', 'motion']);
   expect(shareKinds({captureMode: 'photo', complete: true})).toEqual(['display', 'original']);
   expect(shareKinds({videoUri: 'file://v', complete: false})).toEqual(['display', 'original', 'video']);
+  expect(shareDialogTitle({videoUri: 'file://v', complete: true})).toBe('分享动态照片');
+  expect(shareDialogTitle({captureMode: 'photo', complete: true})).toBe('分享照片');
+  expect(shareDialogTitle({videoUri: 'file://v', complete: false})).toBe('分享照片');
 });
 
 it('formats viewer titles as today, yesterday or a calendar date', () => {

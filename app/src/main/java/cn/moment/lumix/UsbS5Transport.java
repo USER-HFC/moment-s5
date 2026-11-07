@@ -185,7 +185,7 @@ public final class UsbS5Transport implements CameraTransport {
     public void downloadOriginal(Original original,File destination) throws IOException {
         if(original.size()>64*1024*1024L)throw new IOException("照片超过当前 64 MB 接收上限");
         byte[] bytes=usb.object((Integer)original.key());
-        if(original.size()!=0 && bytes.length!=original.size())throw new IOException("原片长度不符，未生成实况文件");
+        if(original.size()!=0 && bytes.length!=original.size())throw new IOException("原片长度不符，未保存这张照片");
         Files.write(destination.toPath(),bytes);
     }
     public boolean reportsNewPhotos(){return usb.hasEvents();}

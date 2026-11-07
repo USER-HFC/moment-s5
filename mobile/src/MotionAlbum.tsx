@@ -11,7 +11,7 @@ import CameraIcon from './CameraIcon';
 import AlbumSheet from './AlbumSheet';
 import LutFilmstrip from './LutFilmstrip';
 import PhotoInfo from './PhotoInfo';
-import {formatCaptureTitle, groupMomentsByDay, momentSummary, shareKindLabel, shareKinds} from './albumFormat';
+import {formatCaptureTitle, groupMomentsByDay, momentSummary, shareDialogTitle, shareKindLabel, shareKinds} from './albumFormat';
 
 type Props = {
   moments: MomentItem[];
@@ -296,7 +296,7 @@ export default function MotionAlbum({moments, luts = [], onBack, onExport, onDel
     const id = current.id;
     const buttons: AlertButton[] = shareKinds(current).map((kind) => ({text: shareKindLabel[kind], onPress: () => { void onShare(id, kind); }}));
     buttons.push({text: '取消', style: 'cancel'});
-    Alert.alert('分享照片', '选择要分享的文件', buttons);
+    Alert.alert(shareDialogTitle(current), '选择要分享的文件', buttons);
   };
   const selectLut = async (id: string) => {
     if (!current) return;
@@ -430,7 +430,7 @@ export default function MotionAlbum({moments, luts = [], onBack, onExport, onDel
         <CameraControl icon="info" label="信息" accessibilityLabel="照片信息" onPress={openInfo}/>
         {hasMotion(current) && <CameraControl icon="play" label={playing ? '停止' : '播放'} accessibilityLabel={playing ? '停止播放' : '播放动态照片'} onPress={togglePlay}/>}
         <CameraControl icon="lut" label="LUT" accessibilityLabel="更换 LUT" onPress={openLut}/>
-        {!!onShare && <CameraControl icon="share" label="分享" accessibilityLabel="分享照片" onPress={share}/>}
+        {!!onShare && <CameraControl icon="share" label="分享" accessibilityLabel={shareDialogTitle(current)} onPress={share}/>}
         {canExport(current) && <CameraControl icon="save" label="导出" accessibilityLabel={current.complete ? '导出到系统相册' : '导出原片到系统相册'} onPress={() => { void onExport(current.id); }}/>}
         <CameraControl icon="delete" label="删除" destructive accessibilityLabel="删除照片" onPress={() => askDelete(current.id)}/>
       </ScrollView>
@@ -443,7 +443,7 @@ export default function MotionAlbum({moments, luts = [], onBack, onExport, onDel
     </AlbumSheet>}
     {lutOpen && <AlbumSheet testID="album-lut-sheet" title="更换 LUT" height={pageHeight} initial={landscape ? 0.6 : 0.4} expanded={0.92} showClose={false} onClose={closeLut} footer={
       <View style={styles.lutFooter}>
-        <Text style={styles.sheetNote}>{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片对比原片 · 保存只改 App 内副本' : '按住照片对比原片 · 实况会用新静态图重新封装'}</Text>
+        <Text style={styles.sheetNote}>{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片对比原片 · 保存只改 App 内副本' : '按住照片对比原片 · 动态照片会用新静态图重新封装'}</Text>
         <View style={styles.lutButtons}>
           <Button mode="outlined" textColor={ui.color.text} contentStyle={styles.touch} accessibilityLabel="取消更换 LUT" onPress={closeLut} style={styles.lutButton}>取消</Button>
           <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} contentStyle={styles.touch} accessibilityLabel="保存 LUT" disabled={!onRender || !saveLutId || saving || previewing} onPress={() => { void saveLut(); }} style={styles.lutButton}>{saving ? '正在保存' : '保存'}</Button>

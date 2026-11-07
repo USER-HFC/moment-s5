@@ -388,7 +388,7 @@ public final class WifiS5Transport implements CameraTransport {
                     count=response.copy(out,WifiS5Protocol.MAX_JPEG);out.getFD().sync();break;
                 }catch(HttpFailure e){if((e.status!=404 && e.status!=503) || closed || clock.getAsLong()>=deadline)throw e;Thread.sleep(500);}
             }
-            if(selected.size()!=0 && count!=selected.size())throw new IOException("Wi-Fi 原片长度与目录不符；未生成实况");
+            if(selected.size()!=0 && count!=selected.size())throw new IOException("Wi-Fi 原片长度与目录不符，未保存这张照片");
             try(InputStream in=new BufferedInputStream(new FileInputStream(part))){WifiS5Protocol.jpeg(in,WifiS5Protocol.MAX_JPEG);}
             if(closed)throw new IOException("Wi-Fi 下载已取消");
             Files.move(part.toPath(),destination.toPath(),StandardCopyOption.ATOMIC_MOVE);state=State.READY;prepared=null;selected=null;

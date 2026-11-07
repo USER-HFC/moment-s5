@@ -8,7 +8,7 @@ import java.nio.file.Files;
 public final class MotionPhoto {
     private MotionPhoto() {}
     public static void write(File jpeg,File mp4,File output,long stillUs) throws IOException {
-        if(stillUs < -1) throw new IOException("实况照片时间标记无效");
+        if(stillUs < -1) throw new IOException("动态照片的播放位置无效");
         if(jpeg.getCanonicalFile().equals(output.getCanonicalFile()) || mp4.getCanonicalFile().equals(output.getCanonicalFile()))
             throw new IOException("不能覆盖原始素材");
         long length=mp4.length(); if(length<12) throw new IOException("视频为空");

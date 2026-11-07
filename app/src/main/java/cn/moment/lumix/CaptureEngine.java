@@ -110,7 +110,7 @@ public final class CaptureEngine {
     }
     private interface TransportFactory {CameraTransport create() throws Exception;}
     private void connectTransport(TransportFactory factory,String kind,String message) {
-        if(busy || shuttingDown) {listener.status("正在保存实况，请稍候",false);return;}
+        if(busy || shuttingDown) {listener.status("正在保存，请稍候",false);return;}
         long requestedEpoch=sessionEpoch.get();
         worker.execute(()-> {
             if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get()) return;
@@ -140,13 +140,13 @@ public final class CaptureEngine {
         });
     }
     public void demo() {
-        if(busy || shuttingDown) {listener.status("正在保存实况，请稍候",false);return;}
+        if(busy || shuttingDown) {listener.status("正在保存，请稍候",false);return;}
         long requestedEpoch=sessionEpoch.get();
         worker.execute(()-> {if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get())return;disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
     }
     private void startPolling() {
         startAudio();
-        ring.clear();listener.status(demo?"演示模式 · 正在预缓存":"已连接 · 正在预缓存",false);
+        ring.clear();listener.status(demo?"演示 · 正在预缓存":"已连接 · 正在预缓存",false);
         polling=worker.scheduleWithFixedDelay(()-> {
             if(!active || busy) return;
             try {grab();} catch(Exception e) {disconnectNow();fail(e);}
@@ -308,10 +308,10 @@ public final class CaptureEngine {
                 meta.put("transport",demoAtTap?"demo":cameraAtTap.kind());
                 meta.put("experimentalWifi",!demoAtTap && cameraAtTap.kind().equals("wifi"));
                 meta.put("motionQuality",demoAtTap?"synthetic demo":cameraAtTap.kind().equals("wifi")?"experimental unverified Wi-Fi preview, not camera-recorded video":"USB preview, not camera-recorded video");
-                meta.put("complete",false);meta.put("error","合成尚未完成，已接收的原片可以分享");
+                meta.put("complete",false);meta.put("error","动态照片还在生成，已接收的原片可以分享");
                 MomentStore.metadata(dir,meta);
                 File finalDir=dir; final boolean rendered=lutApplied;
-                listener.status("原片已接收 · 正在合成实况",false);
+                listener.status("原片已接收 · 正在生成动态照片",false);
                 exporter.execute(()-> {
                     Exception failure=null;
                     try {
@@ -327,7 +327,7 @@ public final class CaptureEngine {
                     finally {ring.clear();busy=false;refreshExposure();}
                     // Observers must see the completed state when the result event arrives.
                     if(failure!=null) {listener.failed(finalDir,failure.getMessage());fail(failure);}
-                    else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status("实况已保存",false);}
+                    else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status("动态照片已保存",false);}
                 });
             } catch(Exception e) {if(dir!=null)saveFailure(dir,meta,e);ring.clear();busy=false;refreshExposure();if(dir!=null)listener.failed(dir,e.getMessage());fail(e);}
         });
