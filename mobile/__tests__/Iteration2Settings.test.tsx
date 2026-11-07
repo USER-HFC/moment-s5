@@ -19,7 +19,7 @@ jest.mock('../src/native', () => ({
   camera: {
     getPreferences: jest.fn(async () => mockPreferences),
     setPreference: jest.fn(async () => {}),
-    storageUsage: jest.fn(async () => ({count: 2, bytes: 1536})),
+    storageUsage: jest.fn(async () => ({count: 2, bytes: 1536, exportedCount: 1, exportedBytes: 512})),
     clearExportedCopies: jest.fn(async () => ({removed: 1})),
     diagnostics: async () => '',
   },
@@ -78,12 +78,30 @@ it('confirms before clearing exported copies and says the card and gallery stay'
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
   expect(tree!.root.findByProps({testID: 'storage-count'}).props.children).toBe('2 张');
   expect(tree!.root.findByProps({testID: 'storage-bytes'}).props.children).toBe('1.5 KB');
+  expect(tree!.root.findByProps({testID: 'storage-clearable'}).props.children).toBe('可清理 1 张，约 512 B');
+  expect(tree!.root.findByProps({testID: 'storage-clear'}).props.accessibilityState.disabled).toBe(false);
   expect(camera!.clearExportedCopies).not.toHaveBeenCalled();
   act(() => tree!.root.findByProps({testID: 'storage-clear'}).props.onPress());
   expect(text(tree!)).toContain('机身 SD 卡和系统相册里的照片不受影响');
   await act(async () => tree!.root.findByProps({testID: 'storage-confirm-clear'}).props.onPress());
   expect(camera!.clearExportedCopies).toHaveBeenCalledTimes(1);
   expect(notices).toEqual(['已清理 1 张已导出的副本']);
+  act(() => tree!.unmount());
+});
+
+it('disables cleanup when nothing has been exported', async () => {
+  jest.mocked(camera!.clearExportedCopies).mockClear();
+  jest.mocked(camera!.storageUsage).mockResolvedValueOnce({count: 2, bytes: 1536, exportedCount: 0, exportedBytes: 0});
+  let tree: renderer.ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<Harness/>); });
+  act(() => tree!.root.findByProps({testID: 'settings-storage'}).props.onPress());
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+  const button = tree!.root.findByProps({testID: 'storage-clear'});
+  expect(button.props.accessibilityState.disabled).toBe(true);
+  expect(tree!.root.findByProps({testID: 'storage-clearable'}).props.children).toBe('没有可清理的照片');
+  act(() => button.props.onPress());
+  expect(tree!.root.findAllByProps({testID: 'storage-confirm'})).toHaveLength(0);
+  expect(camera!.clearExportedCopies).not.toHaveBeenCalled();
   act(() => tree!.unmount());
 });
 

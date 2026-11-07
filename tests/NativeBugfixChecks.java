@@ -608,7 +608,8 @@ public final class NativeBugfixChecks {
         Path files=Files.createDirectory(root.resolve("storage"));
         Context context=new Context(files.toFile());
         MomentStore store=new MomentStore(context);
-        check(store.usage().count==0 && store.usage().bytes==0 && store.deleteExported(context)==0,"empty storage deletes nothing");
+        MomentStore.Usage empty=store.usage(context);
+        check(empty.count==0 && empty.bytes==0 && empty.exportedCount==0 && empty.exportedBytes==0 && store.deleteExported(context)==0,"empty storage deletes nothing");
         File kept=store.create(),exported=store.create(),unknown=store.create(),motionKept=store.create(),motionExported=store.create();
         byte[] photo={1,2,3,4};
         for(File dir:List.of(kept,exported,unknown)){
@@ -635,13 +636,19 @@ public final class NativeBugfixChecks {
                 return cursor;
             }
         };
+        long exportedBytes=0;
+        for(File dir:List.of(exported,motionExported)) for(File file:dir.listFiles()) exportedBytes+=file.length();
+        MomentStore.Usage before=store.usage(context);
+        check(before.count==5 && before.bytes==expected && before.exportedCount==2 && before.exportedBytes==exportedBytes,"usage counts confirmed exports and leaves unknown exports out");
+        check(store.usage().exportedCount==0 && store.usage().exportedBytes==0,"usage without a context does not invent an export tally");
         check(store.deleteExported(context)==2,"only confirmed exports are removed");
         check(!exported.exists() && !motionExported.exists(),"exported photo and motion copies are gone");
         check(kept.isDirectory() && new File(kept,"original.jpg").isFile(),"an unexported photo is kept");
         check(motionKept.isDirectory() && new File(motionKept,"MOMENT_MP.jpg").isFile(),"an unexported motion photo is kept");
         check(unknown.isDirectory() && new File(unknown,"original.jpg").isFile(),"unknown export status is never deleted");
         check(outside.isFile() && stray.isFile(),"files outside moment directories stay");
-        check(store.usage().count==3,"usage recounts only the photos that remain");
+        MomentStore.Usage after=store.usage(context);
+        check(after.count==3 && after.exportedCount==0 && after.exportedBytes==0,"usage recounts only the photos that remain and nothing is left to clear");
         check(store.deleteExported(context)==0,"a second cleanup deletes nothing more");
         File unsafe=store.create();
         Files.write(new File(unsafe,"original.jpg").toPath(),photo);

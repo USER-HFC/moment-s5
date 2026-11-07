@@ -8,7 +8,7 @@ export type AppPreferences = {
   autoExport: boolean; syncBodyPhotos: boolean; rememberCapture: boolean; onboardingSeen: boolean;
   capture: CaptureMemory;
 };
-export type StorageUsage = {count: number; bytes: number};
+export type StorageUsage = {count: number; bytes: number; exportedCount: number; exportedBytes: number};
 
 const GUIDES: readonly Guide[] = ['off', '16:9', '1:1', '4:5'];
 const TIMERS = [0, 2, 5, 10, 30];
@@ -76,4 +76,10 @@ export function formatBytes(bytes: number) {
   while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
   const digits = unit === 0 || value >= 10 ? 0 : 1;
   return `${value.toFixed(digits).replace(/\.0$/, '')} ${units[unit]}`;
+}
+
+/** Line under the storage cleanup button. Zero means there is nothing the button can remove. */
+export function clearableSummary(exportedCount: number, exportedBytes: number) {
+  if (!Number.isFinite(exportedCount) || exportedCount <= 0) return '没有可清理的照片';
+  return `可清理 ${Math.floor(exportedCount)} 张，约 ${formatBytes(exportedBytes)}`;
 }

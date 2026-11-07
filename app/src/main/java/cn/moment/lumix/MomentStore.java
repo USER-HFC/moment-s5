@@ -24,13 +24,24 @@ public final class MomentStore {
     public void delete(String id) throws IOException {MomentDeletion.delete(root,id);}
     public static final class Usage {
         public final int count; public final long bytes;
-        public Usage(int count,long bytes){this.count=count;this.bytes=bytes;}
+        public final int exportedCount; public final long exportedBytes;
+        public Usage(int count,long bytes,int exportedCount,long exportedBytes){this.count=count;this.bytes=bytes;this.exportedCount=exportedCount;this.exportedBytes=exportedBytes;}
     }
     /** Moment directories only. Symlinks are skipped so a link cannot count files outside the app. */
-    public Usage usage() {
-        int count=0;long bytes=0;
-        for(File dir:list()){count++;bytes+=bytesUnder(dir.toPath());}
-        return new Usage(count,bytes);
+    public Usage usage() {return usage(null);}
+    /**
+     * Same directory tally as {@link #usage()}, plus copies MediaStore still lists as exported.
+     * A null context leaves the export tally at zero: an unknown export is not something we can clear.
+     */
+    public Usage usage(Context context) {
+        int count=0;long bytes=0;int exportedCount=0;long exportedBytes=0;
+        for(File dir:list()){
+            count++;
+            long size=bytesUnder(dir.toPath());
+            bytes+=size;
+            if(context!=null && confirmedExport(context,dir)){exportedCount++;exportedBytes+=size;}
+        }
+        return new Usage(count,bytes,exportedCount,exportedBytes);
     }
     /**
      * Deletes app copies that MediaStore still lists as exported.

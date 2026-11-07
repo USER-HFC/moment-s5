@@ -4,7 +4,7 @@ import {Text} from 'react-native-paper';
 import CameraControl from './CameraControl';
 import {camera} from './native';
 import {Notice} from './notice';
-import {formatBytes, StorageUsage} from './preferences';
+import {clearableSummary, formatBytes, StorageUsage} from './preferences';
 import {ui} from './theme';
 
 export default function StorageScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {
@@ -40,6 +40,8 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
 
   const count = usage ? `${usage.count} 张` : '…';
   const bytes = usage ? formatBytes(usage.bytes) : '…';
+  const clearable = !!usage && usage.exportedCount > 0;
+  const summary = usage ? clearableSummary(usage.exportedCount, usage.exportedBytes) : '…';
   return <View style={styles.screen} testID="storage-screen">
     <View style={styles.header}>
       <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
@@ -61,11 +63,13 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
         </View>
         {!!problem && <Text testID="storage-error" style={styles.error}>{problem}</Text>}
         {usage?.count === 0 && <Text style={styles.note}>还没有保存在 App 里的照片。</Text>}
-        <Pressable accessibilityRole="button" accessibilityLabel="清理已导出的 App 内副本" testID="storage-clear"
-          onPress={() => { setClearError(''); setConfirm(true); }}
-          style={({pressed}) => [styles.action, pressed && styles.pressed]}>
-          <Text style={styles.actionLabel}>清理已导出的 App 内副本</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="清理已导出的 App 内副本" accessibilityState={{disabled: !clearable}}
+          disabled={!clearable} testID="storage-clear"
+          onPress={() => { if (!clearable) return; setClearError(''); setConfirm(true); }}
+          style={({pressed}) => [styles.action, !clearable && styles.actionDisabled, pressed && clearable && styles.pressed]}>
+          <Text style={[styles.actionLabel, !clearable && styles.actionLabelDisabled]}>清理已导出的 App 内副本</Text>
         </Pressable>
+        <Text testID="storage-clearable" style={styles.note}>{summary}</Text>
         <Text style={styles.note}>只删除已经导出的 App 内副本。未导出的照片会保留。</Text>
       </View>
     </ScrollView>
@@ -107,7 +111,9 @@ const styles = StyleSheet.create({
   note: {...ui.type.body, color: ui.color.muted},
   error: {...ui.type.body, color: ui.color.destructive},
   action: {minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm},
+  actionDisabled: {opacity: 0.45},
   actionLabel: {...ui.type.body, color: ui.color.accent, textAlign: 'center'},
+  actionLabelDisabled: {color: ui.color.muted},
   pressed: {backgroundColor: ui.color.raised},
   scrim: {flex: 1, justifyContent: 'center', padding: ui.space.gutter, backgroundColor: ui.color.scrim},
   dialog: {width: '100%', maxWidth: 420, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.background},
