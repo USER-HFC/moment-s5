@@ -79,7 +79,7 @@ export default function AboutScreen({build, onBack}: {build: BuildInfo; onBack: 
           <View style={styles.heroText}>
             <Text testID="about-project" style={styles.appName}>瞬间 Lumix</Text>
             <Text testID="about-version" accessibilityLabel={`版本 ${build.versionName}，版本号 ${build.versionCode}`} style={styles.version}>{build.versionName}（{build.versionCode}）</Text>
-            <Text style={styles.tagline}>为 Panasonic LUMIX 相机拍摄实况照片</Text>
+            <Text style={styles.tagline}>为 Panasonic LUMIX 相机拍摄动态照片</Text>
           </View>
         </View>
 

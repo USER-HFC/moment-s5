@@ -9,10 +9,12 @@ import {theme} from './src/theme';
 import CameraWorkspace from './src/CameraWorkspace';
 import MotionAlbum from './src/MotionAlbum';
 import ConnectionSheet from './src/connection/ConnectionSheet';
+import {openDiagnosticsPage, registerDiagnosticsOpener} from './src/connection/diagnostics';
 import {WifiConnectionOptions} from './src/connection/model';
 import useCameraReadings from './src/hud/useCameraReadings';
-import SettingsScreen from './src/SettingsScreen';
+import SettingsScreen, {SettingsPage} from './src/SettingsScreen';
 import {buildInfoFromModule} from './src/buildInfo';
+import {Notice, noticeOf} from './src/notice';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -20,12 +22,13 @@ export default function App() {
   const [page, setPage] = useState<'camera' | 'album' | 'settings'>('camera');
   const pageRef = useRef(page);
   pageRef.current = page;
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>('list');
   const [state, setState] = useState<CameraState>(emptyState);
   const [preview, setPreview] = useState<string>();
   const [buffered, setBuffered] = useState(0);
   const [luts, setLuts] = useState<LutItem[]>([]);
   const [moments, setMoments] = useState<MomentItem[]>([]);
-  const [snack, setSnack] = useState('');
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('');
   const lastPreviewAt = useRef(-Infinity);
@@ -33,13 +36,18 @@ export default function App() {
   const refresh = useCallback(async () => {
     if (!camera) return;
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
-    catch (e) { setSnack(errorText(e)); }
+    catch (e) { setNotice(noticeOf(errorText(e))); }
   }, []);
+  useEffect(() => registerDiagnosticsOpener(() => {
+    setConnectionOpen(false);
+    setSettingsPage('diagnostics');
+    setPage('settings');
+  }), []);
   useEffect(() => {
     void refresh();
-    if (!cameraEvents) { setSnack('当前平台没有相机桥'); return; }
+    if (!cameraEvents) { setNotice(noticeOf('当前平台没有相机桥')); return; }
     const subs = [
-      cameraEvents.addListener('cameraStatus', (e) => { setSnack(e.message); setConnectionStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
+      cameraEvents.addListener('cameraStatus', (e) => { setNotice(noticeOf(e.message)); setConnectionStatus(e.message); setState((s) => ({...s, ready: !!e.ready})); void refresh(); }),
       cameraEvents.addListener('cameraFrame', (e) => {
         const now = performance.now();
         if (pageRef.current === 'camera' && now - lastPreviewAt.current >= 66) {
@@ -50,8 +58,15 @@ export default function App() {
       }),
       cameraEvents.addListener('cameraExposure', (e) => setState(s => ({...s, exposure: e.value, exposureAgeMs: e.exposureAgeMs}))),
       cameraEvents.addListener('phoneBattery', (e) => setState(s => ({...s, phoneBattery: e}))),
-      cameraEvents.addListener('cameraSaved', () => { setSnack('照片已保存'); void refresh(); }),
-      cameraEvents.addListener('cameraFailed', (e) => { setSnack('照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
+      cameraEvents.addListener('cameraSaved', () => { setNotice(noticeOf('照片已保存')); void refresh(); }),
+      cameraEvents.addListener('cameraFailed', (e) => {
+        const detail = typeof e.error === 'string' ? e.error.trim() : '';
+        setNotice(noticeOf(detail ? `照片处理失败：${detail}` : '照片处理失败', {
+          label: '查看诊断',
+          onPress: () => { setNotice(null); openDiagnosticsPage(); },
+        }));
+        void refresh();
+      }),
     ];
     const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
@@ -59,7 +74,7 @@ export default function App() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (page === 'camera') return false;
-      // Settings owns its own back stack (list → capture, about → list).
+      // Settings owns its own back stack (list → capture, subpage → list).
       if (page === 'settings') return false;
       setPage('camera'); return true;
     });
@@ -68,40 +83,40 @@ export default function App() {
   const closeSettings = useCallback(() => setPage('camera'), []);
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
-  const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setSnack(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { setSnack(errorText(e)); } };
+  const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); setNotice(noticeOf(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用')); } catch (e) { setNotice(noticeOf(errorText(e))); } };
   const importLut = async () => {
-    if (!camera) return setSnack('当前平台没有相机桥');
+    if (!camera) return setNotice(noticeOf('当前平台没有相机桥'));
     try { const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]}); const item = await camera.importLut(file.uri, file.name || 'imported.cube'); await refresh(); await setLut(item.id); }
-    catch (e) { if (!DocumentPicker.isCancel(e)) setSnack(errorText(e)); }
+    catch (e) { if (!DocumentPicker.isCancel(e)) setNotice(noticeOf(errorText(e))); }
   };
   const exportMoment = async (id: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
-      await camera.exportMoment(id); setSnack('已导出到 DCIM/MomentS5');
-    } catch (e) { setSnack(errorText(e)); }
+      await camera.exportMoment(id); setNotice(noticeOf('已导出到 DCIM/MomentS5'));
+    } catch (e) { setNotice(noticeOf(errorText(e))); }
   };
   const deleteMoment = async (id: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       await camera.deleteMoment(id);
       setMoments((items) => items.filter((item) => item.id !== id));
-      setSnack('已删除 App 内照片；SD 卡原片与系统相册副本保留');
-    } catch (e) { setSnack(errorText(e)); }
+      setNotice(noticeOf('已删除 App 内照片；SD 卡原片与系统相册副本保留'));
+    } catch (e) { setNotice(noticeOf(errorText(e))); }
   };
   const renderMoment = useCallback(async (id: string, lutId: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       const updated = await camera.renderMoment(id, lutId);
       setMoments((items) => items.map((item) => item.id === id ? {...item, ...updated} : item));
-      setSnack(updated.lut ? '已从原片重新套用 LUT' : '已恢复原色');
+      setNotice(noticeOf(updated.lut ? '已从原片重新套用 LUT' : '已恢复原色'));
       return updated;
-    } catch (e) { setSnack(errorText(e)); throw e; }
+    } catch (e) { setNotice(noticeOf(errorText(e))); throw e; }
   }, []);
   const previewMomentLut = useCallback(async (id: string, lutId: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       return await camera.previewMomentLut(id, lutId);
-    } catch (e) { setSnack(errorText(e)); throw e; }
+    } catch (e) { setNotice(noticeOf(errorText(e))); throw e; }
   }, []);
   const previewMomentThumbnail = useCallback(async (id: string, lutId: string) => {
     if (!camera?.previewMomentLutThumbnail) return null;
@@ -116,15 +131,15 @@ export default function App() {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       await camera.shareMoment(id, kind);
-    } catch (e) { setSnack(errorText(e)); }
+    } catch (e) { setNotice(noticeOf(errorText(e))); }
   }, []);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => setPage('settings')} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
+    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} luts={luts} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
-    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} onBack={closeSettings}/>}
+    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
-    <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={4500}>{snack}</Snackbar>
+    <Snackbar visible={notice !== null} onDismiss={() => setNotice(null)} duration={4500} action={notice?.action}>{notice?.message ?? ''}</Snackbar>
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
 function errorText(e: unknown) { return String((e as Error)?.message || e); }

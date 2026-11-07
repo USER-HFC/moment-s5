@@ -10,7 +10,7 @@ jest.mock('react-native-safe-area-context', () => {
 });
 jest.mock('../src/native', () => {
   const listeners = new Map();
-  return {camera: {listLuts: async () => [], listMoments: async () => [], getState: async () => ({active: true, busy: false, ready: false, demo: false, lut: null})},
+  return {camera: {listLuts: async () => [], listMoments: async () => [], getState: async () => ({active: true, busy: false, ready: false, demo: false, lut: null}), diagnostics: async () => '10 已准备快门前照片索引\n11 序列号 SN-SHOULD-NOT-SHOW\n12 进入演示'},
     cameraEvents: {listeners, addListener: (name: string, listener: Function) => {listeners.set(name, listener); return {remove: () => listeners.delete(name)};}}};
 });
 
@@ -32,6 +32,30 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   expect(tree!.root.findByType(Snackbar).props.children).toBe('未找到本次 JPEG');
   act(() => tree!.unmount()); expect(listeners.size).toBe(0);
   jest.clearAllTimers(); jest.useRealTimers();
+});
+
+it('opens connection diagnostics from a failed capture without asking the user to hunt for it', async () => {
+  jest.useFakeTimers();
+  let tree: renderer.ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<App/>); });
+  const listeners: Map<string, Function> = (cameraEvents as any).listeners;
+  await act(async () => listeners.get('cameraFailed')!({error: '传错照片'}));
+  const bar = () => tree!.root.findByType(Snackbar);
+  expect(bar().props.children).toBe('照片处理失败：传错照片');
+  expect(bar().props.action.label).toBe('查看诊断');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('请检查连接诊断');
+  await act(async () => bar().props.action.onPress());
+  const log = tree!.root.findByProps({testID: 'diagnostics-log'}).props.children;
+  expect(log).toContain('已准备快门前照片索引');
+  expect(log.indexOf('已准备快门前照片索引')).toBeLessThan(log.indexOf('进入演示'));
+  expect(log).not.toContain('序列号');
+  expect(log).not.toContain('SN-SHOULD-NOT-SHOW');
+  await act(async () => listeners.get('cameraFailed')!({}));
+  expect(bar().props.children).toBe('照片处理失败');
+  expect(bar().props.action.label).toBe('查看诊断');
+  act(() => tree!.unmount());
+  jest.clearAllTimers();
+  jest.useRealTimers();
 });
 
 it('continues receiving previews when the wall clock moves backwards', async () => {
