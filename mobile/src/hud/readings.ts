@@ -4,6 +4,12 @@ import {BatteryReading, CameraState} from '../native';
 export const EXPOSURE_STALE_MS = 6_000;
 const EMPTY = {aperture: 'f/—', shutter: '快门 —', iso: 'ISO —'};
 
+/** Hide the exposure row when every field is still a dash. Partial readings keep their own placeholders. */
+export function exposureShown(reading: {aperture: string; shutter: string; iso: string; detail: string}) {
+  const blank = reading.aperture === EMPTY.aperture && reading.shutter === EMPTY.shutter && reading.iso === EMPTY.iso;
+  return !blank || (reading.detail !== '' && reading.detail !== '机身未提供读数');
+}
+
 /** Only split the display forms emitted by USB / Wi-Fi. Encoded Wi-Fi values stay raw. */
 export function exposureReading(state: CameraState) {
   if (!state.active) return {...EMPTY, label: '曝光 · 未连接', detail: ''};

@@ -41,6 +41,19 @@ it('keeps Wi-Fi capture provenance visible in the album after disconnection', ()
   act(() => tree.unmount());
 });
 
+it('opens the viewer on the requested photo once that photo is loaded', () => {
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG', imageUri: 'content://moment/image2', captureMode: 'photo' as const, videoUri: undefined}];
+  const onHandled = jest.fn();
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[]} initialMomentId="M2" onInitialMomentHandled={onHandled} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
+  expect(tree!.root.findAllByProps({testID: 'motion-viewer'})).toHaveLength(0);
+  expect(onHandled).not.toHaveBeenCalled();
+  act(() => tree!.update(<MotionAlbum moments={photos} initialMomentId="M2" onInitialMomentHandled={onHandled} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
+  expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('content://moment/image2');
+  expect(onHandled).toHaveBeenCalledTimes(1);
+  act(() => tree!.unmount());
+});
+
 it('opens a photo from the grid and swipes to the next one', () => {
   const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG', imageUri: 'content://moment/image2', captureMode: 'photo', videoUri: undefined}];
   const tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);

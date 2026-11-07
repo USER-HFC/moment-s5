@@ -16,6 +16,9 @@ import {formatCaptureTitle, groupMomentsByDay, momentSummary, shareKindLabel, sh
 type Props = {
   moments: MomentItem[];
   luts?: LutItem[];
+  /** Open the viewer on this photo once it is in `moments`. Omitted keeps the grid. */
+  initialMomentId?: string | null;
+  onInitialMomentHandled?: () => void;
   onBack: () => void;
   onExport: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -46,7 +49,7 @@ function Gradient({top}: {top: boolean}) {
   </Svg>;
 }
 
-export default function MotionAlbum({moments, luts = [], onBack, onExport, onDelete, onRender, onPreview, onThumbnail, onDetails, onShare}: Props) {
+export default function MotionAlbum({moments, luts = [], initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onRender, onPreview, onThumbnail, onDetails, onShare}: Props) {
   const [frame, setFrame] = useState({width: 0, height: 0});
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [chrome, setChrome] = useState(true);
@@ -77,6 +80,7 @@ export default function MotionAlbum({moments, luts = [], onBack, onExport, onDel
   const thumbToken = useRef(0);
   const thumbCache = useRef(new Map<string, string>());
   const indexRef = useRef(0);
+  const appliedInitial = useRef<string | null>(null);
   const videoRef = useRef<VideoRef>(null);
   const imageOpacity = useRef(new Animated.Value(1)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
@@ -145,6 +149,13 @@ export default function MotionAlbum({moments, luts = [], onBack, onExport, onDel
   const closeLut = useCallback(() => { clearPreview(); setLutOpen(false); }, [clearPreview]);
 
   useEffect(() => { baseX.setValue(-pageWidth); }, [baseX, pageWidth]);
+  useEffect(() => {
+    if (!initialMomentId || appliedInitial.current === initialMomentId) return;
+    if (!moments.some((moment) => moment.id === initialMomentId)) return;
+    appliedInitial.current = initialMomentId;
+    setViewerId(initialMomentId);
+    onInitialMomentHandled?.();
+  }, [initialMomentId, moments, onInitialMomentHandled]);
   const mounted = useRef(false);
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
