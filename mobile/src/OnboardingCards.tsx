@@ -1,16 +1,19 @@
 import React, {useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';
 
-const CARDS = [
-  {title: '连接相机', body: '用数据线连接相机，并在相机里选择 PC(Tether)。也可以先体验演示，熟悉拍摄界面。'},
-  {title: '拍动态照片', body: '在画面底部切到「动态」。等提示可以拍摄后按快门，会保留按下前大约 3 秒的画面。'},
-  {title: '套用 LUT', body: '点 LUT，选一种色彩风格。取景会马上换上这个风格，保存进 App 的是处理后的副本。'},
+const CARDS: {title: string; icon: CameraIconName; body: string}[] = [
+  {title: '连接相机', icon: 'usb', body: '用数据线连接相机，并在相机里选择 PC(Tether)。也可以先体验演示，熟悉拍摄界面。'},
+  {title: '拍动态照片', icon: 'motion', body: '在画面底部切到「动态」。等提示可以拍摄后按快门，会保留按下前大约 3 秒的画面。'},
+  {title: '套用 LUT', icon: 'lut', body: '点 LUT，选一种色彩风格。取景会马上换上这个风格，保存进 App 的是处理后的副本。'},
 ];
 
 export default function OnboardingCards({onDone}: {onDone: () => void}) {
   const [index, setIndex] = useState(0);
+  const window = useWindowDimensions();
+  const portrait = window.height >= window.width && window.height > 0;
   const card = CARDS[index];
   const last = index === CARDS.length - 1;
   return <View testID="onboarding" style={styles.screen}>
@@ -21,7 +24,10 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
       </Pressable>
     </View>
     <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
-      <View testID={`onboarding-card-${index + 1}`} style={styles.card}>
+      <View testID={`onboarding-card-${index + 1}`} style={[styles.card, portrait && {minHeight: Math.max(320, Math.round(window.height * 0.46))}]}>
+        <View style={styles.badge}>
+          <CameraIcon name={card.icon} active size={40}/>
+        </View>
         <Text style={styles.kicker}>{`${index + 1} / ${CARDS.length}`}</Text>
         <Text style={styles.title}>{card.title}</Text>
         <Text style={styles.body}>{card.body}</Text>
@@ -47,11 +53,12 @@ const styles = StyleSheet.create({
   skip: {minHeight: ui.icon.touch, minWidth: ui.icon.touch, paddingHorizontal: ui.space.md, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control},
   skipLabel: {...ui.type.body, color: ui.color.muted},
   pressed: {backgroundColor: ui.color.raised},
-  scroll: {flexGrow: 1, justifyContent: 'center', paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.lg},
-  card: {width: '100%', maxWidth: 520, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, backgroundColor: ui.color.surface},
+  scroll: {flexGrow: 1, justifyContent: 'center', paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.lg},
+  card: {width: '100%', maxWidth: 520, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', gap: ui.space.lg, paddingHorizontal: ui.space.xl, paddingVertical: ui.space.xl, borderRadius: ui.radius.sheet, backgroundColor: ui.color.surface},
+  badge: {width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.raised},
   kicker: {...ui.type.caption, color: ui.color.accent, fontVariant: ['tabular-nums']},
-  title: {...ui.type.title, color: ui.color.text},
-  body: {...ui.type.body, color: ui.color.text},
+  title: {...ui.type.title, color: ui.color.text, textAlign: 'center'},
+  body: {...ui.type.body, color: ui.color.text, textAlign: 'center'},
   footer: {paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.lg, gap: ui.space.md, width: '100%', maxWidth: 520, alignSelf: 'center'},
   dots: {flexDirection: 'row', justifyContent: 'center', gap: ui.space.sm},
   dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: ui.color.outline},

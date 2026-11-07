@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {Linking} from 'react-native';
+import {Linking, StyleSheet} from 'react-native';
 import {expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
@@ -110,11 +110,17 @@ it('walks three intro cards once and can skip', () => {
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<OnboardingCards onDone={done}/>); });
   expect(text(tree!)).toContain('连接相机');
-  expect(tree!.root.findByProps({testID: 'onboarding-card-1'})).toBeTruthy();
+  const card = tree!.root.findByProps({testID: 'onboarding-card-1'});
+  expect(card.findByProps({testID: 'camera-icon-usb'})).toBeTruthy();
+  const cardStyle = StyleSheet.flatten(card.props.style);
+  expect(cardStyle.justifyContent).toBe('center');
+  expect(cardStyle.minHeight).toBeGreaterThanOrEqual(320);
   act(() => tree!.root.findByProps({testID: 'onboarding-next'}).props.onPress());
   expect(text(tree!)).toContain('拍动态照片');
+  expect(tree!.root.findByProps({testID: 'camera-icon-motion'})).toBeTruthy();
   act(() => tree!.root.findByProps({testID: 'onboarding-next'}).props.onPress());
   expect(text(tree!)).toContain('套用 LUT');
+  expect(tree!.root.findByProps({testID: 'camera-icon-lut'})).toBeTruthy();
   expect(text(tree!)).toContain('开始使用');
   act(() => tree!.root.findByProps({testID: 'onboarding-next'}).props.onPress());
   expect(done).toHaveBeenCalledTimes(1);
