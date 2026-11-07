@@ -71,7 +71,8 @@ it('validates known SSID and requests permission only for automatic joining', as
   wifi(); act(() => toggle('我已在系统设置里连上相机 Wi-Fi').props.onValueChange(false));
   await act(async () => button('连接 Wi-Fi 相机').props.onPress());
   expect(props.onWifi).not.toHaveBeenCalled(); expect(permission).not.toHaveBeenCalled();
-  const input = tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 Wi-Fi SSID')!;
+  const input = tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 Wi-Fi 名称')!;
+  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toContain('相机 Wi-Fi 名称');
   act(() => input.props.onChangeText('S5-fixture'));
   expect(tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 Wi-Fi 密码')!.props.secureTextEntry).toBe(true);
   await act(async () => button('连接 Wi-Fi 相机').props.onPress());

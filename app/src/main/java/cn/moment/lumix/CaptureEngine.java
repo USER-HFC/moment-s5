@@ -42,6 +42,8 @@ public final class CaptureEngine {
     private volatile CameraTransport.Baseline preparedHandles;
     /** Originals saved in this session (app captures and synced body photos), never imported twice. */
     private final Set<Object> savedOriginals=Collections.synchronizedSet(new HashSet<>());
+    /** When false, a body-shutter photo is folded into the baseline and not downloaded. */
+    private volatile boolean syncBodyPhotos=true;
     /** Changes whenever the camera session is replaced or disconnected. */
     private final AtomicLong sessionEpoch=new AtomicLong();
     private ScheduledFuture<?> polling;
@@ -50,9 +52,15 @@ public final class CaptureEngine {
     private final File wifiClientId;
     public CaptureEngine(Context c,Listener listener) {store=new MomentStore(c);this.listener=listener;wifiClientId=new File(c.getFilesDir(),"wifi-client-id");}
     private void log(String s) {
-        synchronized(logs) {logs.add(String.format(Locale.US,"%d %s",SystemClock.elapsedRealtime(),s));if(logs.size()>250) logs.remove(0);}
+        synchronized(logs) {
+            // Elapsed time keeps order across sleeps. The second number is wall-clock millis so the page can show HH:mm:ss.
+            logs.add(String.format(Locale.US,"%d %d %s",SystemClock.elapsedRealtime(),System.currentTimeMillis(),s));
+            if(logs.size()>250) logs.remove(0);
+        }
         listener.log(s);
     }
+    public void setSyncBodyPhotos(boolean enabled) {syncBodyPhotos=enabled;}
+    public boolean syncBodyPhotos() {return syncBodyPhotos;}
     public String diagnostics() {synchronized(logs){return String.join("\n",logs);}}
     public boolean busy() {return busy;}
     public void audio(boolean enabled) {audioEnabled=enabled;if(!enabled)stopAudio();if(!worker.isShutdown())worker.execute(()->{stopAudio();if(active)startAudio();});}
@@ -142,7 +150,7 @@ public final class CaptureEngine {
     public void demo() {
         if(busy || shuttingDown) {listener.status("正在保存，请稍候",false);return;}
         long requestedEpoch=sessionEpoch.get();
-        worker.execute(()-> {if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get())return;disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表 S5 实测");listener.exposure("演示素材 · 无相机连接");startPolling();});
+        worker.execute(()-> {if(busy || shuttingDown || requestedEpoch!=sessionEpoch.get())return;disconnectNow();preparedHandles=null;demo=true;active=true;log("进入演示：全部图像由 App 生成，不代表真实相机画面");listener.exposure("演示素材 · 无相机连接");startPolling();});
     }
     private void startPolling() {
         startAudio();
@@ -166,9 +174,17 @@ public final class CaptureEngine {
         try {photo=session.nextCameraPhoto(preparedHandles,savedOriginals);}
         catch(IOException e) {if(session.closed())throw e;log("机身新照片暂时无法读取："+e.getMessage());return;}
         if(photo==null)return;
+        if(!syncBodyPhotos){rememberBodyPhoto(session,photo);return;}
         synchronized(this){if(!active || busy)return;busy=true;}
         try {importCameraPhoto(session,photo);}
         finally {ring.clear();busy=false;refreshExposure();}
+    }
+    /** Keep this body photo out of the next pairing without downloading it. */
+    private void rememberBodyPhoto(CameraTransport session,CameraTransport.Original photo) {
+        savedOriginals.add(photo.key());
+        session.noteSaved(photo);
+        preparedHandles=session.withPhoto(preparedHandles,photo);
+        log("已记下机身照片 "+photo.filename()+"，未下载");
     }
     /** USB only. Wi-Fi keeps its own timestamp, so a cached getter must not look like a new sample. */
     private void refreshIdleExposure() {

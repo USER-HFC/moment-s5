@@ -15,7 +15,8 @@ import FocusFlyout from './FocusFlyout';
 import TimerFlyout from './TimerFlyout';
 import CameraHud from './hud/CameraHud';
 import NoticeBar, {Notice} from './NoticeBar';
-import {guideRect, nextGuide, Guide} from './referenceFrame';
+import {guideRect, nextGuide} from './referenceFrame';
+import useRememberedCapture from './useRememberedCapture';
 import {shutterBlockedReason} from './shutterReason';
 
 type Panel = 'lut' | 'delay' | 'focus' | null;
@@ -37,13 +38,9 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const [panel, setPanel] = useState<Panel>(null);
   const [rail, setRail] = useState({width: 0, height: 0});
   const [dock, setDock] = useState({width: 0, height: 0});
-  const [grid, setGrid] = useState(true);
+  const {grid, setGrid, motionEnabled, setMotionEnabled, timerEnabled, setTimerEnabled, guide, setGuide, delay, setDelay} = useRememberedCapture();
   const [audio, setAudio] = useState(!!state.audio);
   const audioPending = useRef(false);
-  const [motionEnabled, setMotionEnabled] = useState(false);
-  const [timerEnabled, setTimerEnabled] = useState(false);
-  const [guide, setGuide] = useState<Guide>('off');
-  const [delay, setDelay] = useState(10);
   const [working, setWorking] = useState(false);
   const [finderSize, setFinderSize] = useState({width: 0, height: 0});
   const [workspaceSize, setWorkspaceSize] = useState({width: 0, height: 0});

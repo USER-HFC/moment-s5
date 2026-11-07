@@ -14,8 +14,10 @@ import {openDiagnosticsPage, registerDiagnosticsOpener} from './src/connection/d
 import {WifiConnectionOptions} from './src/connection/model';
 import useCameraReadings from './src/hud/useCameraReadings';
 import SettingsScreen, {SettingsPage} from './src/SettingsScreen';
+import OnboardingCards from './src/OnboardingCards';
 import {buildInfoFromModule} from './src/buildInfo';
 import {Notice} from './src/notice';
+import {loadPreferences, savePreference} from './src/preferences';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -33,6 +35,7 @@ export default function App() {
   const [openedMomentId, setOpenedMomentId] = useState<string | null>(null);
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('');
+  const [introOpen, setIntroOpen] = useState(false);
   const lastPreviewAt = useRef(-Infinity);
   useCameraReadings(state, setState, page === 'camera');
   const dismissNotice = useCallback(() => setNotice(null), []);
@@ -43,6 +46,23 @@ export default function App() {
     if (!camera) return;
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
     catch (e) { showNotice(errorText(e)); }
+  }, [showNotice]);
+  useEffect(() => {
+    let live = true;
+    void loadPreferences().then(prefs => { if (live && prefs && !prefs.onboardingSeen) setIntroOpen(true); });
+    return () => { live = false; };
+  }, []);
+  const finishIntro = useCallback(() => {
+    setIntroOpen(false);
+    void savePreference('onboardingSeen', true).catch(() => undefined);
+  }, []);
+  const autoExportSaved = useCallback(async (id: string | undefined) => {
+    if (!id || !camera?.getPreferences || !camera.exportMoment) return;
+    try {
+      const prefs = await camera.getPreferences();
+      if (!prefs.autoExport) return;
+      await camera.exportMoment(id);
+    } catch (e) { showNotice(`自动导出失败：${errorText(e)}`); }
   }, [showNotice]);
   useEffect(() => registerDiagnosticsOpener(() => {
     setConnectionOpen(false);
@@ -68,6 +88,7 @@ export default function App() {
         const id = momentIdFromDirectory(event?.directory);
         showNotice('已保存', id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
         void refresh();
+        void autoExportSaved(id);
       }),
       cameraEvents.addListener('cameraFailed', (e) => {
         const detail = typeof e.error === 'string' ? e.error.trim() : '';
@@ -80,7 +101,7 @@ export default function App() {
     ];
     const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
-  }, [refresh, showNotice]);
+  }, [autoExportSaved, refresh, showNotice]);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (page === 'camera') return false;
@@ -147,7 +168,8 @@ export default function App() {
     <StatusBar hidden />
     {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} notice={notice} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
-    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice}/>}
+    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
+    {introOpen && <OnboardingCards onDone={finishIntro}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;

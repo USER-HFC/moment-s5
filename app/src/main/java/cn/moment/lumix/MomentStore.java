@@ -6,7 +6,8 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import org.json.JSONObject;
 import java.io.*;
-import java.nio.file.Files;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 public final class MomentStore {
@@ -21,6 +22,41 @@ public final class MomentStore {
         ArrayList<File> list=new ArrayList<>(Arrays.asList(files==null?new File[0]:files));list.sort((a,b)->b.getName().compareTo(a.getName()));return list;
     }
     public void delete(String id) throws IOException {MomentDeletion.delete(root,id);}
+    public static final class Usage {
+        public final int count; public final long bytes;
+        public Usage(int count,long bytes){this.count=count;this.bytes=bytes;}
+    }
+    /** Moment directories only. Symlinks are skipped so a link cannot count files outside the app. */
+    public Usage usage() {
+        int count=0;long bytes=0;
+        for(File dir:list()){count++;bytes+=bytesUnder(dir.toPath());}
+        return new Usage(count,bytes);
+    }
+    /**
+     * Deletes app copies that MediaStore still lists as exported.
+     * A missing or unreadable export is kept: uncertainty must not look like permission to delete.
+     */
+    public int deleteExported(Context context) throws IOException {
+        int removed=0;
+        for(File dir:new ArrayList<>(list())){
+            if(!confirmedExport(context,dir)) continue;
+            delete(dir.getName());
+            removed++;
+        }
+        return removed;
+    }
+    private static boolean confirmedExport(Context context,File dir) {
+        try{MomentDetails details=MomentDetails.read(context,dir);return details.exportKnown && details.exported;}
+        catch(Exception e){return false;}
+    }
+    private static long bytesUnder(Path dir) {
+        long[] total={0};
+        try{Files.walkFileTree(dir,new SimpleFileVisitor<>(){
+            @Override public FileVisitResult preVisitDirectory(Path directory,BasicFileAttributes attrs){return attrs.isSymbolicLink()?FileVisitResult.SKIP_SUBTREE:FileVisitResult.CONTINUE;}
+            @Override public FileVisitResult visitFile(Path file,BasicFileAttributes attrs){if(!attrs.isSymbolicLink() && attrs.isRegularFile()) total[0]+=attrs.size();return FileVisitResult.CONTINUE;}
+        });}catch(IOException ignored){}
+        return total[0];
+    }
     public static JSONObject metadata(File dir) throws Exception {return new JSONObject(new String(Files.readAllBytes(new File(dir,"moment.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));}
     public static void metadata(File dir,JSONObject json) throws IOException {
         try {

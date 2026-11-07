@@ -55,7 +55,7 @@ final class WifiConnectionManager implements LifecycleEventListener {
                 if(matches.size()>1)throw new IOException("有多个 Wi-Fi 网络可到达相机 IP，请关闭多余相机连接后重试");
                 connected=matches.get(0);pending=connected;connectivity.registerNetworkCallback(request.build(),callback);deliver(epoch);
             }else{
-                if(ssid==null || ssid.trim().isEmpty())throw new IOException("请输入相机 Wi-Fi SSID");
+                if(ssid==null || ssid.trim().isEmpty())throw new IOException("请输入相机 Wi-Fi 名称");
                 WifiNetworkSpecifier.Builder specifier=new WifiNetworkSpecifier.Builder().setSsid(ssid);
                 if(password!=null && !password.isEmpty())specifier.setWpa2Passphrase(password);
                 connectivity.requestNetwork(request.setNetworkSpecifier(specifier.build()).build(),callback,30_000);
