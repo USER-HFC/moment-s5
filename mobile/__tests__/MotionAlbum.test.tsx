@@ -26,6 +26,10 @@ const moments = [{
 const exportMock = async (_id: string) => {};
 const gestures = () => (GestureHandler as any).__gestures as {kind: string; numberOfTaps?: number; onBegin?: () => void; onStart?: () => void; onUpdate?: (event: any) => void; onEnd?: (event: any, success?: boolean) => void}[];
 const latest = (kind: string) => [...gestures()].reverse().find((gesture) => gesture.kind === kind);
+const dismissGesture = () => {
+  const pans = gestures().filter((gesture) => gesture.kind === 'pan');
+  return pans[pans.length - 2];
+};
 const singleTap = () => [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && !gesture.numberOfTaps)!;
 
 function open(tree: renderer.ReactTestRenderer, source = 'S5.JPG') {
@@ -356,17 +360,125 @@ it('shows the original while the photo is held in the LUT sheet', async () => {
   act(() => tree!.unmount());
 });
 
-it('shares the original when that option is chosen', () => {
+it('shares from an in-app sheet that lists every file, including the motion photo', () => {
   const onShare = jest.fn(async () => {});
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onShare={onShare}/>); });
   open(tree!);
   act(() => tree!.root.findByProps({accessibilityLabel: '分享动态照片'}).props.onPress());
-  const buttons = alert.mock.calls[0][2]!;
-  expect(alert.mock.calls[0][0]).toBe('分享动态照片');
-  expect(buttons.map((button) => button.text)).toEqual(['分享当前画面', '分享原片', '分享动态视频', '分享动态照片', '取消']);
-  act(() => buttons[1].onPress!());
+  const sheet = JSON.stringify(tree!.toJSON());
+  for (const label of ['动态照片', '动态视频', '原片', '当前画面', '取消']) expect(sheet).toContain(label);
+  expect(tree!.root.findByProps({testID: 'album-share-motion'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-share-video'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-share-original'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-share-display'})).toBeTruthy();
+  act(() => tree!.root.findByProps({testID: 'album-share-original'}).props.onPress());
   expect(onShare).toHaveBeenCalledWith('M1', 'original');
-  act(() => tree!.unmount()); alert.mockRestore();
+  expect(tree!.root.findAllByProps({testID: 'album-share-sheet'})).toHaveLength(0);
+  act(() => tree!.unmount());
+});
+
+it('hides share rows whose files are missing', () => {
+  const still = {...moments[0], source: 'STILL.JPG', captureMode: 'photo' as const, videoUri: undefined, lut: 'Velvia'};
+  const bare = {...moments[0], id: 'BARE', source: 'BARE.JPG', captureMode: 'photo' as const, videoUri: undefined, originalUri: undefined, lut: undefined};
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[still, bare]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onShare={async () => {}}/>); });
+  open(tree!, 'STILL.JPG');
+  act(() => tree!.root.findByProps({accessibilityLabel: '分享照片'}).props.onPress());
+  expect(tree!.root.findAllByProps({testID: 'album-share-motion'})).toHaveLength(0);
+  expect(tree!.root.findAllByProps({testID: 'album-share-video'})).toHaveLength(0);
+  expect(JSON.stringify(tree!.toJSON())).toContain('带 LUT 的画面');
+  act(() => tree!.root.findByProps({accessibilityLabel: '取消'}).props.onPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '打开BARE.JPG'}).props.onPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '分享照片'}).props.onPress());
+  expect(tree!.root.findAllByProps({testID: 'album-share-original'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'album-share-display'})).toBeTruthy();
+  expect(JSON.stringify(tree!.toJSON())).toContain('正在查看的画面');
+  act(() => tree!.unmount());
+});
+
+it('filters the grid and shows an empty state for the active filter', () => {
+  const photos = [
+    moments[0],
+    {...moments[0], id: 'STILL', source: 'STILL.JPG', captureMode: 'photo' as const, videoUri: undefined},
+    {...moments[0], id: 'BODY', source: 'BODY.JPG', captureMode: 'photo' as const, videoUri: undefined, cameraTriggered: true, demo: false},
+  ];
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
+  expect(tree!.root.findByProps({testID: 'album-filter-all'}).props.accessibilityLabel).toBe('全部 3');
+  expect(tree!.root.findByProps({testID: 'album-filter-photo'}).props.accessibilityLabel).toBe('照片 2');
+  expect(tree!.root.findByProps({testID: 'album-filter-motion'}).props.accessibilityLabel).toBe('动态 1');
+  expect(tree!.root.findByProps({testID: 'album-filter-camera'}).props.accessibilityLabel).toBe('机身同步 1');
+  act(() => tree!.root.findByProps({testID: 'album-filter-photo'}).props.onPress());
+  expect(tree!.root.findAllByProps({accessibilityLabel: '打开S5.JPG'})).toHaveLength(0);
+  expect(tree!.root.findByProps({accessibilityLabel: '打开STILL.JPG'})).toBeTruthy();
+  expect(tree!.root.findByProps({accessibilityLabel: '打开BODY.JPG'})).toBeTruthy();
+  act(() => tree!.root.findByProps({testID: 'album-filter-motion'}).props.onPress());
+  expect(tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({accessibilityLabel: '打开STILL.JPG'})).toHaveLength(0);
+  act(() => tree!.root.findByProps({testID: 'album-filter-camera'}).props.onPress());
+  expect(tree!.root.findByProps({accessibilityLabel: '打开BODY.JPG'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({accessibilityLabel: '打开STILL.JPG'})).toHaveLength(0);
+  act(() => tree!.root.findByProps({testID: 'album-filter-photo'}).props.onPress());
+  act(() => tree!.update(<MotionAlbum moments={[moments[0]]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
+  expect(tree!.root.findByProps({testID: 'album-empty'})).toBeTruthy();
+  expect(JSON.stringify(tree!.toJSON())).toContain('没有照片');
+  expect(tree!.root.findAllByProps({testID: 'album-grid'})).toHaveLength(0);
+  act(() => tree!.unmount());
+});
+
+it('selects photos from a long press and reports batch export and delete', async () => {
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG', imageUri: 'content://moment/image2'}];
+  const onExport = jest.fn(async (id: string) => { if (id === 'M2') throw new Error('导出失败'); });
+  const onDelete = jest.fn(async () => {});
+  const onNotice = jest.fn();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={onExport} onDelete={onDelete} onNotice={onNotice}/>); });
+  expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
+  act(() => tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'}).props.onLongPress());
+  expect(tree!.root.findByProps({testID: 'album-selected-count'}).props.children).toBe('已选 1');
+  expect(tree!.root.findByProps({accessibilityLabel: '选择S5.JPG'}).props.accessibilityState.selected).toBe(true);
+  act(() => tree!.root.findByProps({accessibilityLabel: '选择T2.JPG'}).props.onPress());
+  expect(tree!.root.findByProps({testID: 'album-selected-count'}).props.children).toBe('已选 2');
+  expect(tree!.root.findByProps({accessibilityLabel: '取消全选'})).toBeTruthy();
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '批量导出'}).props.onPress(); });
+  expect(onExport).toHaveBeenCalledWith('M1', true);
+  expect(onExport).toHaveBeenCalledWith('M2', true);
+  expect(onNotice).toHaveBeenCalledWith('已导出 1 张，1 张失败');
+  expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
+  act(() => tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'}).props.onLongPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '全选'}).props.onPress());
+  act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
+  expect(alert.mock.calls[0][0]).toBe('删除 2 张照片？');
+  expect(alert.mock.calls[0][1]).toBe('只删除 App 内副本，机身 SD 卡和系统相册里的照片不受影响。');
+  await act(async () => { await alert.mock.calls[0][2]![1].onPress!(); });
+  expect(onDelete).toHaveBeenCalledWith('M1', true);
+  expect(onDelete).toHaveBeenCalledWith('M2', true);
+  expect(onNotice).toHaveBeenCalledWith('已删除 2 张');
+  act(() => tree!.unmount());
+  alert.mockRestore();
+});
+
+it('follows a downward drag and closes the viewer unless the photo is zoomed', () => {
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG'}];
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
+  open(tree!);
+  const moved = () => tree!.root.findByProps({testID: 'album-dismiss-layer'}).props.style[1].transform[0].translateY.__getValue();
+  act(() => { dismissGesture().onUpdate?.({translationX: 0, translationY: 70, velocityY: 0}); });
+  expect(moved()).toBe(70);
+  act(() => { dismissGesture().onEnd?.({translationX: 0, translationY: 70, velocityY: 0}); });
+  expect(tree!.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
+  const double = [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && gesture.numberOfTaps === 2)!;
+  act(() => double.onEnd?.({}, true));
+  act(() => { dismissGesture().onUpdate?.({translationX: 0, translationY: 240, velocityY: 0}); dismissGesture().onEnd?.({translationX: 0, translationY: 240, velocityY: 0}); });
+  expect(tree!.root.findByProps({testID: 'motion-viewer'})).toBeTruthy();
+  expect(moved()).not.toBe(240);
+  act(() => double.onEnd?.({}, true));
+  const parallel = jest.spyOn(Animated, 'parallel').mockImplementation(() => ({start: (callback?: (result: {finished: boolean}) => void) => { callback?.({finished: true}); }, stop: () => {}, reset: () => {}} as any));
+  act(() => { dismissGesture().onUpdate?.({translationX: 0, translationY: 220, velocityY: 0}); dismissGesture().onEnd?.({translationX: 0, translationY: 220, velocityY: 0}); });
+  expect(tree!.root.findAllByProps({testID: 'motion-viewer'})).toHaveLength(0);
+  parallel.mockRestore();
+  act(() => tree!.unmount());
 });

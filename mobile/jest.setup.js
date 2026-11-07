@@ -11,6 +11,8 @@ function mockGesture(kind) {
     minDuration: (duration) => { handlers.minDuration = duration; return builder; },
     activeOffsetX: () => builder,
     activeOffsetY: () => builder,
+    failOffsetX: () => builder,
+    failOffsetY: () => builder,
     onBegin: (fn) => { handlers.onBegin = fn; return builder; },
     onStart: (fn) => { handlers.onStart = fn; return builder; },
     onUpdate: (fn) => { handlers.onUpdate = fn; return builder; },
