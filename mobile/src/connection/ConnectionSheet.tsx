@@ -1,18 +1,35 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {PermissionsAndroid, Platform, StyleSheet, View} from 'react-native';
+import {PermissionsAndroid, Platform, Pressable, StyleSheet, View} from 'react-native';
 import {Button, Switch, Text, TextInput} from 'react-native-paper';
 import CameraSheet from '../CameraSheet';
-import CameraIcon from '../CameraIcon';
 import {ui} from '../theme';
 import {CameraState} from '../native';
 import {connectionOptions, ConnectionForm, initialConnectionForm, WifiConnectionOptions} from './model';
 
 type Props = {visible: boolean; state: CameraState; status: string; debugAllowed: boolean; onClose: () => void; onUsb: () => Promise<void>; onWifi: (options: WifiConnectionOptions) => Promise<void>; onDemo: () => Promise<void>; onDisconnect: () => void};
 const MODES = [
-  {value: 'usb', label: 'USB', icon: 'usb', accessibilityLabel: 'USB 连接方式'},
-  {value: 'wifi', label: 'Wi-Fi（实验）', icon: 'wifi', accessibilityLabel: 'Wi-Fi 实验连接方式'},
-  {value: 'demo', label: '演示', icon: 'demo', accessibilityLabel: '合成演示方式'},
+  {value: 'usb', label: 'USB', accessibilityLabel: 'USB 连接方式'},
+  {value: 'wifi', label: 'Wi-Fi（实验）', accessibilityLabel: 'Wi-Fi（实验）'},
+  {value: 'demo', label: '演示', accessibilityLabel: '演示连接方式'},
 ] as const;
+const USB_STEPS = [
+  '相机：设置 → USB → PC(Tether)',
+  '用支持数据的 USB-C 线',
+  'OPPO/ColorOS 在设置里开启 OTG',
+];
+const WIFI_STEPS = [
+  '相机开启 Wi-Fi 遥控拍摄',
+  '手机连上相机热点',
+  '填 IP，默认 192.168.54.1',
+];
+
+function Steps({items, testID}: {items: readonly string[]; testID: string}) {
+  return <View testID={testID} style={styles.steps}>{items.map((item, index) => <View key={item} style={styles.step}>
+    <Text style={styles.stepIndex}>{index + 1}</Text>
+    <Text style={styles.stepText}>{item}</Text>
+  </View>)}</View>;
+}
+
 export async function requestWifiPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   const permission = PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES;
@@ -45,21 +62,28 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
     } catch (e) { setError(String((e as Error)?.message || e)); }
     finally { pendingRef.current = false; setPending(false); }
   };
-  const currentConnection = !state.active ? '未连接' : state.demo ? '合成演示中' : state.transport === 'wifi' ? 'Wi-Fi（实验）已连接' : 'USB 已连接';
-  const submitLabel = mode === 'usb' ? '连接 USB 相机' : mode === 'wifi' ? '连接 Wi-Fi 实验相机' : '启动合成演示';
-  return <CameraSheet visible={visible} title="连接相机" onClose={onClose}>
-        <Text style={styles.connection} accessibilityLiveRegion="polite">{currentConnection}{state.busy ? ' · 处理中' : ''}</Text>
-        <View style={styles.tabs}>{MODES.map(item => <Button key={item.value} style={styles.tab} contentStyle={styles.touch}
-          mode={mode === item.value ? 'contained-tonal' : 'outlined'} textColor={mode === item.value ? ui.color.accent : ui.color.text}
-          icon={() => <CameraIcon name={item.icon} active={mode === item.value}/>}
-          disabled={pending || state.busy} accessibilityLabel={item.accessibilityLabel} accessibilityState={{selected: mode === item.value}}
-          onPress={() => {setMode(item.value); setError('');}}>{item.label}</Button>)}</View>
-        {mode === 'usb' && <Text style={styles.detail}>推荐方式。使用数据线与 OTG，机身选择 PC(Tether)。</Text>}
-        {mode === 'demo' && <Text style={styles.detail}>合成演示素材；不连接相机。</Text>}
+  const currentConnection = !state.active ? '未连接' : state.demo ? '演示中' : state.transport === 'wifi' ? 'Wi-Fi 已连接' : 'USB 已连接';
+  const submitLabel = mode === 'usb' ? '连接 USB 相机' : mode === 'wifi' ? '连接 Wi-Fi 相机' : '体验演示';
+  const busy = pending || state.busy;
+  return <CameraSheet visible={visible} title="连接相机" onClose={onClose} dismissLabel="✕" dismissAccessibilityLabel="关闭">
+        <Text style={styles.connection} accessibilityLiveRegion="polite">{`${currentConnection}${state.busy ? ' · 处理中' : ''}`}</Text>
+        <View testID="connection-modes" accessibilityRole="tablist" style={styles.modes}>{MODES.map(item => {
+          const selected = mode === item.value;
+          return <Pressable key={item.value} testID={`connection-mode-${item.value}`} accessibilityRole="tab"
+            accessibilityLabel={item.accessibilityLabel} accessibilityState={{selected, disabled: busy}} disabled={busy}
+            onPress={() => {setMode(item.value); setError('');}}
+            style={({pressed}) => [styles.mode, selected && styles.modeSelected, pressed && styles.modePressed]}>
+            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[styles.modeLabel, selected && styles.modeLabelSelected]}>{item.label}</Text>
+          </Pressable>;
+        })}</View>
+        {mode === 'usb' && <Steps testID="usb-steps" items={USB_STEPS}/>}
+        {mode === 'demo' && <Text style={styles.detail}>演示画面，不连接相机。</Text>}
         {mode === 'wifi' && <>
-          <Text style={styles.experimental}>实验性 · 未经真机验证</Text>
-          <Text style={styles.detail}>支持使用 LUMIX Sync / Image App 遥控协议的 LUMIX 相机，各机型尚未逐一实机确认。请关闭其他遥控 App，在相机开启 Wi-Fi 遥控拍摄；推荐继续使用 USB。</Text>
-          <View style={styles.row}><Text style={styles.rowLabel}>已手动连接相机 Wi-Fi</Text><Switch accessibilityLabel="已手动连接相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/></View>
+          <Steps testID="wifi-steps" items={WIFI_STEPS}/>
+          <View style={styles.switchBlock}>
+            <View style={styles.row}><Text style={styles.rowLabel}>我已在系统设置里连上相机 Wi-Fi</Text><Switch accessibilityLabel="我已在系统设置里连上相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/></View>
+            <Text style={styles.detail}>打开后直接使用当前网络，不会再弹出连接相机热点的请求。</Text>
+          </View>
           {!form.manual && !form.debug && <><TextInput mode="outlined" label="相机 Wi-Fi SSID" accessibilityLabel="相机 Wi-Fi SSID" autoCapitalize="none" autoCorrect={false} value={form.ssid} onChangeText={value => set('ssid', value)}/><TextInput mode="outlined" label="Wi-Fi 密码（开放网络可留空）" accessibilityLabel="相机 Wi-Fi 密码" secureTextEntry value={form.password} onChangeText={value => set('password', value)}/></>}
           {/* Android decimal-pad is one decimal number, so a second '.' in an IPv4 address never arrives. */}
           {!form.debug && <TextInput mode="outlined" label="相机 IP" accessibilityLabel="相机 IP" autoCapitalize="none" autoCorrect={false} keyboardType="numbers-and-punctuation" value={form.cameraIp} onChangeText={value => set('cameraIp', value)}/>}
@@ -67,14 +91,20 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
         </>}
         {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" style={[styles.detail, error && styles.error]}>{error || status}</Text>}
 
-        <Button mode="contained" contentStyle={styles.touch} accessibilityLabel={submitLabel} loading={pending} disabled={pending || state.busy} onPress={() => {void submit();}}>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi（实验）' : '体验演示'}</Button>
-        {state.active && <Button contentStyle={styles.touch} disabled={pending || state.busy} onPress={onDisconnect}>{state.demo ? '结束演示' : '断开相机'}</Button>}
+        <Button mode="contained" contentStyle={styles.touch} accessibilityLabel={submitLabel} loading={pending} disabled={busy} onPress={() => {void submit();}}>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi' : '体验演示'}</Button>
+        {state.active && <Button contentStyle={styles.touch} disabled={busy} onPress={onDisconnect}>{state.demo ? '结束演示' : '断开相机'}</Button>}
   </CameraSheet>;
 }
 const styles = StyleSheet.create({
-  tabs: {flexDirection: 'row', flexWrap: 'wrap', gap: ui.space.sm}, tab: {flexGrow: 1}, touch: {minHeight: ui.icon.touch},
-  row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm},
+  modes: {flexDirection: 'row', flexWrap: 'nowrap', borderWidth: 1, borderColor: ui.color.outline, borderRadius: ui.radius.control, overflow: 'hidden'},
+  mode: {flex: 1, minWidth: 0, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ui.space.xs, paddingVertical: ui.space.sm},
+  modeSelected: {backgroundColor: ui.color.selected}, modePressed: {backgroundColor: ui.color.pressed},
+  modeLabel: {...ui.type.body, color: ui.color.muted, textAlign: 'center'}, modeLabelSelected: {color: ui.color.accent},
+  steps: {gap: ui.space.sm}, step: {flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.sm},
+  stepIndex: {width: 24, ...ui.type.body, color: ui.color.accent, fontVariant: ['tabular-nums']},
+  stepText: {...ui.type.body, flex: 1, color: ui.color.text},
+  switchBlock: {gap: ui.space.xs}, touch: {minHeight: ui.icon.touch},
+  row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm, minHeight: ui.icon.touch},
   rowLabel: {...ui.type.body, flex: 1, color: ui.color.text}, connection: {...ui.type.body, color: ui.color.text},
-  detail: {...ui.type.body, color: ui.color.muted}, experimental: {...ui.type.caption, color: ui.color.text, padding: ui.space.sm, borderRadius: ui.radius.small, backgroundColor: ui.color.surface},
-  error: {color: ui.color.destructive},
+  detail: {...ui.type.body, color: ui.color.muted}, error: {color: ui.color.destructive},
 });

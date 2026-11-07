@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {Clipboard, Linking, StyleSheet} from 'react-native';
 import {expect, it, jest} from '@jest/globals';
@@ -11,7 +11,12 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 import App from '../App';
-import SettingsScreen from '../src/SettingsScreen';
+import SettingsScreen, {SettingsPage} from '../src/SettingsScreen';
+
+function SettingsHarness({build, onBack = () => {}}: {build: BuildInfo; onBack?: () => void}) {
+  const [page, setPage] = useState<SettingsPage>('list');
+  return <SettingsScreen build={build} page={page} onPageChange={setPage} onBack={onBack} onNotice={() => {}}/>;
+}
 
 const shown = (tree: renderer.ReactTestRenderer, testID: string) =>
   tree.root.findAllByProps({testID}).map(node => node.props.children).find(value => typeof value === 'string');
@@ -47,10 +52,13 @@ it('opens About from the settings list and returns through both levels', async (
   act(() => settings.props.onPress());
   expect(tree!.root.findByProps({testID: 'settings-screen'})).toBeTruthy();
   expect(tree!.root.findByProps({testID: 'settings-about'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'settings-diagnostics'})).toBeTruthy();
   expect(tree!.root.findAllByProps({testID: 'about-screen'})).toHaveLength(0);
   act(() => tree!.root.findByProps({testID: 'settings-about'}).props.onPress());
   expect(tree!.root.findByProps({testID: 'about-screen'})).toBeTruthy();
   expect(shown(tree!, 'about-project')).toBe('瞬间 Lumix');
+  expect(JSON.stringify(tree!.toJSON())).toContain('动态照片');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('实况');
   expect(shown(tree!, 'about-author')).toBe('USER-HFC and Moment S5 contributors');
   expect(textOf(tree!, 'about-version')).toBe('未知（未知）');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('https://github.com');
@@ -75,7 +83,7 @@ it('copies all build fields as one readable report', async () => {
   jest.useFakeTimers();
   const setString = jest.spyOn(Clipboard, 'setString').mockImplementation(() => {});
   let tree: renderer.ReactTestRenderer;
-  await act(async () => { tree = renderer.create(<SettingsScreen build={build} onBack={() => {}}/>); });
+  await act(async () => { tree = renderer.create(<SettingsHarness build={build}/>); });
   act(() => tree!.root.findByProps({testID: 'settings-about'}).props.onPress());
   expect(textOf(tree!, 'about-version')).toBe('0.8.0-beta.3（24）');
   expect(shown(tree!, 'about-author')).toBe('USER-HFC and Moment S5 contributors');

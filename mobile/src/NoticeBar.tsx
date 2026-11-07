@@ -2,10 +2,10 @@ import React, {useEffect} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
+import {Notice} from './notice';
 
 /** One optional action keeps the contract small: save uses 查看, errors can use 查看诊断. */
-export type NoticeAction = {label: string; onPress: () => void};
-export type Notice = {message: string; action?: NoticeAction};
+export type {Notice, NoticeAction} from './notice';
 
 const DISMISS_MS = 4500;
 

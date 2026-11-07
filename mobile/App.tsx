@@ -8,12 +8,14 @@ import {camera, cameraEvents, CameraState, LutItem, MomentItem} from './src/nati
 import {theme, ui} from './src/theme';
 import CameraWorkspace from './src/CameraWorkspace';
 import MotionAlbum from './src/MotionAlbum';
-import NoticeBar, {Notice} from './src/NoticeBar';
+import NoticeBar from './src/NoticeBar';
 import ConnectionSheet from './src/connection/ConnectionSheet';
+import {openDiagnosticsPage, registerDiagnosticsOpener} from './src/connection/diagnostics';
 import {WifiConnectionOptions} from './src/connection/model';
 import useCameraReadings from './src/hud/useCameraReadings';
-import SettingsScreen from './src/SettingsScreen';
+import SettingsScreen, {SettingsPage} from './src/SettingsScreen';
 import {buildInfoFromModule} from './src/buildInfo';
+import {Notice} from './src/notice';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -21,6 +23,7 @@ export default function App() {
   const [page, setPage] = useState<'camera' | 'album' | 'settings'>('camera');
   const pageRef = useRef(page);
   pageRef.current = page;
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>('list');
   const [state, setState] = useState<CameraState>(emptyState);
   const [preview, setPreview] = useState<string>();
   const [buffered, setBuffered] = useState(0);
@@ -41,6 +44,11 @@ export default function App() {
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
     catch (e) { showNotice(errorText(e)); }
   }, [showNotice]);
+  useEffect(() => registerDiagnosticsOpener(() => {
+    setConnectionOpen(false);
+    setSettingsPage('diagnostics');
+    setPage('settings');
+  }), []);
   useEffect(() => {
     void refresh();
     if (!cameraEvents) { showNotice('当前平台没有相机桥'); return; }
@@ -61,7 +69,14 @@ export default function App() {
         showNotice('已保存', id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
         void refresh();
       }),
-      cameraEvents.addListener('cameraFailed', (e) => { showNotice('照片处理失败：' + (e.error || '请检查连接诊断')); void refresh(); }),
+      cameraEvents.addListener('cameraFailed', (e) => {
+        const detail = typeof e.error === 'string' ? e.error.trim() : '';
+        showNotice(detail ? `照片处理失败：${detail}` : '照片处理失败', {
+          label: '查看诊断',
+          onPress: () => openDiagnosticsPage(),
+        });
+        void refresh();
+      }),
     ];
     const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
@@ -69,7 +84,7 @@ export default function App() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (page === 'camera') return false;
-      // Settings owns its own back stack (list → capture, about → list).
+      // Settings owns its own back stack (list → capture, subpage → list).
       if (page === 'settings') return false;
       setPage('camera'); return true;
     });
@@ -130,9 +145,9 @@ export default function App() {
   }, [showNotice]);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} notice={notice} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => setPage('settings')} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
+    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} notice={notice} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
     {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
-    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} onBack={closeSettings}/>}
+    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
