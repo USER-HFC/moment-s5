@@ -97,6 +97,12 @@ export default function SettingsScreen({build, page, onPageChange, onBack, onNot
             accessibilityLabel="机身快门照片自动同步" value={prefs.syncBodyPhotos} onValueChange={value => toggle('syncBodyPhotos', value)}/>
           <SettingsSwitch testID="settings-remember" label="记住上次的拍摄设置" detail="下次启动恢复照片或动态、网格、参考框和定时"
             accessibilityLabel="记住上次的拍摄设置" value={prefs.rememberCapture} onValueChange={value => toggle('rememberCapture', value)}/>
+          <SettingsSwitch testID="settings-volume-shutter" label="音量键拍摄" detail="在拍摄页按音量键拍照。定时会倒计时，倒计时中再按一次取消"
+            accessibilityLabel="音量键拍摄" value={prefs.volumeShutter} onValueChange={value => toggle('volumeShutter', value)}/>
+          <SettingsSwitch testID="settings-reverse-focus" label="反转近 / 远对焦方向" detail="近和远的文字不变，只对调这两个按钮的动作"
+            accessibilityLabel="反转近 / 远对焦方向" value={prefs.reverseFocus} onValueChange={value => toggle('reverseFocus', value)}/>
+          <SettingsSwitch testID="settings-shutter-vibration" label="快门震动" detail="按下快门时轻微震动"
+            accessibilityLabel="快门震动" value={prefs.shutterVibration} onValueChange={value => toggle('shutterVibration', value)}/>
         </SettingsGroup>
         <SettingsGroup title="照片">
           <SettingsRow testID="settings-storage" label="存储" detail="查看占用，清理已导出的副本"

@@ -1,7 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, Vibration, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
-import {camera, CameraState, LutItem} from './native';
+import {focusDirection} from './focusDirection';
+import {camera, cameraEvents, CameraState, LutItem} from './native';
+import useShootingPreferences from './useShootingPreferences';
+import {VOLUME_SHUTTER_EVENT} from './volumeShutter';
 import {ui} from './theme';
 import CameraIcon from './CameraIcon';
 import CameraControl from './CameraControl';
@@ -42,6 +45,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const [rail, setRail] = useState({width: 0, height: 0});
   const [dock, setDock] = useState({width: 0, height: 0});
   const {grid, setGrid, motionEnabled, setMotionEnabled, timerEnabled, setTimerEnabled, guide, setGuide, delay, setDelay} = useRememberedCapture();
+  const {reverseFocus, shutterVibration} = useShootingPreferences();
+  const fireRef = useRef<() => void>(() => {});
   const [audio, setAudio] = useState(!!state.audio);
   const audioPending = useRef(false);
   const [working, setWorking] = useState(false);
@@ -91,6 +96,12 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   }, []);
   // A new connection starts a new reveal-hint session; the album does not (it keeps active true).
   useEffect(() => { if (!state.active) resetScopeRevealHint(); }, [state.active]);
+  // Volume keys are delivered once per press. This is the same path as tapping the shutter.
+  useEffect(() => {
+    if (!cameraEvents) return undefined;
+    const subscription = cameraEvents.addListener(VOLUME_SHUTTER_EVENT, () => fireRef.current());
+    return () => subscription.remove();
+  }, []);
   useEffect(() => {
     if (!preview) return;
     const nextSlot = (1 - activeSlotRef.current) as 0 | 1;
@@ -104,7 +115,9 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   }, [preview]);
 
   function acknowledgeShutter() {
-    try { Vibration.vibrate(20); } catch { /* VIBRATE permission may be missing on forks. */ }
+    if (shutterVibration) {
+      try { Vibration.vibrate(20); } catch { /* VIBRATE permission may be missing on forks. */ }
+    }
     if (reduceMotion.current) return;
     flash.setValue(0.45);
     Animated.timing(flash, {toValue: 0, duration: SHUTTER_FLASH_MS, easing: Easing.out(Easing.quad), useNativeDriver: true}).start();
@@ -122,6 +135,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     if (timerEnabled) { startCountdown(delay); return; }
     captureNow();
   };
+  fireRef.current = fire;
   const chooseLut = async (id: string) => { setWorking(true); try { await onLut(id); } finally { setWorking(false); } };
   const toggleTimer = () => {
     if (waiting) {cancelCountdown(); setTimerEnabled(false); return;}
@@ -239,7 +253,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} rail={rail}
       onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
     {panel === 'focus' && canManualFocus && <FocusFlyout landscape={landscape} rail={rail} disabled={state.busy || waiting}
-      onFocus={direction => camera?.focus(direction)} onClose={() => setPanel(null)}/>}
+      onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))} onClose={() => setPanel(null)}/>}
     {panel === 'delay' && <TimerFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={timerEnabled ? delay : null} onSelect={selectDelay} onClose={() => setPanel(null)}/>}
     </View>
   </View>;

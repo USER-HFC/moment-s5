@@ -144,12 +144,12 @@ describe('scope overlays and native subscription lifecycle', () => {
     act(() => tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 278, height: 416}}}));
     expect(tree!.root.findByProps({accessibilityLabel: '体验演示'})).toBeTruthy();
     expect(tree!.root.findAllByProps({testID: 'scope-panel-waveform'})).toHaveLength(0);
-    expect(mockHandlers.size).toBe(0);
+    expect([...mockHandlers.keys()]).toEqual(['volumeShutter']);
     act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: true, ready: true}} preview="data:image/jpeg;base64,frame"/>));
     expect(tree!.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
     expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
     act(() => tree!.update(<CameraWorkspace {...props}/>));
-    expect(mockHandlers.size).toBe(0);
+    expect([...mockHandlers.keys()]).toEqual(['volumeShutter']);
   });
   it('lets charts cover the full preview, including the HUD bands, and retains all four corners after the last scope closes', () => {
     const state = {active: true, busy: false, ready: true, demo: false, lut: null, exposure: 'ISO 640     f/4.0     1/80', phoneBattery: {percent: 37}};
@@ -217,7 +217,7 @@ describe('scope overlays and native subscription lifecycle', () => {
       expect(api.setScopesEnabled.mock.calls).toHaveLength(before);
     }
     act(() => tree!.update(<CameraWorkspace {...props} state={{...state, active: false}}/>));
-    expect(mockHandlers.size).toBe(0);
+    expect([...mockHandlers.keys()]).toEqual(['volumeShutter']);
     expect(api.setScopesEnabled.mock.calls.at(-1)?.[0]).toBe(false);
   });
   it('hides chart controls after idle, keeps dragging, and reveals them from a long press or an accessibility action', () => {
