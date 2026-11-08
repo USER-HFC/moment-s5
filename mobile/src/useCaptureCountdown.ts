@@ -5,6 +5,7 @@ import {AppState} from 'react-native';
 export default function useCaptureCountdown(onComplete: () => void, enabled: boolean) {
   const [waiting, setWaiting] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [total, setTotal] = useState(0);
   const deadline = useRef<number | null>(null);
   const latest = useRef({onComplete, enabled});
   latest.current = {onComplete, enabled};
@@ -13,7 +14,7 @@ export default function useCaptureCountdown(onComplete: () => void, enabled: boo
   const start = (delay: number) => {
     if (!latest.current.enabled || AppState.currentState !== 'active') return;
     deadline.current = performance.now() + delay * 1000;
-    setSeconds(delay); setWaiting(true);
+    setSeconds(delay); setTotal(delay); setWaiting(true);
   };
 
   useEffect(() => { if (!enabled) cancel(); }, [enabled]);
@@ -33,5 +34,5 @@ export default function useCaptureCountdown(onComplete: () => void, enabled: boo
     return () => clearInterval(timer);
   }, [waiting]);
 
-  return {waiting, seconds, start, cancel};
+  return {waiting, seconds, total, start, cancel};
 }

@@ -1,5 +1,5 @@
 import {camera} from './native';
-import {Guide} from './referenceFrame';
+import {GUIDE_ORDER, Guide} from './referenceFrame';
 
 export const PREFERENCE_KEYS = ['autoExport', 'syncBodyPhotos', 'rememberCapture', 'onboardingSeen', 'volumeShutter', 'reverseFocus', 'shutterVibration'] as const;
 export type PreferenceKey = typeof PREFERENCE_KEYS[number];
@@ -11,7 +11,7 @@ export type AppPreferences = {
 };
 export type StorageUsage = {count: number; bytes: number; exportedCount: number; exportedBytes: number};
 
-const GUIDES: readonly Guide[] = ['off', '16:9', '1:1', '4:5'];
+const GUIDES: readonly Guide[] = GUIDE_ORDER;
 const TIMERS = [0, 2, 5, 10, 30];
 
 export const DEFAULT_CAPTURE: CaptureMemory = {motion: false, grid: true, guide: 'off', timerSeconds: 0};
