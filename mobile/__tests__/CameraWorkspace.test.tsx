@@ -220,12 +220,14 @@ it('draws a reference frame without changing the preview frame', () => {
   const before = frame();
   expect(tree.root.findAllByProps({testID: 'reference-frame'})).toHaveLength(0);
   press('构图参考 关');
+  press('构图参考 16:9');
   expect(tree.root.findByProps({testID: 'reference-frame'}).findByType(Text).props.numberOfLines).toBe(1);
   const wide = StyleSheet.flatten(tree.root.findByProps({testID: 'reference-frame'}).props.style);
   expect(wide.width).toBeGreaterThan(wide.height);
   expect(JSON.stringify(tree.toJSON())).toContain('16:9 参考');
   expect(frame()).toEqual(before);
   press('构图参考 16:9');
+  press('构图参考 1:1');
   const square = StyleSheet.flatten(tree.root.findByProps({testID: 'reference-frame'}).props.style);
   expect(square.width).toBe(square.height);
   expect(frame()).toEqual(before);
@@ -338,8 +340,12 @@ it('closes an open panel on back, then asks before leaving a connected or demo c
   pressBack();
   expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(false);
   press('构图参考 关');
+  expect(tree.root.findByProps({testID: 'reference-flyout'})).toBeTruthy();
   pressBack();
-  expect(tree.root.findByProps({accessibilityLabel: '构图参考 16:9'})).toBeTruthy();
+  expect(tree.root.findAllByProps({testID: 'reference-flyout'})).toHaveLength(0);
+  expect(tree.root.findByProps({accessibilityLabel: '构图参考 关'})).toBeTruthy();
+  expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
+  pressBack();
   expect(JSON.stringify(tree.toJSON())).toContain('再按一次退出，相机会断开');
   expect(BackHandler.exitApp).not.toHaveBeenCalled();
   expect(camera!.disconnect).not.toHaveBeenCalled();

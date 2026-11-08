@@ -197,7 +197,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     private File uniqueFile(String name)throws IOException {File f=safeFile(name);if(!f.exists())return f;String stem=name.replaceFirst("(?i)\\.cube$","");for(int i=2;i<10000;i++){f=safeFile(stem+"-"+i+".cube");if(!f.exists())return f;}throw new IOException("LUT 仓库已存在太多同名文件");}
     private static String cleanName(String raw){String name=raw==null?"imported.cube":new File(raw).getName().trim();name=name.replaceAll("[^A-Za-z0-9._-]","_");return name.isEmpty()?"imported.cube":name;}
     private SharedPreferences preferences(){return context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
-    private static String captureGuide(String value){return value!=null && List.of("off","16:9","1:1","4:5").contains(value)?value:"off";}
+    private static String captureGuide(String value){return value!=null && List.of("off","3:2","16:9","1:1","4:5").contains(value)?value:"off";}
     private static int captureTimer(int seconds){return seconds==2||seconds==5||seconds==10||seconds==30?seconds:0;}
     private static String shareTitle(String kind){if("video".equals(kind))return "分享动态视频";if("motion".equals(kind))return "分享动态照片";if("original".equals(kind))return "分享原片";if("display".equals(kind))return "分享当前画面";return "分享照片";}
     private void status(String message){WritableMap m=Arguments.createMap();m.putString("message",message);m.putBoolean("ready",false);emit("cameraStatus",m);}

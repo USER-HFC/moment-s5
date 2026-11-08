@@ -74,6 +74,7 @@ it('keeps motion, timer, guide, grid, scopes and the live view when leaving the 
   press(tree, '定时 关');
   press(tree, '定时 5 秒');
   press(tree, '构图参考 关');
+  press(tree, '构图参考 16:9');
   press(tree, '构图网格');
   press(tree, '示波器');
   press(tree, '亮度波形');

@@ -4,8 +4,12 @@ import {captureView, clearableSummary, formatBytes, normalizeCapture, normalizeP
 it('keeps only known capture settings and treats a closed timer as the 10 second default', () => {
   expect(normalizeCapture(null)).toEqual({motion: false, grid: true, guide: 'off', timerSeconds: 0});
   expect(normalizeCapture({motion: true, grid: false, guide: '4:5', timerSeconds: 2})).toEqual({motion: true, grid: false, guide: '4:5', timerSeconds: 2});
-  expect(normalizeCapture({guide: '3:2' as 'off', timerSeconds: 7, grid: false})).toEqual({motion: false, grid: false, guide: 'off', timerSeconds: 0});
+  expect(normalizeCapture({guide: '3:2', timerSeconds: 10, grid: true})).toEqual({motion: false, grid: true, guide: '3:2', timerSeconds: 10});
+  expect(normalizeCapture({guide: '16:9', timerSeconds: 0}).guide).toBe('16:9');
+  expect(normalizeCapture({guide: '1:1', timerSeconds: 30}).guide).toBe('1:1');
+  expect(normalizeCapture({guide: '9:16' as 'off', timerSeconds: 7, grid: false})).toEqual({motion: false, grid: false, guide: 'off', timerSeconds: 0});
   expect(captureView({motion: true, grid: false, guide: '1:1', timerSeconds: 5})).toEqual({motionEnabled: true, grid: false, guide: '1:1', timerEnabled: true, delay: 5});
+  expect(captureView({motion: false, grid: true, guide: '3:2', timerSeconds: 0}).guide).toBe('3:2');
   expect(captureView({motion: false, grid: true, guide: 'off', timerSeconds: 0}).delay).toBe(10);
   expect(normalizePreferences({syncBodyPhotos: false, autoExport: true}).syncBodyPhotos).toBe(false);
   expect(normalizePreferences(undefined).syncBodyPhotos).toBe(true);

@@ -16,9 +16,11 @@ import {resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
 import FocusFlyout from './FocusFlyout';
 import TimerFlyout from './TimerFlyout';
+import ReferenceFlyout from './ReferenceFlyout';
+import CountdownOverlay from './CountdownOverlay';
 import CameraHud from './hud/CameraHud';
 import NoticeBar, {Notice} from './NoticeBar';
-import {guideRect, nextGuide} from './referenceFrame';
+import {Guide, guideRect, shadeOutside} from './referenceFrame';
 import useRememberedCapture from './useRememberedCapture';
 import {shutterBlockedReason} from './shutterReason';
 import {connectionControlLabel} from './cameraLabel';
@@ -26,7 +28,7 @@ import {connectionControlLabel} from './cameraLabel';
 const SHUTTER_FLASH_MS = 140;
 const EXIT_CONFIRM_MS = 2000;
 
-type Panel = 'lut' | 'delay' | 'focus' | 'scopes' | null;
+type Panel = 'lut' | 'delay' | 'focus' | 'scopes' | 'guide' | null;
 type Props = {
   onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
@@ -73,7 +75,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const [hudTopHeight, setHudTopHeight] = useState(64);
   const [hudBottomHeight, setHudBottomHeight] = useState(88);
   const hasFeed = !!preview && state.active;
-  const {waiting, seconds, start: startCountdown, cancel: cancelCountdown} = useCaptureCountdown(captureNow, state.active && !state.busy);
+  const {waiting, seconds, total, start: startCountdown, cancel: cancelCountdown} = useCaptureCountdown(captureNow, state.active && !state.busy);
   // Reference guides are an overlay. The preview and the scope crop stay on the 3:2 feed.
   const sourceRatio = 1.5;
   const previewRatio = landscape ? sourceRatio : 1 / sourceRatio;
@@ -83,6 +85,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     return {width: frameWidth, height: frameWidth / previewRatio};
   }, [finderSize, previewRatio]);
   const reference = guide !== 'off' && previewFrame ? guideRect(previewFrame.width, previewFrame.height, guide) : null;
+  const shade = reference && previewFrame ? shadeOutside(previewFrame.width, previewFrame.height, reference) : [];
   const previewImageStyle = previewFrame && !landscape ? {
     position: 'absolute' as const,
     width: previewFrame.height,
@@ -183,6 +186,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     else { setDelay(value); setTimerEnabled(true); }
     setPanel(null);
   };
+  const toggleGuide = () => setPanel(value => value === 'guide' ? null : 'guide');
+  const selectGuide = (value: Guide) => { setGuide(value); setPanel(null); };
   const toggleAudio = async () => {
     if (!camera || audioPending.current) return;
     audioPending.current = true;
@@ -233,7 +238,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
       <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
         <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback, !previewFrame && styles.previewPending]}>
           {hasFeed && previewSlots.map((uri, slot) => uri && <Image key={slot} accessibilityLabel="相机实时取景" source={{uri}} style={[previewImageStyle, {opacity: activeSlot === slot ? 1 : 0}]} resizeMode="cover" fadeDuration={0} onLoad={() => commitPreview(slot as 0 | 1, uri)}/>)}
-          {grid && hasFeed && <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
+          {shade.map(band => <View key={`${band.left}-${band.top}-${band.width}-${band.height}`} pointerEvents="none" testID="reference-shade" accessible={false} style={[styles.referenceShade, band]}/>)}
+          {grid && hasFeed && <View pointerEvents="none" testID="composition-grid" accessible={false} style={reference ? [styles.gridBox, reference] : StyleSheet.absoluteFill}>
             <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
             <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
           </View>}
@@ -264,7 +270,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
           <View pointerEvents="box-none" style={[styles.noticeSlot, {bottom: hudBottomHeight + ui.space.gutter + ui.space.sm}]}>
             <NoticeBar notice={shownNotice} onDismiss={dismissShown}/>
           </View>
-          {waiting && <View pointerEvents="none" style={styles.countdown}><Text variant="displayLarge" accessibilityLiveRegion="polite">{seconds}</Text></View>}
+          {waiting && <CountdownOverlay seconds={seconds} total={total}/>}
         </View>
       </View>
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]} onLayout={event => setDock({width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height})}>
@@ -276,7 +282,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
           </View>
           <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
           <View style={styles.captureSide}>
-            <CameraControl label={guideLabel} icon="ratio" accessibilityLabel={guide === 'off' ? '构图参考 关' : `构图参考 ${guide}`} accessibilityHint="只叠加参考线，不改变预览和照片" onPress={() => setGuide(nextGuide)}/>
+            <CameraControl label={guideLabel} icon="ratio" active={guide !== 'off' || panel === 'guide'} accessibilityLabel={guide === 'off' ? '构图参考 关' : `构图参考 ${guide}`}
+              accessibilityHint={panel === 'guide' ? '收起构图参考' : '打开构图参考，只叠加参考线，不改变预览和照片'} onPress={toggleGuide}/>
             <CameraControl label="相册" icon="album" thumbnail={latestPhoto} accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); setPanel(null); onAlbum();}}/>
           </View>
         </View>
@@ -291,6 +298,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     {panel === 'focus' && canManualFocus && <FocusFlyout landscape={landscape} rail={rail} disabled={state.busy || waiting}
       onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))} onClose={() => setPanel(null)}/>}
     {panel === 'delay' && <TimerFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={timerEnabled ? delay : null} onSelect={selectDelay} onClose={() => setPanel(null)}/>}
+    {panel === 'guide' && <ReferenceFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={guide} onSelect={selectGuide} onClose={() => setPanel(null)}/>}
     </View>
   </View>;
 }
@@ -320,14 +328,16 @@ const styles = StyleSheet.create({
   stepsLandscape: {flex: 1, minWidth: 0, marginTop: 0},
   step: {...ui.type.body, flexShrink: 1, color: ui.color.muted},
   touch: {minHeight: ui.icon.touch},
+  gridBox: {position: 'absolute'},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'},
+  // Outside the guide only, light enough that the picture is still visible.
+  referenceShade: {position: 'absolute', backgroundColor: '#00000073'},
   reference: {position: 'absolute', borderWidth: 1, borderColor: ui.color.accent, backgroundColor: 'transparent'},
   referenceLabel: {...ui.type.label, position: 'absolute', left: ui.space.sm, right: ui.space.sm, top: ui.space.xs, color: ui.color.accent, textShadowColor: '#000000CC', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 3},
   shutterFlash: {zIndex: 2, backgroundColor: '#FFFFFF'},
   focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: ui.color.accent},
   focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
   noticeSlot: {position: 'absolute', zIndex: 1080, left: ui.space.gutter, right: ui.space.gutter},
-  countdown: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'},
   dock: {padding: ui.space.gutter, gap: ui.space.sm}, dockLandscape: {width: 120, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm},
   captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm},
   shutter: {width: 76, height: 76, flexShrink: 0, borderRadius: 38, borderWidth: 2, borderColor: ui.color.text, alignItems: 'center', justifyContent: 'center'}, shutterCore: {width: 64, height: 64, borderRadius: 32, backgroundColor: ui.color.text}, shutterDisabled: {opacity: .45}, shutterCounting: {width: 24, height: 24, borderRadius: ui.radius.small, backgroundColor: ui.color.accent},
