@@ -117,7 +117,7 @@ it('walks back from the viewer to the album, the settings list, and the exit pro
 
   press(tree, '设置');
   expect(shown(tree, 'settings-screen')).toBe(true);
-  press(tree, '打开关于');
+  press(tree, '打开关于，版本 未知');
   expect(shown(tree, 'about-screen')).toBe(true);
   expect(shown(tree, 'settings-screen')).toBe(false);
   await nudgeCapture();

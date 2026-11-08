@@ -436,7 +436,38 @@ it('filters the grid and shows an empty state for the active filter', () => {
   act(() => tree!.update(<MotionAlbum moments={[moments[0]]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
   expect(tree!.root.findByProps({testID: 'album-empty'})).toBeTruthy();
   expect(JSON.stringify(tree!.toJSON())).toContain('没有照片');
+  expect(tree!.root.findByProps({testID: 'camera-icon-photo'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'album-empty-shoot'})).toHaveLength(0);
   expect(tree!.root.findAllByProps({testID: 'album-grid'})).toHaveLength(0);
+  act(() => tree!.unmount());
+});
+
+it('returns to capture from an empty album and names each empty filter', () => {
+  const onBack = jest.fn();
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>); });
+  expect(tree!.root.findByProps({testID: 'album-empty'}).findByProps({testID: 'camera-icon-album'})).toBeTruthy();
+  expect(JSON.stringify(tree!.toJSON())).toContain('还没有照片');
+  // Four zero counts say nothing, so the filters wait until there is a photo.
+  expect(tree!.root.findAllByProps({testID: 'album-filters'})).toHaveLength(0);
+  const shoot = tree!.root.findByProps({testID: 'album-empty-shoot'});
+  expect(shoot.props.accessibilityLabel).toBe('去拍第一张');
+  act(() => shoot.props.onPress());
+  expect(onBack).toHaveBeenCalledTimes(1);
+  const still = {...moments[0], id: 'STILL', captureMode: 'photo' as const, videoUri: undefined, cameraTriggered: false, demo: false};
+  act(() => tree!.update(<MotionAlbum moments={[still]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>));
+  act(() => tree!.root.findByProps({testID: 'album-filter-motion'}).props.onPress());
+  expect(JSON.stringify(tree!.toJSON())).toContain('没有动态照片');
+  expect(tree!.root.findByProps({testID: 'camera-icon-motion'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'album-empty-shoot'})).toHaveLength(0);
+  act(() => tree!.root.findByProps({testID: 'album-filter-camera'}).props.onPress());
+  expect(JSON.stringify(tree!.toJSON())).toContain('没有机身同步的照片');
+  expect(JSON.stringify(tree!.toJSON())).toContain('机身快门');
+  expect(tree!.root.findByProps({testID: 'camera-icon-camera'})).toBeTruthy();
+  // Deleting the last photo while a filter is on falls back to the whole-album copy, not「没有机身同步的照片」.
+  act(() => tree!.update(<MotionAlbum moments={[]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>));
+  expect(JSON.stringify(tree!.toJSON())).toContain('还没有照片');
+  expect(tree!.root.findByProps({testID: 'album-empty-shoot'})).toBeTruthy();
   act(() => tree!.unmount());
 });
 

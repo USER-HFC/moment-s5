@@ -1,30 +1,42 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Clipboard, ScrollView, Share, StyleSheet, View} from 'react-native';
+import {Clipboard, Platform, ScrollView, Share, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
+import {buildInfoFromModule} from './buildInfo';
 import CameraControl from './CameraControl';
-import {presentDiagnostics, scrollDiagnosticsToEnd} from './connection/diagnostics';
+import {connectionModeLabel, diagnosticFacts, diagnosticHeader, diagnosticRows, diagnosticShareText, DiagnosticFacts, presentDiagnostics, scrollDiagnosticsToEnd} from './connection/diagnostics';
 import {camera} from './native';
 import {Notice} from './notice';
 import {ui} from './theme';
 
 const EMPTY = '还没有诊断记录，连接相机后再来看';
 
+function factsNow(connection: string): DiagnosticFacts {
+  return diagnosticFacts(buildInfoFromModule(camera), Platform.constants, connection);
+}
+
 export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {
   const scrollRef = useRef<ScrollView>(null);
   const request = useRef(0);
   const [log, setLog] = useState<string | null>(null);
+  const [facts, setFacts] = useState(() => factsNow('未连接'));
   const [problem, setProblem] = useState('');
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     const id = ++request.current;
+    let connection = '未连接';
+    try {
+      if (camera?.getState) connection = connectionModeLabel(await camera.getState());
+    } catch { connection = '未连接'; }
     try {
       const raw = camera ? await camera.diagnostics() : '';
       if (id !== request.current) return;
+      setFacts(factsNow(connection));
       setLog(presentDiagnostics(raw));
       setProblem('');
     } catch (e) {
       if (id !== request.current) return;
+      setFacts(factsNow(connection));
       setProblem(String((e as Error)?.message || e));
       setLog(current => current ?? '');
     }
@@ -37,16 +49,17 @@ export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => voi
     return () => clearTimeout(timer);
   }, [copied]);
 
+  const report = () => diagnosticShareText(facts, log || '');
   const copy = () => {
     if (!log) return;
-    Clipboard.setString(log);
+    Clipboard.setString(report());
     setCopied(true);
     onNotice({message: '诊断记录已复制'});
   };
   const share = async () => {
     if (!log) return;
     try {
-      const result = await Share.share({title: '连接诊断', message: log});
+      const result = await Share.share({title: '连接诊断', message: report()});
       if (result.action === Share.dismissedAction) return;
     } catch (e) {
       const message = String((e as Error)?.message || e);
@@ -61,6 +74,13 @@ export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => voi
       <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
       <Text style={styles.title}>连接诊断</Text>
       <CameraControl icon="refresh" accessibilityLabel="刷新诊断记录" onPress={() => { void load(); }}/>
+    </View>
+    {/* Same label / value card as 关于, read out as one block. */}
+    <View testID="diagnostics-context" accessible accessibilityLabel={diagnosticHeader(facts)} style={styles.context}>
+      {diagnosticRows(facts).map(([label, value], index) => <View key={label} style={[styles.contextRow, index > 0 && styles.contextDivider]}>
+        <Text style={styles.contextLabel}>{label}</Text>
+        <Text selectable numberOfLines={1} style={styles.contextValue}>{value}</Text>
+      </View>)}
     </View>
     {showEmpty ? <View style={styles.emptyWrap}>
       <Text testID="diagnostics-empty" style={styles.empty}>{EMPTY}</Text>
@@ -85,6 +105,11 @@ const styles = StyleSheet.create({
   screen: {flex: 1, minHeight: 0, backgroundColor: ui.color.background},
   header: {minHeight: 64, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   title: {...ui.type.title, color: ui.color.text},
+  context: {marginHorizontal: ui.space.gutter, marginTop: ui.space.sm, marginBottom: ui.space.md, paddingHorizontal: ui.space.gutter, borderRadius: ui.radius.sheet, backgroundColor: ui.color.surface},
+  contextRow: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: ui.space.md},
+  contextDivider: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: ui.color.outline},
+  contextLabel: {...ui.type.body, color: ui.color.muted},
+  contextValue: {...ui.type.body, flex: 1, minWidth: 0, color: ui.color.text, textAlign: 'right', fontVariant: ['tabular-nums']},
   emptyWrap: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ui.space.xl},
   empty: {...ui.type.body, color: ui.color.muted, textAlign: 'center'},
   logScroll: {flex: 1, minHeight: 0},

@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {captureView, clearableSummary, formatBytes, normalizeCapture, normalizePreferences} from '../src/preferences';
+import {captureView, clearableSummary, formatBytes, normalizeCapture, normalizePreferences, storageSummary} from '../src/preferences';
 
 it('keeps only known capture settings and treats a closed timer as the 10 second default', () => {
   expect(normalizeCapture(null)).toEqual({motion: false, grid: true, guide: 'off', timerSeconds: 0});
@@ -29,4 +29,9 @@ it('formats storage sizes for the settings page', () => {
   expect(formatBytes(Number.NaN)).toBe('未知');
   expect(clearableSummary(0, 0)).toBe('没有可清理的照片');
   expect(clearableSummary(2, 2.5 * 1024 * 1024)).toBe('可清理 2 张，约 2.5 MB');
+  expect(storageSummary({count: 2, bytes: 1536})).toBe('2 张 · 1.5 KB');
+  expect(storageSummary({count: 3, bytes: 2.5 * 1024 * 1024})).toBe('3 张 · 2.5 MB');
+  expect(storageSummary({count: 0, bytes: 0})).toBe('0 张 · 0 B');
+  expect(storageSummary(null)).toBe('未知');
+  expect(storageSummary({count: -1, bytes: 10})).toBe('未知');
 });

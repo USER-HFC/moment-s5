@@ -1,3 +1,5 @@
+import {BuildInfo} from '../buildInfo';
+
 type Opener = () => void;
 let opener: Opener | null = null;
 
@@ -40,4 +42,88 @@ export function presentDiagnostics(raw: string) {
 
 export function scrollDiagnosticsToEnd(view: {scrollToEnd: (options?: {animated?: boolean}) => void} | null) {
   view?.scrollToEnd({animated: false});
+}
+
+export type DiagnosticFacts = {
+  versionName: string; versionCode: string; androidVersion: string; phoneModel: string; connection: string;
+};
+
+// Copied text is sent to other apps. A newline in a device string would look like an extra fact.
+function singleLine(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim();
+}
+
+type DeviceConstants = {Release?: unknown; Version?: unknown; Model?: unknown};
+
+/** Platform's constant union does not share a name with these fields, so read them off a plain object. */
+function deviceConstants(constants: object | null | undefined): DeviceConstants {
+  if (!constants) return {};
+  const source = constants as DeviceConstants;
+  return {Release: source.Release, Version: source.Version, Model: source.Model};
+}
+
+/** Release is the Android version people recognize. API is only a fallback when Release is missing. */
+export function androidVersionLabel(constants: object | null | undefined) {
+  const device = deviceConstants(constants);
+  const release = singleLine(device.Release);
+  if (release) return /^android\b/i.test(release) ? release : `Android ${release}`;
+  const api = singleLine(device.Version);
+  return api ? `Android API ${api}` : '未知';
+}
+
+export function phoneModelLabel(constants: object | null | undefined) {
+  return singleLine(deviceConstants(constants).Model) || '未知';
+}
+
+/** Connection as a photographer would name it. Anything else stays「未连接」. */
+export function connectionModeLabel(state: {active?: boolean; demo?: boolean; transport?: string | null} | null | undefined) {
+  if (!state?.active) return '未连接';
+  if (state.demo || state.transport === 'demo') return '演示';
+  if (state.transport === 'wifi') return 'Wi-Fi';
+  if (state.transport === 'usb') return 'USB';
+  return '未连接';
+}
+
+const HEADER_FIELDS: Array<[string, keyof DiagnosticFacts]> = [
+  ['App 版本', 'versionName'],
+  ['构建号', 'versionCode'],
+  ['Android 版本', 'androidVersion'],
+  ['手机型号', 'phoneModel'],
+  ['连接方式', 'connection'],
+];
+
+/**
+ * Only the five fields a bug report needs. Serial, fingerprint, git and account stay out:
+ * those identify a person, and this block is copied into other apps.
+ */
+export function diagnosticFacts(
+  build: Pick<BuildInfo, 'versionName' | 'versionCode'>,
+  constants: object | null | undefined,
+  connection: string,
+): DiagnosticFacts {
+  return {
+    versionName: singleLine(build.versionName) || '未知',
+    versionCode: singleLine(build.versionCode) || '未知',
+    androidVersion: androidVersionLabel(constants),
+    phoneModel: phoneModelLabel(constants),
+    connection: singleLine(connection) || '未连接',
+  };
+}
+
+/** Label / value pairs in report order, for the on-screen card. */
+export function diagnosticRows(facts: DiagnosticFacts): Array<[string, string]> {
+  return HEADER_FIELDS.map(([label, key]) => [label, facts[key]]);
+}
+
+export function diagnosticHeader(facts: DiagnosticFacts) {
+  return diagnosticRows(facts).map(([label, value]) => `${label}：${value}`).join('\n');
+}
+
+/** Header first, then the already redacted log. An empty log still shares the header. */
+export function diagnosticShareText(facts: DiagnosticFacts, log: string) {
+  const head = diagnosticHeader(facts);
+  const body = log.trim();
+  return body ? `${head}\n\n${body}` : head;
 }

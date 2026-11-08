@@ -48,6 +48,10 @@ it('shows the three shooting preferences and opens the guide with a feedback lin
   await act(async () => { tree = renderer.create(<Harness onShowIntro={onShowIntro}/>); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const switched = (label: string) => tree!.root.findByProps({accessibilityLabel: label, accessibilityRole: 'switch'});
+  expect(text(tree!)).toContain('2 张 · 1.5 KB');
+  expect(text(tree!)).toContain('0.8.0-beta.4');
+  expect(text(tree!)).not.toContain('查看占用，清理已导出的副本');
+  expect(text(tree!)).not.toContain('版本、许可与构建信息');
   expect(switched('拍摄后自动导出到系统相册').props.accessibilityState.checked).toBe(false);
   expect(switched('机身快门照片自动同步').props.accessibilityState.checked).toBe(true);
   expect(switched('记住上次的拍摄设置').props.accessibilityState.checked).toBe(false);
@@ -102,7 +106,8 @@ it('confirms before clearing exported copies and says the card and gallery stay'
 
 it('disables cleanup when nothing has been exported', async () => {
   jest.mocked(camera!.clearExportedCopies).mockClear();
-  jest.mocked(camera!.storageUsage).mockResolvedValueOnce({count: 2, bytes: 1536, exportedCount: 0, exportedBytes: 0});
+  // The list and the storage page each ask for usage. Both must see the empty export set.
+  jest.mocked(camera!.storageUsage).mockResolvedValue({count: 2, bytes: 1536, exportedCount: 0, exportedBytes: 0});
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<Harness/>); });
   act(() => tree!.root.findByProps({testID: 'settings-storage'}).props.onPress());
@@ -113,6 +118,7 @@ it('disables cleanup when nothing has been exported', async () => {
   act(() => button.props.onPress());
   expect(tree!.root.findAllByProps({testID: 'storage-confirm'})).toHaveLength(0);
   expect(camera!.clearExportedCopies).not.toHaveBeenCalled();
+  jest.mocked(camera!.storageUsage).mockResolvedValue({count: 2, bytes: 1536, exportedCount: 1, exportedBytes: 512});
   act(() => tree!.unmount());
 });
 

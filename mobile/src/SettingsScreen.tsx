@@ -7,8 +7,9 @@ import CameraControl from './CameraControl';
 import CameraIcon from './CameraIcon';
 import DiagnosticsScreen from './DiagnosticsScreen';
 import GuideScreen from './GuideScreen';
+import {camera} from './native';
 import {Notice} from './notice';
-import {AppPreferences, DEFAULT_PREFERENCES, loadPreferences, PreferenceKey, savePreference} from './preferences';
+import {AppPreferences, DEFAULT_PREFERENCES, loadPreferences, PreferenceKey, savePreference, storageSummary} from './preferences';
 import StorageScreen from './StorageScreen';
 import {ui} from './theme';
 
@@ -56,9 +57,18 @@ function SettingsGroup({title, children}: {title: string; children: React.ReactN
 
 export default function SettingsScreen({build, page, onPageChange, onBack, onNotice, onShowIntro}: Props) {
   const [prefs, setPrefs] = useState<AppPreferences>(DEFAULT_PREFERENCES);
+  const [storageDetail, setStorageDetail] = useState('…');
   useEffect(() => {
     let live = true;
     void loadPreferences().then(value => { if (live && value) setPrefs(value); });
+    return () => { live = false; };
+  }, [page]);
+  useEffect(() => {
+    if (page !== 'list') return undefined;
+    let live = true;
+    if (!camera?.storageUsage) { setStorageDetail('未知'); return undefined; }
+    setStorageDetail('…');
+    void camera.storageUsage().then(usage => { if (live) setStorageDetail(storageSummary(usage)); }).catch(() => { if (live) setStorageDetail('未知'); });
     return () => { live = false; };
   }, [page]);
   const toggle = (key: PreferenceKey, value: boolean) => {
@@ -105,8 +115,8 @@ export default function SettingsScreen({build, page, onPageChange, onBack, onNot
             accessibilityLabel="快门震动" value={prefs.shutterVibration} onValueChange={value => toggle('shutterVibration', value)}/>
         </SettingsGroup>
         <SettingsGroup title="照片">
-          <SettingsRow testID="settings-storage" label="存储" detail="查看占用，清理已导出的副本"
-            accessibilityLabel="打开存储" onPress={() => onPageChange('storage')}/>
+          <SettingsRow testID="settings-storage" label="存储" detail={storageDetail}
+            accessibilityLabel={`打开存储，${storageDetail}`} onPress={() => onPageChange('storage')}/>
         </SettingsGroup>
         <SettingsGroup title="帮助">
           <SettingsRow testID="settings-guide" label="使用指南" detail="连接步骤、常见问题和反馈"
@@ -117,8 +127,8 @@ export default function SettingsScreen({build, page, onPageChange, onBack, onNot
             accessibilityLabel="打开连接诊断" onPress={() => onPageChange('diagnostics')}/>
         </SettingsGroup>
         <SettingsGroup title="应用">
-          <SettingsRow testID="settings-about" label="关于" detail="版本、许可与构建信息"
-            accessibilityLabel="打开关于" onPress={() => onPageChange('about')}/>
+          <SettingsRow testID="settings-about" label="关于" detail={`版本 ${build.versionName}`}
+            accessibilityLabel={`打开关于，版本 ${build.versionName}`} onPress={() => onPageChange('about')}/>
         </SettingsGroup>
       </View>
     </ScrollView>

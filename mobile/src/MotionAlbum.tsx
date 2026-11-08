@@ -7,7 +7,7 @@ import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {LutItem, MomentDetails, MomentItem} from './native';
 import {ui} from './theme';
 import CameraControl from './CameraControl';
-import CameraIcon from './CameraIcon';
+import CameraIcon, {CameraIconName} from './CameraIcon';
 import AlbumSheet from './AlbumSheet';
 import ConfirmDialog from './ConfirmDialog';
 import LutFilmstrip from './LutFilmstrip';
@@ -41,6 +41,13 @@ type ConfirmRequest = {title: string; body: string; onConfirm: () => void};
 
 // The grid drops the photo at once. Native deletion waits so 撤销 can restore the same slot.
 const UNDO_MS = 5000;
+
+function emptyAlbumIcon(filter: AlbumFilter): CameraIconName {
+  if (filter === 'photo') return 'photo';
+  if (filter === 'motion') return 'motion';
+  if (filter === 'camera') return 'camera';
+  return 'album';
+}
 
 const hasMotion = (moment: MomentItem) => moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete;
 // A fresh [] default would retrigger the thumbnail effect on every render once the sheet opens.
@@ -145,7 +152,10 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const sections = useMemo(() => groupMomentsByDay(filtered).map((section) => ({...section, data: chunk(section.moments, columns)})), [filtered, columns]);
   const visibleIds = useMemo(() => filtered.map((moment) => moment.id), [filtered]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
-  const emptyCopy = albumFilterEmpty(albumFilter);
+  // With nothing saved yet the filter chips only show four zeros, so they are hidden and the copy speaks about the whole album.
+  const albumEmpty = moments.length === 0;
+  const emptyFilter: AlbumFilter = albumEmpty ? 'all' : albumFilter;
+  const emptyCopy = albumFilterEmpty(emptyFilter);
   // The photo is letterboxed; overlays such as LIVE belong to the image, not the black bars.
   const mediaBox = useMemo(() => {
     if (!mediaAspect) return {left: 0, top: 0, width: pageWidth, height: pageHeight};
@@ -611,7 +621,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerTitle}>相册</Text>
       <View style={styles.headerSpacer}/>
     </View>}
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filters} testID="album-filters">
+    {!albumEmpty && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filters} testID="album-filters">
       {ALBUM_FILTERS.map((filter) => {
         const on = filter.id === albumFilter;
         const count = counts[filter.id];
@@ -619,11 +629,12 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
           <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.filterLabel, on && styles.filterLabelOn]}>{`${filter.label} ${count}`}</Text>
         </Pressable>;
       })}
-    </ScrollView>
+    </ScrollView>}
     {filtered.length === 0 ? <View style={styles.empty} testID="album-empty">
+      <View style={styles.emptyBadge}><CameraIcon name={emptyAlbumIcon(emptyFilter)} active size={36}/></View>
       <Text variant="titleLarge" style={styles.emptyTitle}>{emptyCopy.title}</Text>
       <Text style={styles.emptyCopy}>{emptyCopy.body}</Text>
-      {moments.length === 0 && <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} contentStyle={styles.touch} accessibilityLabel="去拍摄" onPress={onBack}>去拍摄</Button>}
+      {albumEmpty && <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} style={styles.emptyAction} contentStyle={styles.touch} testID="album-empty-shoot" accessibilityLabel="去拍第一张" onPress={onBack}>去拍第一张</Button>}
     </View> : <SectionList
       testID="album-grid"
       style={styles.gridList}
@@ -784,7 +795,9 @@ const styles = StyleSheet.create({
   sectionHeader: {...ui.type.body, color: ui.color.text, fontWeight: '600', paddingHorizontal: ui.space.gutter, paddingTop: ui.space.gutter, paddingBottom: ui.space.sm},
   gridRow: {flexDirection: 'row'},
   empty: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: ui.space.md, padding: ui.space.lg},
-  emptyTitle: {color: ui.color.text}, emptyCopy: {...ui.type.body, color: ui.color.muted, textAlign: 'center'}, touch: {minHeight: ui.icon.touch},
+  emptyAction: {marginTop: ui.space.md},
+  emptyBadge: {width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.raised},
+  emptyTitle: {color: ui.color.text, textAlign: 'center'}, emptyCopy: {...ui.type.body, color: ui.color.muted, textAlign: 'center'}, touch: {minHeight: ui.icon.touch},
   cell: {padding: 1}, thumb: {flex: 1, backgroundColor: ui.color.surface}, thumbEmpty: {borderWidth: 1, borderColor: ui.color.outline},
   selectedFrame: {position: 'absolute', top: 1, left: 1, right: 1, bottom: 1, borderWidth: 2, borderColor: ui.color.accent},
   selectMark: {width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: ui.color.text, backgroundColor: ui.color.badge, alignItems: 'center', justifyContent: 'center'},
