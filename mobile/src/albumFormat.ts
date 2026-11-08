@@ -171,6 +171,21 @@ export function isCameraSyncMoment(moment: FilterableMoment) {
   return !!moment.cameraTriggered && !moment.demo;
 }
 
+type MomentKind = Pick<MomentItem, 'captureMode' | 'cameraTriggered' | 'demo'>;
+
+/** Screen-reader kind. A demo frame is never described as a body-shutter photo. */
+export function momentKindLabel(moment: MomentKind) {
+  const motion = moment.captureMode !== 'photo';
+  if (isCameraSyncMoment(moment)) return motion ? '机身同步动态照片' : '机身同步照片';
+  if (moment.demo) return motion ? '演示动态照片' : '演示照片';
+  return motion ? '动态照片' : '照片';
+}
+
+/** Grid cell name. The clock matches the viewer title, which uses the same day groups. */
+export function momentAccessibilityName(moment: MomentKind & Pick<MomentItem, 'createdAt'>, now = Date.now()) {
+  return `${momentKindLabel(moment)}，${formatCaptureTitle(moment.createdAt, now)}`;
+}
+
 export function matchesAlbumFilter(moment: FilterableMoment, filter: AlbumFilter) {
   if (filter === 'photo') return moment.captureMode === 'photo';
   if (filter === 'motion') return moment.captureMode !== 'photo';

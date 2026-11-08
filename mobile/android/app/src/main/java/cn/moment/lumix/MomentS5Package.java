@@ -10,5 +10,9 @@ import java.util.List;
 
 public final class MomentS5Package implements ReactPackage {
     @Override public List<NativeModule> createNativeModules(ReactApplicationContext context) {return Collections.singletonList(new MomentS5Module(context));}
-    @Override public List<ViewManager> createViewManagers(ReactApplicationContext context) {return new ArrayList<>();}
+    @Override public List<ViewManager> createViewManagers(ReactApplicationContext context) {
+        ArrayList<ViewManager> managers = new ArrayList<>();
+        managers.add(new A11yHideViewManager());
+        return managers;
+    }
 }

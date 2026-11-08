@@ -39,9 +39,13 @@ it('shows the intro once, then exports a saved photo and reports a failure', asy
   await act(async () => { tree = renderer.create(<App/>); });
   await act(async () => { await Promise.resolve(); });
   expect(tree!.root.findByProps({testID: 'onboarding-card-1'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'onboarding'}).props.accessibilityViewIsModal).toBe(true);
+  expect(tree!.root.findByProps({testID: 'app-behind'}).props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(tree!.root.findByProps({testID: 'app-behind'}).props.accessibilityElementsHidden).toBe(true);
   await act(async () => tree!.root.findByProps({testID: 'onboarding-skip'}).props.onPress());
   expect(camera!.setPreference).toHaveBeenCalledWith('onboardingSeen', true);
   expect(tree!.root.findAllByProps({testID: 'onboarding'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'app-behind'}).props.importantForAccessibility).toBe('auto');
   (camera!.exportMoment as jest.Mock).mockImplementationOnce(async () => { throw new Error('系统相册创建失败'); });
   await act(async () => mockState.listeners.get('cameraSaved')!({directory: '/data/moments/M3'}));
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });

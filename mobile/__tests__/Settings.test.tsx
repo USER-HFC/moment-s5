@@ -59,7 +59,7 @@ it('opens About from the settings list and returns through both levels', async (
   expect(shown(tree!, 'about-project')).toBe('瞬间 Lumix');
   expect(JSON.stringify(tree!.toJSON())).toContain('动态照片');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('实况');
-  expect(shown(tree!, 'about-author')).toBe('USER-HFC and Moment S5 contributors');
+  expect(shown(tree!, 'about-author')).toBe('USER-HFC 及贡献者');
   expect(textOf(tree!, 'about-version')).toBe('未知（未知）');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('https://github.com');
   expect(JSON.stringify(tree!.toJSON())).toContain('尚未在真实相机上逐一验证');
@@ -86,8 +86,14 @@ it('copies all build fields as one readable report', async () => {
   await act(async () => { tree = renderer.create(<SettingsHarness build={build}/>); });
   act(() => tree!.root.findByProps({testID: 'settings-about'}).props.onPress());
   expect(textOf(tree!, 'about-version')).toBe('0.8.0-beta.3（24）');
-  expect(shown(tree!, 'about-author')).toBe('USER-HFC and Moment S5 contributors');
+  expect(shown(tree!, 'about-author')).toBe('USER-HFC 及贡献者');
   expect(shown(tree!, 'about-license')).toBe('MIT');
+  const alignsRight = (id: string) => tree!.root.findAllByProps({testID: id}).some(node => StyleSheet.flatten(node.props.style)?.textAlign === 'right');
+  for (const id of ['about-author', 'about-license', 'about-version-name', 'about-git', 'about-min-sdk']) expect(alignsRight(id)).toBe(true);
+  const pushedRight = (id: string) => tree!.root.findAllByProps({testID: id}).some(node => StyleSheet.flatten(node.parent?.props.style)?.justifyContent === 'space-between');
+  expect(pushedRight('about-author')).toBe(true);
+  expect(pushedRight('about-license')).toBe(true);
+  expect(pushedRight('about-git')).toBe(true);
   expect(shown(tree!, 'about-built-at')).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   expect(shown(tree!, 'about-git')).toBe('c65b098a9dba');
   act(() => tree!.root.findByProps({accessibilityLabel: '复制版本信息'}).props.onPress());

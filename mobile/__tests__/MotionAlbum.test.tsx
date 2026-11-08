@@ -32,8 +32,8 @@ const dismissGesture = () => {
 };
 const singleTap = () => [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && !gesture.numberOfTaps)!;
 
-function open(tree: renderer.ReactTestRenderer, source = 'S5.JPG') {
-  act(() => tree.root.findByProps({accessibilityLabel: `打开${source}`}).props.onPress());
+function open(tree: renderer.ReactTestRenderer, id = 'M1') {
+  act(() => tree.root.findByProps({testID: `album-cell-${id}`}).props.onPress());
 }
 
 it('keeps Wi-Fi capture provenance visible in the album after disconnection', () => {
@@ -348,7 +348,7 @@ it('shows the original while the photo is held in the LUT sheet', async () => {
   act(() => { tree = renderer.create(<MotionAlbum moments={moments} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onPreview={onPreview} onRender={async () => {}}/>); });
   open(tree!);
   act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
-  expect(JSON.stringify(tree!.toJSON())).toContain('按住照片对比原片 · 动态照片会用新静态图重新封装');
+  expect(JSON.stringify(tree!.toJSON())).toContain('按住照片可对比原片。动态照片的封面也会换成新风格');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('实况');
   await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
   expect(tree!.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('file://preview-builtin:classic-chrome');
@@ -383,13 +383,13 @@ it('hides share rows whose files are missing', () => {
   const bare = {...moments[0], id: 'BARE', source: 'BARE.JPG', captureMode: 'photo' as const, videoUri: undefined, originalUri: undefined, lut: undefined};
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={[still, bare]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onShare={async () => {}}/>); });
-  open(tree!, 'STILL.JPG');
+  open(tree!, 'M1');
   act(() => tree!.root.findByProps({accessibilityLabel: '分享照片'}).props.onPress());
   expect(tree!.root.findAllByProps({testID: 'album-share-motion'})).toHaveLength(0);
   expect(tree!.root.findAllByProps({testID: 'album-share-video'})).toHaveLength(0);
   expect(JSON.stringify(tree!.toJSON())).toContain('带 LUT 的画面');
   act(() => tree!.root.findByProps({accessibilityLabel: '取消'}).props.onPress());
-  act(() => tree!.root.findByProps({accessibilityLabel: '打开BARE.JPG'}).props.onPress());
+  act(() => tree!.root.findByProps({testID: 'album-cell-BARE'}).props.onPress());
   act(() => tree!.root.findByProps({accessibilityLabel: '分享照片'}).props.onPress());
   expect(tree!.root.findAllByProps({testID: 'album-share-original'})).toHaveLength(0);
   expect(tree!.root.findByProps({testID: 'album-share-display'})).toBeTruthy();
@@ -410,15 +410,15 @@ it('filters the grid and shows an empty state for the active filter', () => {
   expect(tree!.root.findByProps({testID: 'album-filter-motion'}).props.accessibilityLabel).toBe('动态 1');
   expect(tree!.root.findByProps({testID: 'album-filter-camera'}).props.accessibilityLabel).toBe('机身同步 1');
   act(() => tree!.root.findByProps({testID: 'album-filter-photo'}).props.onPress());
-  expect(tree!.root.findAllByProps({accessibilityLabel: '打开S5.JPG'})).toHaveLength(0);
-  expect(tree!.root.findByProps({accessibilityLabel: '打开STILL.JPG'})).toBeTruthy();
-  expect(tree!.root.findByProps({accessibilityLabel: '打开BODY.JPG'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'album-cell-M1'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'album-cell-STILL'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-cell-BODY'})).toBeTruthy();
   act(() => tree!.root.findByProps({testID: 'album-filter-motion'}).props.onPress());
-  expect(tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'})).toBeTruthy();
-  expect(tree!.root.findAllByProps({accessibilityLabel: '打开STILL.JPG'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'album-cell-M1'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'album-cell-STILL'})).toHaveLength(0);
   act(() => tree!.root.findByProps({testID: 'album-filter-camera'}).props.onPress());
-  expect(tree!.root.findByProps({accessibilityLabel: '打开BODY.JPG'})).toBeTruthy();
-  expect(tree!.root.findAllByProps({accessibilityLabel: '打开STILL.JPG'})).toHaveLength(0);
+  expect(tree!.root.findByProps({testID: 'album-cell-BODY'})).toBeTruthy();
+  expect(tree!.root.findAllByProps({testID: 'album-cell-STILL'})).toHaveLength(0);
   act(() => tree!.root.findByProps({testID: 'album-filter-photo'}).props.onPress());
   act(() => tree!.update(<MotionAlbum moments={[moments[0]]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
   expect(tree!.root.findByProps({testID: 'album-empty'})).toBeTruthy();
@@ -436,10 +436,11 @@ it('selects photos from a long press and reports batch export and delete', async
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={onExport} onDelete={onDelete} onNotice={onNotice}/>); });
   expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
-  act(() => tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'}).props.onLongPress());
+  act(() => tree!.root.findByProps({testID: 'album-cell-M1'}).props.onLongPress());
   expect(tree!.root.findByProps({testID: 'album-selected-count'}).props.children).toBe('已选 1');
-  expect(tree!.root.findByProps({accessibilityLabel: '选择S5.JPG'}).props.accessibilityState.selected).toBe(true);
-  act(() => tree!.root.findByProps({accessibilityLabel: '选择T2.JPG'}).props.onPress());
+  expect(tree!.root.findByProps({testID: 'album-cell-M1'}).props.accessibilityState.selected).toBe(true);
+  expect(tree!.root.findByProps({testID: 'album-cell-M1'}).props.accessibilityLabel.startsWith('选择')).toBe(true);
+  act(() => tree!.root.findByProps({testID: 'album-cell-M2'}).props.onPress());
   expect(tree!.root.findByProps({testID: 'album-selected-count'}).props.children).toBe('已选 2');
   expect(tree!.root.findByProps({accessibilityLabel: '取消全选'})).toBeTruthy();
   await act(async () => { await tree!.root.findByProps({accessibilityLabel: '批量导出'}).props.onPress(); });
@@ -447,7 +448,7 @@ it('selects photos from a long press and reports batch export and delete', async
   expect(onExport).toHaveBeenCalledWith('M2', true);
   expect(onNotice).toHaveBeenCalledWith('已导出 1 张，1 张失败');
   expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
-  act(() => tree!.root.findByProps({accessibilityLabel: '打开S5.JPG'}).props.onLongPress());
+  act(() => tree!.root.findByProps({testID: 'album-cell-M1'}).props.onLongPress());
   act(() => tree!.root.findByProps({accessibilityLabel: '全选'}).props.onPress());
   act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
   expect(alert.mock.calls[0][0]).toBe('删除 2 张照片？');
@@ -481,4 +482,65 @@ it('follows a downward drag and closes the viewer unless the photo is zoomed', (
   expect(tree!.root.findAllByProps({testID: 'motion-viewer'})).toHaveLength(0);
   parallel.mockRestore();
   act(() => tree!.unmount());
+});
+
+it('names each thumbnail by kind and capture time, and hides the grid while the viewer is open', () => {
+  const now = new Date(2026, 9, 25, 21, 0).getTime();
+  // A frozen clock also freezes the sheet spring (it never sees time pass), so restore before opening one.
+  const spy = jest.spyOn(Date, 'now').mockReturnValue(now);
+  const photos = [
+    {...moments[0], createdAt: new Date(2026, 9, 25, 20, 56).getTime()},
+    {...moments[0], id: 'BODY', source: 'BODY.JPG', captureMode: 'photo' as const, videoUri: undefined, cameraTriggered: true, createdAt: new Date(2026, 9, 24, 18, 2).getTime()},
+  ];
+  const tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+  expect(tree.root.findByProps({testID: 'album-grid-layer'}).props.importantForAccessibility).toBe('auto');
+  expect(tree.root.findByProps({testID: 'album-cell-M1'}).props.accessibilityLabel).toBe('动态照片，今天 20:56');
+  expect(tree.root.findByProps({testID: 'album-cell-BODY'}).props.accessibilityLabel).toBe('机身同步照片，昨天 18:02');
+  spy.mockRestore();
+  open(tree);
+  expect(tree.root.findByProps({testID: 'motion-viewer'}).props.accessibilityViewIsModal).toBe(true);
+  expect(tree.root.findByProps({testID: 'album-grid-layer'}).props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(tree.root.findByProps({testID: 'album-grid-layer'}).props.accessibilityElementsHidden).toBe(true);
+  act(() => tree.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  expect(tree.root.findAllByProps({testID: 'album-lut-sheet'}).some(node => node.props.accessibilityViewIsModal === true)).toBe(true);
+  expect(tree.root.findByProps({testID: 'album-viewer-body'}).props.importantForAccessibility).toBe('no-hide-descendants');
+  act(() => tree.unmount());
+});
+
+it('disables LUT save until the choice differs from the saved one', async () => {
+  const luts = [
+    {id: 'builtin:classic-chrome', name: 'Classic Chrome', size: 12, builtIn: true},
+    {id: 'builtin:eterna', name: 'Eterna', size: 12, builtIn: true},
+  ];
+  const onPreview = jest.fn(async () => 'file://preview');
+  const onRender = jest.fn(async () => {});
+  const photo = {...moments[0], lut: 'Classic Chrome', lutId: 'builtin:classic-chrome'};
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[photo]} luts={luts as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onPreview={onPreview} onRender={onRender}/>); });
+  open(tree!);
+  act(() => tree!.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  const save = () => tree!.root.findByProps({testID: 'album-lut-save'});
+  expect(save().props.disabled).toBe(true);
+  expect(JSON.stringify(tree!.toJSON())).toContain('按住照片可对比原片。动态照片的封面也会换成新风格');
+  expect(JSON.stringify(tree!.toJSON())).not.toContain('重新封装');
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
+  expect(save().props.disabled).toBe(true);
+  await act(async () => { await save().props.onPress(); });
+  expect(onRender).not.toHaveBeenCalled();
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Eterna'}).props.onPress(); });
+  expect(save().props.disabled).toBe(false);
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
+  expect(save().props.disabled).toBe(true);
+  act(() => tree!.unmount());
+});
+
+it('tells a still photo that saving only replaces the in-app copy', () => {
+  const still = {...moments[0], captureMode: 'photo' as const, videoUri: undefined};
+  const tree = renderer.create(<MotionAlbum moments={[still]} luts={[{id: 'builtin:eterna', name: 'Eterna', size: 12, builtIn: true}] as any} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onRender={async () => {}}/>);
+  open(tree);
+  act(() => tree.root.findByProps({accessibilityLabel: '更换 LUT'}).props.onPress());
+  expect(tree.root.findByProps({testID: 'album-lut-save'}).props.disabled).toBe(true);
+  expect(JSON.stringify(tree.toJSON())).toContain('按住照片可对比原片。保存只改 App 内副本');
+  expect(JSON.stringify(tree.toJSON())).not.toContain('动态照片的封面也会换成新风格');
+  act(() => tree.unmount());
 });

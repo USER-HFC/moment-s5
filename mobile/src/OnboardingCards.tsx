@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {AccessibilityInfo, findNodeHandle, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';
@@ -12,11 +12,19 @@ const CARDS: {title: string; icon: CameraIconName; body: string}[] = [
 
 export default function OnboardingCards({onDone}: {onDone: () => void}) {
   const [index, setIndex] = useState(0);
+  const nextRef = useRef<View>(null);
   const window = useWindowDimensions();
   const portrait = window.height >= window.width && window.height > 0;
   const card = CARDS[index];
   const last = index === CARDS.length - 1;
-  return <View testID="onboarding" style={styles.screen}>
+  useEffect(() => {
+    const node = findNodeHandle(nextRef.current);
+    if (node == null) return undefined;
+    // The page behind is hidden on the next frame; move focus after that settles.
+    const timer = setTimeout(() => AccessibilityInfo.setAccessibilityFocus(node), 300);
+    return () => clearTimeout(timer);
+  }, [index]);
+  return <View testID="onboarding" accessibilityViewIsModal style={styles.screen}>
     <View style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="跳过引导" testID="onboarding-skip" onPress={onDone}
         style={({pressed}) => [styles.skip, pressed && styles.pressed]}>
@@ -37,7 +45,7 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
       <View style={styles.dots} accessibilityLabel={`第 ${index + 1} 张，共 ${CARDS.length} 张`}>
         {CARDS.map((item, dot) => <View key={item.title} style={[styles.dot, dot === index && styles.dotOn]}/>)}
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={last ? '开始使用' : '下一步'} testID="onboarding-next"
+      <Pressable ref={nextRef} accessibilityRole="button" accessibilityLabel={last ? '开始使用' : '下一步'} testID="onboarding-next"
         onPress={() => { if (last) onDone(); else setIndex(value => value + 1); }}
         style={({pressed}) => [styles.next, pressed && styles.nextPressed]}>
         <Text style={styles.nextLabel}>{last ? '开始使用' : '下一步'}</Text>

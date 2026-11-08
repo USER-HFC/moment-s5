@@ -20,6 +20,7 @@ import {Notice} from './src/notice';
 import {loadPreferences, savePreference} from './src/preferences';
 import {captureFailureNotice, userFacingError} from './src/captureError';
 import {savedNoticeMessage} from './src/savedNotice';
+import {A11yHideView} from './src/A11yHideView';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -181,6 +182,9 @@ export default function App() {
     if (!camera) throw new Error('当前平台没有相机桥');
     return camera.describeMoment(id);
   }, []);
+  // accessibilityViewIsModal only hides siblings for VoiceOver. The page behind is an
+  // A11yHideView so no-hide-descendants also leaves the Android accessibility tree.
+  const behindIntro = introOpen ? 'no-hide-descendants' as const : 'auto' as const;
   const shareMoment = useCallback(async (id: string, kind: string) => {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
@@ -189,7 +193,8 @@ export default function App() {
   }, [showNotice]);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {/* Stay mounted under the album and settings so the viewfinder and scopes do not reconnect. */}
+    {/* Stay mounted under the album and settings so the viewfinder and scopes do not reconnect. Intro hides this whole stack, including the connection sheet and notices. */}
+    <A11yHideView testID="app-behind" collapsable={false} pointerEvents={introOpen ? 'none' : 'auto'} accessibilityElementsHidden={introOpen} importantForAccessibility={behindIntro} style={styles.fill}>
     <View style={styles.stage}>
       <View testID="camera-layer" pointerEvents={cameraFocused ? 'auto' : 'none'} accessibilityElementsHidden={!cameraFocused} importantForAccessibility={cameraFocused ? 'auto' : 'no-hide-descendants'} style={styles.stage}>
         <CameraWorkspace focused={cameraFocused} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={cameraFocused ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
@@ -199,9 +204,10 @@ export default function App() {
         {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
       </View>}
     </View>
-    {introOpen && <OnboardingCards onDone={finishIntro}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
+    </A11yHideView>
+    {introOpen && <OnboardingCards onDone={finishIntro}/>}
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
 function errorText(e: unknown) { return userFacingError(String((e as Error)?.message || e)); }
@@ -212,6 +218,7 @@ function momentIdFromDirectory(directory: unknown) {
 }
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: theme.colors.background},
+  fill: {flex: 1},
   stage: {flex: 1, minHeight: 0},
   cover: {...StyleSheet.absoluteFillObject, zIndex: 2, backgroundColor: theme.colors.background},
   noticeHost: {position: 'absolute', left: ui.space.gutter, right: ui.space.gutter, bottom: ui.space.lg, zIndex: 40},
