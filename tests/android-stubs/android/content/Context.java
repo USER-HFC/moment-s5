@@ -5,5 +5,6 @@ public class Context {
     public ContentResolver resolver;
     public Context(File files){this.files=files;}
     public File getFilesDir(){return files;}
+    public String getPackageName(){return "cn.moment.lumix";}
     public ContentResolver getContentResolver(){return resolver;}
 }

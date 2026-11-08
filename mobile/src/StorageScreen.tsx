@@ -1,7 +1,8 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {BackHandler, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CameraControl from './CameraControl';
+import ConfirmDialog from './ConfirmDialog';
 import {camera} from './native';
 import {Notice} from './notice';
 import {clearableSummary, formatBytes, StorageUsage} from './preferences';
@@ -24,6 +25,14 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!confirm) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!working) setConfirm(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [confirm, working]);
 
   const clear = async () => {
     if (!camera?.clearExportedCopies || working) return;
@@ -42,7 +51,11 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
   const bytes = usage ? formatBytes(usage.bytes) : '…';
   const clearable = !!usage && usage.exportedCount > 0;
   const summary = usage ? clearableSummary(usage.exportedCount, usage.exportedBytes) : '…';
+  const clearBody = clearError
+    ? `只删除已经导出到系统相册的 App 内副本。机身 SD 卡和系统相册里的照片不受影响。\n${clearError}`
+    : '只删除已经导出到系统相册的 App 内副本。机身 SD 卡和系统相册里的照片不受影响。';
   return <View style={styles.screen} testID="storage-screen">
+    <View testID="storage-body" accessibilityElementsHidden={confirm} importantForAccessibility={confirm ? 'no-hide-descendants' : 'auto'} style={styles.screen}>
     <View style={styles.header}>
       <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
       <Text style={styles.title}>存储</Text>
@@ -73,26 +86,10 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
         <Text style={styles.note}>只删除已经导出的 App 内副本。未导出的照片会保留。</Text>
       </View>
     </ScrollView>
-    <Modal visible={confirm} transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={() => { if (!working) setConfirm(false); }}>
-      <View style={styles.scrim}>
-        <View testID="storage-confirm" accessibilityViewIsModal style={styles.dialog}>
-          <Text style={styles.dialogTitle}>清理已导出的副本？</Text>
-          <Text style={styles.dialogBody}>只删除已经导出到系统相册的 App 内副本。机身 SD 卡和系统相册里的照片不受影响。</Text>
-          {!!clearError && <Text testID="storage-clear-error" style={styles.error}>{clearError}</Text>}
-          <View style={styles.dialogActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消清理" disabled={working} onPress={() => setConfirm(false)}
-              style={({pressed}) => [styles.dialogButton, pressed && styles.pressed]}>
-              <Text style={styles.dialogButtonLabel}>取消</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="确认清理已导出的副本" disabled={working} testID="storage-confirm-clear"
-              onPress={() => { void clear(); }}
-              style={({pressed}) => [styles.dialogButton, styles.dialogConfirm, pressed && styles.pressed]}>
-              <Text style={styles.dialogConfirmLabel}>{working ? '正在清理' : '清理'}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
+    </View>
+    {confirm && <ConfirmDialog visible testID="storage-confirm" confirmTestID="storage-confirm-clear" destructive busy={working}
+      title="清理已导出的副本？" body={clearBody} confirmLabel={working ? '正在清理' : '清理'} cancelLabel="取消"
+      onCancel={() => { if (!working) setConfirm(false); }} onConfirm={() => { void clear(); }}/>}
   </View>;
 }
 
@@ -115,13 +112,4 @@ const styles = StyleSheet.create({
   actionLabel: {...ui.type.body, color: ui.color.accent, textAlign: 'center'},
   actionLabelDisabled: {color: ui.color.muted},
   pressed: {backgroundColor: ui.color.raised},
-  scrim: {flex: 1, justifyContent: 'center', padding: ui.space.gutter, backgroundColor: ui.color.scrim},
-  dialog: {width: '100%', maxWidth: 420, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.background},
-  dialogTitle: {...ui.type.title, color: ui.color.text},
-  dialogBody: {...ui.type.body, color: ui.color.text},
-  dialogActions: {flexDirection: 'row', gap: ui.space.sm},
-  dialogButton: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, paddingHorizontal: ui.space.sm},
-  dialogButtonLabel: {...ui.type.body, color: ui.color.text, textAlign: 'center'},
-  dialogConfirm: {backgroundColor: ui.color.accent, borderColor: ui.color.accent},
-  dialogConfirmLabel: {...ui.type.body, color: ui.color.background, fontWeight: '600', textAlign: 'center'},
 });

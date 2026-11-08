@@ -53,14 +53,16 @@ export default function PhotoInfo({details, moment}: {details: MomentDetails; mo
   const library = !details.exportKnown ? '无法确认' : details.exported ? '已导出' : '未导出';
 
   return <View>
-    {hasExif && !!cameraLine(details) && <Text testID="info-camera" numberOfLines={2} style={styles.camera}>{cameraLine(details)}</Text>}
-    {params.length > 0 && <View testID="info-params" style={styles.params}>
-      {params.map((item) => <View key={item.key} style={styles.param}>
-        <Text style={styles.paramLabel}>{PARAM_LABELS[item.key]}</Text>
-        <Text numberOfLines={1} style={styles.paramValue}>{item.value}</Text>
-      </View>)}
-    </View>}
-    {!hasExif && <Text testID="info-no-exif" style={styles.noExif}>这张照片没有拍摄参数（EXIF）</Text>}
+    <Section title="拍摄参数">
+      {hasExif && !!cameraLine(details) && <Text testID="info-camera" numberOfLines={2} style={styles.camera}>{cameraLine(details)}</Text>}
+      {params.length > 0 && <View testID="info-params" style={styles.params}>
+        {params.map((item) => <View key={item.key} style={styles.param}>
+          <Text style={styles.paramLabel}>{PARAM_LABELS[item.key]}</Text>
+          <Text numberOfLines={1} style={styles.paramValue}>{item.value}</Text>
+        </View>)}
+      </View>}
+      {!hasExif && <Text testID="info-no-exif" style={styles.noExif}>这张照片没有拍摄参数（EXIF）</Text>}
+    </Section>
 
     <Section title="文件">
       <InfoRow label="机身文件" value={cameraFile || '未知'} selectable/>
@@ -91,7 +93,7 @@ const styles = StyleSheet.create({
   params: {flexDirection: 'row', gap: ui.space.sm, marginBottom: ui.space.md},
   param: {flex: 1, minWidth: 0, gap: 2, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm, borderRadius: ui.radius.small, backgroundColor: ui.color.surface},
   paramLabel: {...ui.type.label, color: ui.color.muted}, paramValue: {...ui.type.body, color: ui.color.text},
-  noExif: {...ui.type.body, color: ui.color.text, paddingVertical: ui.space.sm},
+  noExif: {...ui.type.caption, color: ui.color.muted, paddingVertical: ui.space.xs},
   section: {marginTop: ui.space.sm, gap: 2},
   sectionHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm},
   sectionTitle: {...ui.type.label, color: ui.color.muted},
