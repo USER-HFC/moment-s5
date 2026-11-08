@@ -21,7 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Shared JS contract; Android owns USB/PTP and LUT pixels, iOS can implement the same methods later. */
 public final class MomentS5Module extends ReactContextBaseJavaModule {
     private static final String USB_PERMISSION="cn.moment.lumix.RN_USB_PERMISSION";
-    private static final String PREFS="moment-settings";
+    private static final String PREFS=VolumeShutter.PREFS;
+    private static volatile MomentS5Module active;
     private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private final ScopeEmitter scopes;private CaptureEngine engine;private BroadcastReceiver receiver;private final CameraLifecycle lifecycle;private final WifiConnectionManager wifi;private final PhoneBatteryMonitor battery;private final ExecutorService files=Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"moment-files");thread.setDaemon(true);return thread;});private final AtomicBoolean rerendering=new AtomicBoolean();
     public MomentS5Module(ReactApplicationContext context){super(context);this.context=context;usb=(UsbManager)context.getSystemService(Context.USB_SERVICE);lutDir=new File(context.getFilesDir(),"luts");if(!lutDir.isDirectory())lutDir.mkdirs();
         scopes=new ScopeEmitter(context);
@@ -39,6 +40,12 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         wifi=new WifiConnectionManager(context,message->{engine.disconnect();status(message);});context.addLifecycleEventListener(wifi);
         receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){UsbDevice d=intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(USB_PERMISSION.equals(intent.getAction())){boolean granted=intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false);if(lifecycle.permission(d,granted)&&!granted)status("USB 访问未授权");}else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())&&d!=null&&UsbS5.candidate(d)){lifecycle.cancel();engine.detach();}}};
         IntentFilter filter=new IntentFilter(USB_PERMISSION);filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);context.registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);
+        active=this;
+    }
+    public static void emitVolumeShutter(){
+        MomentS5Module module=active;
+        if(module==null)return;
+        module.emit(VolumeShutter.EVENT,Arguments.createMap());
     }
     @Override public String getName(){return "MomentLumix";}
     @ReactMethod public void connect(Promise promise){try{if(usb==null)throw new IOException("当前设备不支持 USB 主机连接");List<UsbDevice> devices=new ArrayList<>();for(UsbDevice d:usb.getDeviceList().values())if(UsbS5.candidate(d))devices.add(d);if(devices.isEmpty()){promise.reject("NO_S5","未发现 Panasonic S5，请确认 OTG、数据线和 PC(Tether)");return;}if(devices.size()>1){promise.reject("MULTIPLE_S5","检测到多台 Panasonic 相机");return;}UsbDevice d=devices.get(0);if(usb.hasPermission(d))lifecycle.connect(d);else{PendingIntent p=PendingIntent.getBroadcast(context,0,new Intent(USB_PERMISSION).setPackage(context.getPackageName()),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE);lifecycle.request(d);usb.requestPermission(d,p);}}catch(Exception e){lifecycle.cancel();promise.reject("USB_CONNECT",e.getMessage(),e);return;}promise.resolve(null);}
@@ -79,6 +86,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
     @ReactMethod public void captureStill(){engine.captureStill();}
     @ReactMethod public void remoteShutter(){engine.remoteShutter();}
     @ReactMethod public void focus(int direction){engine.focus(direction);}
+    @ReactMethod public void setCaptureScreen(boolean capture){VolumeShutter.setCaptureScreen(capture);}
     @ReactMethod public void setAudio(boolean enabled){engine.audio(enabled);}
     @ReactMethod public void setScopesEnabled(boolean enabled,boolean rotateClockwise,double sourceAspectRatio){scopes.configure(enabled,rotateClockwise,sourceAspectRatio);}
     @ReactMethod public void setLut(String id,Promise promise){try{if(engine.busy())throw new IOException("拍摄处理中，请稍后再切换 LUT");if(id==null||id.isEmpty()||"off".equals(id)){engine.setLut(null);promise.resolve(null);return;}if(BuiltInLutCatalog.isBuiltIn(id)){engine.setLut(BuiltInLuts.load(context,id));}else{File file=safeFile(id);if(!file.isFile())throw new IOException("LUT 不存在");engine.setLut(LutEngine.load(file));}promise.resolve(engine.lutTitle());}catch(Exception e){promise.reject("LUT_INVALID",e.getMessage(),e);}}
@@ -133,6 +141,9 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         map.putBoolean("syncBodyPhotos",prefs.getBoolean("syncBodyPhotos",true));
         map.putBoolean("rememberCapture",prefs.getBoolean("rememberCapture",false));
         map.putBoolean("onboardingSeen",prefs.getBoolean("onboardingSeen",false));
+        map.putBoolean(VolumeShutter.PREF_ENABLED,prefs.getBoolean(VolumeShutter.PREF_ENABLED,true));
+        map.putBoolean("reverseFocus",prefs.getBoolean("reverseFocus",false));
+        map.putBoolean("shutterVibration",prefs.getBoolean("shutterVibration",true));
         WritableMap capture=Arguments.createMap();
         capture.putBoolean("motion",prefs.getBoolean("captureMotion",false));
         capture.putBoolean("grid",prefs.getBoolean("captureGrid",true));
@@ -142,7 +153,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         promise.resolve(map);
     }
     @ReactMethod public void setPreference(String key,boolean value,Promise promise){
-        if(key==null || !List.of("autoExport","syncBodyPhotos","rememberCapture","onboardingSeen").contains(key)){promise.reject("PREFERENCE","未知的设置项");return;}
+        if(key==null || !List.of("autoExport","syncBodyPhotos","rememberCapture","onboardingSeen",VolumeShutter.PREF_ENABLED,"reverseFocus","shutterVibration").contains(key)){promise.reject("PREFERENCE","未知的设置项");return;}
         preferences().edit().putBoolean(key,value).apply();
         if("syncBodyPhotos".equals(key)) engine.setSyncBodyPhotos(value);
         promise.resolve(null);
@@ -174,7 +185,7 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         m.putNull("cameraBattery");m.putBoolean("autofocus",engine.supportsAutofocus());m.putBoolean("manualFocus",engine.supportsManualFocus());putNullable(m,"cameraModel",engine.cameraModel());promise.resolve(m);}
     @ReactMethod public void addListener(String name) {}
     @ReactMethod public void removeListeners(double count) {}
-    @Override public void invalidate(){files.shutdownNow();battery.close();context.removeLifecycleEventListener(battery);scopes.close();wifi.close();context.removeLifecycleEventListener(wifi);lifecycle.cancel();context.removeLifecycleEventListener(lifecycle);if(receiver!=null){try{context.unregisterReceiver(receiver);}catch(Exception ignored){}}if(engine!=null)engine.shutdown();super.invalidate();}
+    @Override public void invalidate(){if(active==this){active=null;VolumeShutter.setCaptureScreen(false);}files.shutdownNow();battery.close();context.removeLifecycleEventListener(battery);scopes.close();wifi.close();context.removeLifecycleEventListener(wifi);lifecycle.cancel();context.removeLifecycleEventListener(lifecycle);if(receiver!=null){try{context.unregisterReceiver(receiver);}catch(Exception ignored){}}if(engine!=null)engine.shutdown();super.invalidate();}
     private WritableMap momentMap(File dir)throws Exception{org.json.JSONObject meta=MomentStore.metadata(dir);WritableMap map=Arguments.createMap();map.putString("id",dir.getName());map.putString("captureMode",meta.optString("captureMode","pre-only"));map.putBoolean("demo",meta.optBoolean("demo",false));map.putBoolean("cameraTriggered",meta.optBoolean("cameraTriggered",false));String transport=meta.optString("transport","");if(transport.isEmpty()&&meta.optBoolean("demo",false))transport="demo";map.putString("transport",transport);map.putString("source",meta.optString("source","动态照片"));map.putDouble("createdAt",meta.optLong("createdAt",dir.lastModified()));map.putBoolean("complete",meta.optBoolean("complete",false));map.putBoolean("experimentalWifi",meta.optBoolean("experimentalWifi",false));String error=meta.optString("error",null);if(error!=null&&!error.isEmpty())map.putString("error",error);map.putString("lut",meta.isNull("lut")?null:meta.optString("lut",null));if(!meta.isNull("lutId"))map.putString("lutId",meta.optString("lutId",null));File original=new File(dir,"original.jpg");if(original.isFile())map.putString("originalUri",ShareProvider.uri(context,original)+"?t="+original.lastModified());File image=new File(dir,"rendered.jpg");if(!meta.optBoolean("lutApplied",false)||!image.isFile())image=new File(dir,"original.jpg");if(image.isFile())map.putString("imageUri",ShareProvider.uri(context,image)+"?t="+image.lastModified());File video=new File(dir,"motion.mp4");if(!"photo".equals(meta.optString("captureMode"))&&video.isFile())map.putString("videoUri",ShareProvider.uri(context,video)+"?t="+video.lastModified());return map;}
     private WritableMap detailsMap(MomentDetails details){WritableMap map=Arguments.createMap();map.putString("origin",details.origin);map.putString("transport",details.transport);putNullable(map,"cameraFile",details.cameraFile);map.putDouble("capturedAt",details.capturedAt);putNullable(map,"camera",details.camera);putNullable(map,"lens",details.lens);putNullable(map,"iso",details.iso);putNullable(map,"shutter",details.shutter);putNullable(map,"aperture",details.aperture);putNullable(map,"focalLength",details.focalLength);if(details.width>0&&details.height>0){map.putInt("width",details.width);map.putInt("height",details.height);}else{map.putNull("width");map.putNull("height");}putNullable(map,"lut",details.lut);map.putBoolean("lutApplied",details.lutApplied);map.putString("directory",details.directory);WritableArray filesOut=Arguments.createArray();for(MomentDetails.FileInfo file:details.files){WritableMap item=Arguments.createMap();item.putString("name",file.name);item.putDouble("bytes",file.bytes);filesOut.pushMap(item);}map.putArray("files",filesOut);map.putBoolean("exportKnown",details.exportKnown);map.putBoolean("exported",details.exported);putNullable(map,"exportPath",details.exportPath);return map;}
     private static void putNullable(WritableMap map,String key,String value){if(value==null)map.putNull(key);else map.putString(key,value);}

@@ -1,11 +1,12 @@
 import {camera} from './native';
 import {Guide} from './referenceFrame';
 
-export const PREFERENCE_KEYS = ['autoExport', 'syncBodyPhotos', 'rememberCapture', 'onboardingSeen'] as const;
+export const PREFERENCE_KEYS = ['autoExport', 'syncBodyPhotos', 'rememberCapture', 'onboardingSeen', 'volumeShutter', 'reverseFocus', 'shutterVibration'] as const;
 export type PreferenceKey = typeof PREFERENCE_KEYS[number];
 export type CaptureMemory = {motion: boolean; grid: boolean; guide: Guide; timerSeconds: number};
 export type AppPreferences = {
   autoExport: boolean; syncBodyPhotos: boolean; rememberCapture: boolean; onboardingSeen: boolean;
+  volumeShutter: boolean; reverseFocus: boolean; shutterVibration: boolean;
   capture: CaptureMemory;
 };
 export type StorageUsage = {count: number; bytes: number; exportedCount: number; exportedBytes: number};
@@ -15,7 +16,8 @@ const TIMERS = [0, 2, 5, 10, 30];
 
 export const DEFAULT_CAPTURE: CaptureMemory = {motion: false, grid: true, guide: 'off', timerSeconds: 0};
 export const DEFAULT_PREFERENCES: AppPreferences = {
-  autoExport: false, syncBodyPhotos: true, rememberCapture: false, onboardingSeen: false, capture: DEFAULT_CAPTURE,
+  autoExport: false, syncBodyPhotos: true, rememberCapture: false, onboardingSeen: false,
+  volumeShutter: true, reverseFocus: false, shutterVibration: true, capture: DEFAULT_CAPTURE,
 };
 
 export function normalizeCapture(value: Partial<CaptureMemory> | null | undefined): CaptureMemory {
@@ -36,6 +38,9 @@ export function normalizePreferences(value: Partial<AppPreferences> | null | und
     syncBodyPhotos: value?.syncBodyPhotos !== false,
     rememberCapture: value?.rememberCapture === true,
     onboardingSeen: value?.onboardingSeen === true,
+    volumeShutter: value?.volumeShutter !== false,
+    reverseFocus: value?.reverseFocus === true,
+    shutterVibration: value?.shutterVibration !== false,
     capture: normalizeCapture(value?.capture),
   };
 }
@@ -52,6 +57,13 @@ export function captureView(memory: CaptureMemory) {
   };
 }
 
+const preferenceListeners = new Set<() => void>();
+
+export function subscribePreferences(listener: () => void) {
+  preferenceListeners.add(listener);
+  return () => { preferenceListeners.delete(listener); };
+}
+
 export async function loadPreferences(): Promise<AppPreferences | null> {
   if (!camera?.getPreferences) return null;
   try { return normalizePreferences(await camera.getPreferences()); }
@@ -61,6 +73,7 @@ export async function loadPreferences(): Promise<AppPreferences | null> {
 export async function savePreference(key: PreferenceKey, value: boolean) {
   if (!camera?.setPreference) throw new Error('当前平台没有相机桥');
   await camera.setPreference(key, value);
+  preferenceListeners.forEach(listener => listener());
 }
 
 export async function saveCaptureSettings(settings: CaptureMemory) {

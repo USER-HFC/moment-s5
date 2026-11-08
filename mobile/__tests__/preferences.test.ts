@@ -10,6 +10,10 @@ it('keeps only known capture settings and treats a closed timer as the 10 second
   expect(normalizePreferences({syncBodyPhotos: false, autoExport: true}).syncBodyPhotos).toBe(false);
   expect(normalizePreferences(undefined).syncBodyPhotos).toBe(true);
   expect(normalizePreferences(undefined).autoExport).toBe(false);
+  expect(normalizePreferences(undefined).volumeShutter).toBe(true);
+  expect(normalizePreferences(undefined).shutterVibration).toBe(true);
+  expect(normalizePreferences(undefined).reverseFocus).toBe(false);
+  expect(normalizePreferences({volumeShutter: false, reverseFocus: true, shutterVibration: false})).toMatchObject({volumeShutter: false, reverseFocus: true, shutterVibration: false});
 });
 
 it('formats storage sizes for the settings page', () => {

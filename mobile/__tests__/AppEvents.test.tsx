@@ -22,7 +22,8 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
   const listeners: Map<string, Function> = (cameraEvents as any).listeners;
-  expect(listeners.size).toBe(6);
+  expect(listeners.size).toBe(7);
+  expect(listeners.has('volumeShutter')).toBe(true);
   act(() => listeners.get('phoneBattery')!({percent: 37, charging: true}));
   expect(tree!.root.findByType(CameraWorkspace).props.state.phoneBattery).toEqual({percent: 37, charging: true});
   act(() => listeners.get('cameraExposure')!({value: 'ISO AUTO     f/4.0     1/80', exposureAgeMs: 50}));
