@@ -1,0 +1,16 @@
+更换 LUT
+更换 LUT
+选择 LUT 原色
+当前
+原色
+选择 LUT Provia / Standard
+Provia / Standard
+选择 LUT Velvia
+Velvia
+选择 LUT Astia
+Astia
+按住照片可对比原片。动态照片的封面也会换成新风格
+取消更换 LUT
+取消
+保存 LUT
+保存

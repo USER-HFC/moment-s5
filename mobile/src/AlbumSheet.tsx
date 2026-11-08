@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {Animated, PanResponder, ScrollView, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Animated, findNodeHandle, PanResponder, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CameraControl from './CameraControl';
 import {ui} from './theme';
@@ -30,7 +30,14 @@ export default function AlbumSheet({title, height, onClose, children, footer, in
   const currentHeight = useRef(collapsedHeight);
   const startHeight = useRef(collapsedHeight);
   const onCloseRef = useRef(onClose);
+  const titleRef = useRef<View>(null);
   onCloseRef.current = onClose;
+  useEffect(() => {
+    const node = findNodeHandle(titleRef.current);
+    if (node == null) return undefined;
+    const timer = setTimeout(() => AccessibilityInfo.setAccessibilityFocus(node), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const settle = (to: number) => {
     currentHeight.current = to;
@@ -69,7 +76,9 @@ export default function AlbumSheet({title, height, onClose, children, footer, in
       <View style={styles.handleArea} {...pan.panHandlers}>
         <View style={styles.handle}/>
         <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
+          <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title} style={styles.titleWrap}>
+            <Text style={styles.title}>{title}</Text>
+          </View>
           {showClose && <CameraControl icon="close" accessibilityLabel={`关闭${title}`} onPress={() => onCloseRef.current()}/>}
         </View>
       </View>
@@ -85,7 +94,8 @@ const styles = StyleSheet.create({
   handleArea: {paddingTop: ui.space.sm},
   handle: {width: 36, height: 4, borderRadius: 2, backgroundColor: ui.color.outline, alignSelf: 'center', marginBottom: ui.space.xs},
   header: {minHeight: ui.icon.touch, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm},
-  title: {...ui.type.title, color: ui.color.text, flexShrink: 1},
+  titleWrap: {flexShrink: 1},
+  title: {...ui.type.title, color: ui.color.text},
   scroll: {flexGrow: 1, flexShrink: 1}, content: {paddingBottom: ui.space.sm},
   footer: {paddingTop: ui.space.sm, paddingBottom: ui.space.sm, gap: ui.space.sm},
 });

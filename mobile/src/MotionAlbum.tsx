@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Alert, Animated, AppState, BackHandler, Image, Pressable, ScrollView, SectionList, StatusBar, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Alert, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StatusBar, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
@@ -11,7 +11,8 @@ import CameraIcon from './CameraIcon';
 import AlbumSheet from './AlbumSheet';
 import LutFilmstrip from './LutFilmstrip';
 import PhotoInfo from './PhotoInfo';
-import {ALBUM_FILTERS, AlbumFilter, albumFilterCounts, albumFilterEmpty, batchResultMessage, formatCaptureTitle, groupMomentsByDay, matchesAlbumFilter, momentSummary, shareDialogTitle, shareKindLabel, shareKinds, shareOptionHint, shareOptionLabel, viewerDismissPastThreshold} from './albumFormat';
+import {ALBUM_FILTERS, AlbumFilter, albumFilterCounts, albumFilterEmpty, batchResultMessage, formatCaptureTitle, groupMomentsByDay, matchesAlbumFilter, momentAccessibilityName, momentSummary, shareDialogTitle, shareKindLabel, shareKinds, shareOptionHint, shareOptionLabel, viewerDismissPastThreshold} from './albumFormat';
+import {A11yHideView} from './A11yHideView';
 
 type Props = {
   moments: MomentItem[];
@@ -32,6 +33,8 @@ type Props = {
 };
 
 const hasMotion = (moment: MomentItem) => moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete;
+// A fresh [] default would retrigger the thumbnail effect on every render once the sheet opens.
+const noLuts: LutItem[] = [];
 const canExport = (moment: MomentItem) => moment.complete || (moment.captureMode === 'photo' && !!moment.imageUri);
 
 function chunk<T>(items: T[], size: number) {
@@ -51,7 +54,7 @@ function Gradient({top}: {top: boolean}) {
   </Svg>;
 }
 
-export default function MotionAlbum({moments, luts = [], initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onNotice, onRender, onPreview, onThumbnail, onDetails, onShare}: Props) {
+export default function MotionAlbum({moments, luts = noLuts, initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onNotice, onRender, onPreview, onThumbnail, onDetails, onShare}: Props) {
   const [frame, setFrame] = useState({width: 0, height: 0});
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [chrome, setChrome] = useState(true);
@@ -92,6 +95,9 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
   const sheetOpenRef = useRef(false);
   const pageHeightRef = useRef(640);
   const videoRef = useRef<VideoRef>(null);
+  const viewerTitleRef = useRef<View>(null);
+  const shareTitleRef = useRef<View>(null);
+  const viewerWasOpen = useRef(false);
   const imageOpacity = useRef(new Animated.Value(1)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
   const chromeOpacity = useRef(new Animated.Value(1)).current;
@@ -169,6 +175,23 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
   const closeLut = useCallback(() => { clearPreview(); setLutOpen(false); }, [clearPreview]);
 
   useEffect(() => { baseX.setValue(-pageWidth); }, [baseX, pageWidth]);
+  useEffect(() => {
+    const open = viewerId != null;
+    const justOpened = open && !viewerWasOpen.current;
+    viewerWasOpen.current = open;
+    if (!justOpened) return undefined;
+    const node = findNodeHandle(viewerTitleRef.current);
+    if (node == null) return undefined;
+    const timer = setTimeout(() => AccessibilityInfo.setAccessibilityFocus(node), 300);
+    return () => clearTimeout(timer);
+  }, [viewerId]);
+  useEffect(() => {
+    if (!shareOpen) return undefined;
+    const node = findNodeHandle(shareTitleRef.current);
+    if (node == null) return undefined;
+    const timer = setTimeout(() => AccessibilityInfo.setAccessibilityFocus(node), 300);
+    return () => clearTimeout(timer);
+  }, [shareOpen]);
   useEffect(() => {
     if (!initialMomentId || appliedInitial.current === initialMomentId) return;
     if (!moments.some((moment) => moment.id === initialMomentId)) return;
@@ -427,9 +450,12 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
       if (token === previewToken.current) setPreviewing(false);
     }
   };
-  const saveLutId = previewLutId ?? savedLutId ?? 'off';
+  const appliedLutId = savedLutId ?? 'off';
+  const saveLutId = previewLutId ?? appliedLutId;
+  const lutChanged = saveLutId !== appliedLutId;
+  const saveDisabled = !onRender || !lutChanged || saving || previewing;
   const saveLut = async () => {
-    if (!current || !onRender || !saveLutId || saving || previewing) return;
+    if (!current || !onRender || !lutChanged || saving || previewing) return;
     setSaving(true);
     try {
       await onRender(current.id, saveLutId);
@@ -475,7 +501,7 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
     </>}
   </View>;
 
-  const grid = <View style={styles.fill} pointerEvents={current ? 'none' : 'auto'} accessibilityElementsHidden={!!current} importantForAccessibility={current ? 'no-hide-descendants' : 'auto'}>
+  const grid = <A11yHideView testID="album-grid-layer" collapsable={false} style={styles.fill} pointerEvents={current ? 'none' : 'auto'} accessibilityElementsHidden={!!current} importantForAccessibility={current ? 'no-hide-descendants' : 'auto'}>
     {selecting ? <View testID="album-select-bar" style={styles.gridHeader}>
       <Pressable accessibilityRole="button" accessibilityLabel="取消选择" onPress={exitSelection} style={styles.headerAction}>
         <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerActionLabel}>取消</Text>
@@ -514,9 +540,9 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
       renderSectionHeader={({section}) => <Text style={styles.sectionHeader}>{section.title}</Text>}
       renderItem={({item: row}) => <View style={styles.gridRow}>
         {row.map((item) => {
-          const name = item.source || '照片';
+          const name = momentAccessibilityName(item);
           const chosen = selected.has(item.id);
-          return <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={selecting ? `选择${name}` : `打开${name}`} accessibilityState={selecting ? {selected: chosen} : undefined} onPress={() => { if (selecting) toggleSelected(item.id); else openViewer(item.id); }} onLongPress={() => { if (selecting) toggleSelected(item.id); else beginSelection(item.id); }} style={[styles.cell, {width: Math.floor(pageWidth / columns), height: Math.floor(pageWidth / columns)}]}>
+          return <Pressable key={item.id} testID={`album-cell-${item.id}`} accessibilityRole="button" accessibilityLabel={selecting ? `选择${name}` : name} accessibilityState={selecting ? {selected: chosen} : undefined} onPress={() => { if (selecting) toggleSelected(item.id); else openViewer(item.id); }} onLongPress={() => { if (selecting) toggleSelected(item.id); else beginSelection(item.id); }} style={[styles.cell, {width: Math.floor(pageWidth / columns), height: Math.floor(pageWidth / columns)}]}>
             {item.imageUri ? <Image source={{uri: item.imageUri}} style={styles.thumb}/> : <View style={[styles.thumb, styles.thumbEmpty]}/>}
             {selecting && chosen && <View pointerEvents="none" style={styles.selectedFrame}/>}
             <View style={styles.cellTop}>
@@ -547,11 +573,12 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
         <Text maxFontSizeMultiplier={1.3} style={styles.batchLabelDestructive}>批量删除</Text>
       </Pressable>
     </View>}
-  </View>;
+  </A11yHideView>;
 
-  const viewer = current && <View style={styles.viewer} testID="motion-viewer">
+  const sheetCover = lutOpen || infoOpen || shareOpen;
+  const viewer = current && <View style={styles.viewer} testID="motion-viewer" accessibilityViewIsModal>
     <StatusBar hidden={!chrome} animated/>
-    <GestureDetector gesture={gesture}><View style={styles.fill}>
+    <GestureDetector gesture={gesture}><A11yHideView testID="album-viewer-body" collapsable={false} style={styles.fill} accessibilityElementsHidden={sheetCover} importantForAccessibility={sheetCover ? 'no-hide-descendants' : 'auto'}>
       <Animated.View testID="album-dismiss-layer" style={[styles.fill, {opacity: dismissOpacity, transform: [{translateY: dismissY}]}]}>
         <View testID="album-pager" style={styles.viewport} accessibilityRole="button" accessibilityState={{selected: zoomed}} accessibilityHint={hasMotion(current) ? '单击切换沉浸模式，双击缩放，长按播放动态照片' : '单击切换沉浸模式，双击缩放'} accessibilityLabel={hasMotion(current) ? '单击显示或隐藏操作，双指缩放查看动态照片' : '单击显示或隐藏操作，双指缩放查看照片'} onAccessibilityTap={() => fadeChrome(!chromeRef.current)}>
           <Animated.View style={[styles.row, {width: pageWidth * 3, transform: [{translateX: rowX}]}]}>
@@ -569,7 +596,9 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
       <View style={styles.topRow}>
         <CameraControl icon="back" accessibilityLabel="返回网格" onPress={closeViewer}/>
         <View style={styles.topCopy}>
-          <Text testID="album-title" numberOfLines={1} style={styles.viewerTitle}>{formatCaptureTitle(current.createdAt)}</Text>
+          <View ref={viewerTitleRef} accessible accessibilityRole="header" accessibilityLabel={formatCaptureTitle(current.createdAt)}>
+            <Text testID="album-title" numberOfLines={1} style={styles.viewerTitle}>{formatCaptureTitle(current.createdAt)}</Text>
+          </View>
           <Text testID="album-subtitle" numberOfLines={1} style={[styles.viewerSubtitle, !!current.error && styles.viewerError]}>{current.error || momentSummary(current)}</Text>
         </View>
         <Text testID="album-index" style={styles.viewerIndex}>{`${index + 1} / ${moments.length}`}</Text>
@@ -588,7 +617,7 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
       </ScrollView>
     </Animated.View>
       </Animated.View>
-    </View></GestureDetector>
+    </A11yHideView></GestureDetector>
 
     {infoOpen && <AlbumSheet testID="album-info-sheet" title="照片信息" height={pageHeight} initial={landscape ? 0.72 : 0.58} expanded={0.92} onClose={() => setInfoOpen(false)}>
       {details === undefined && <Text style={styles.sheetNote}>正在读取照片信息</Text>}
@@ -597,10 +626,10 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
     </AlbumSheet>}
     {lutOpen && <AlbumSheet testID="album-lut-sheet" title="更换 LUT" height={pageHeight} initial={landscape ? 0.6 : 0.4} expanded={0.92} showClose={false} onClose={closeLut} footer={
       <View style={styles.lutFooter}>
-        <Text style={styles.sheetNote}>{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片对比原片 · 保存只改 App 内副本' : '按住照片对比原片 · 动态照片会用新静态图重新封装'}</Text>
+        <Text style={styles.sheetNote}>{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片可对比原片。保存只改 App 内副本' : '按住照片可对比原片。动态照片的封面也会换成新风格'}</Text>
         <View style={styles.lutButtons}>
           <Button mode="outlined" textColor={ui.color.text} contentStyle={styles.touch} accessibilityLabel="取消更换 LUT" onPress={closeLut} style={styles.lutButton}>取消</Button>
-          <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} contentStyle={styles.touch} accessibilityLabel="保存 LUT" disabled={!onRender || !saveLutId || saving || previewing} onPress={() => { void saveLut(); }} style={styles.lutButton}>{saving ? '正在保存' : '保存'}</Button>
+          <Button testID="album-lut-save" mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} contentStyle={styles.touch} accessibilityLabel="保存 LUT" disabled={saveDisabled} onPress={() => { void saveLut(); }} style={styles.lutButton}>{saving ? '正在保存' : '保存'}</Button>
         </View>
       </View>
     }>
@@ -610,7 +639,9 @@ export default function MotionAlbum({moments, luts = [], initialMomentId = null,
       <Pressable style={styles.shareBackdrop} accessibilityRole="button" accessibilityLabel="关闭分享" onPress={() => setShareOpen(false)}/>
       <View testID="album-share-sheet" accessibilityViewIsModal style={[styles.shareSheet, {height: Math.min(Math.round(pageHeight * (landscape ? 0.88 : 0.78)), 36 + ui.icon.touch + (shareKinds(current).length + 1) * 72)}]}>
         <View style={styles.shareHandle}/>
-        <Text style={styles.shareTitle} accessibilityRole="header">{shareDialogTitle(current)}</Text>
+        <View ref={shareTitleRef} accessible accessibilityRole="header" accessibilityLabel={shareDialogTitle(current)}>
+          <Text style={styles.shareTitle}>{shareDialogTitle(current)}</Text>
+        </View>
         <ScrollView bounces={false} style={styles.shareScroll}>
           {shareKinds(current).map((kind) => <Pressable key={kind} testID={`album-share-${kind}`} accessibilityRole="button" accessibilityLabel={shareKindLabel[kind]} onPress={() => { setShareOpen(false); void onShare(current.id, kind); }} style={styles.shareOption}>
             <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareOptionLabel}>{shareOptionLabel[kind]}</Text>

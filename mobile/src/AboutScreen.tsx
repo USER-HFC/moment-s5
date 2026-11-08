@@ -10,7 +10,7 @@ import {ui} from './theme';
 
 const REPO = 'https://github.com/USER-HFC/moment-s5';
 const NOTICE = 'https://github.com/USER-HFC/moment-s5/blob/main/NOTICE.md';
-const AUTHOR = 'USER-HFC and Moment S5 contributors';
+const AUTHOR = 'USER-HFC 及贡献者';
 
 type ActionRowProps = {
   label: string; accessibilityLabel: string; value?: string; detail?: string;
@@ -124,11 +124,11 @@ const styles = StyleSheet.create({
   groupTitle: {...ui.type.caption, color: ui.color.muted, fontWeight: '600'},
   card: {backgroundColor: ui.color.surface, borderRadius: ui.radius.sheet, overflow: 'hidden'},
   divider: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: ui.color.outline},
-  row: {minHeight: 52, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', gap: ui.space.md},
+  row: {minHeight: 52, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.md},
   actionRow: {minHeight: 56},
   actionText: {flex: 1, minWidth: 0, gap: ui.space.xs},
   actionEnd: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm, flexShrink: 0},
-  label: {...ui.type.body, color: ui.color.text},
+  label: {...ui.type.body, color: ui.color.text, flexShrink: 0},
   value: {...ui.type.body, color: ui.color.muted, flexShrink: 1, textAlign: 'right'},
   detail: {...ui.type.caption, color: ui.color.muted},
   pressed: {backgroundColor: ui.color.raised},

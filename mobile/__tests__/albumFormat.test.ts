@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {albumFilterCounts, albumFilterEmpty, batchResultMessage, fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, matchesAlbumFilter, momentOrigin, momentSummary, momentTransport, shareDialogTitle, shareKinds, shareOptionHint, shareOptionLabel, shortPath, viewerDismissPastThreshold} from '../src/albumFormat';
+import {albumFilterCounts, albumFilterEmpty, batchResultMessage, fileLabel, formatBytes, formatCaptureTitle, formatDayHeading, formatDimensions, formatMomentDate, formatMomentDateTime, groupMomentsByDay, matchesAlbumFilter, momentAccessibilityName, momentKindLabel, momentOrigin, momentSummary, momentTransport, shareDialogTitle, shareKinds, shareOptionHint, shareOptionLabel, shortPath, viewerDismissPastThreshold} from '../src/albumFormat';
 
 it('formats capture time, size and pixel dimensions', () => {
   const stamp = new Date(2024, 0, 2, 3, 4, 5).getTime();
@@ -81,6 +81,25 @@ it('formats viewer titles as today, yesterday or a calendar date', () => {
   expect(formatDayHeading(at(2026, 9, 24, 16, 22), now)).toBe('昨天');
   expect(formatDayHeading(at(2026, 8, 20, 16, 22), now)).toBe('9月20日');
   expect(formatDayHeading(at(2025, 9, 25, 16, 22), now)).toBe('2025年10月25日');
+});
+
+it('names a thumbnail with its kind and the same day clock as the album groups', () => {
+  const now = new Date(2026, 9, 25, 21, 0).getTime();
+  const at = (year: number, month: number, day: number, hour: number, minute: number) => new Date(year, month, day, hour, minute).getTime();
+  expect(momentKindLabel({captureMode: 'pre-only'})).toBe('动态照片');
+  expect(momentKindLabel({})).toBe('动态照片');
+  expect(momentKindLabel({captureMode: 'photo'})).toBe('照片');
+  expect(momentKindLabel({captureMode: 'photo', cameraTriggered: true})).toBe('机身同步照片');
+  expect(momentKindLabel({cameraTriggered: true})).toBe('机身同步动态照片');
+  expect(momentKindLabel({demo: true, cameraTriggered: true})).toBe('演示动态照片');
+  expect(momentKindLabel({captureMode: 'photo', demo: true, cameraTriggered: true})).toBe('演示照片');
+  expect(momentAccessibilityName({createdAt: at(2026, 9, 25, 20, 56)}, now)).toBe('动态照片，今天 20:56');
+  expect(momentAccessibilityName({captureMode: 'photo', cameraTriggered: true, createdAt: at(2026, 9, 24, 18, 2)}, now)).toBe('机身同步照片，昨天 18:02');
+  expect(momentAccessibilityName({captureMode: 'photo', createdAt: at(2026, 8, 2, 8, 5)}, now)).toBe('照片，9月2日 08:05');
+  expect(momentAccessibilityName({createdAt: at(2025, 9, 25, 7, 4)}, now)).toBe('动态照片，2025年10月25日 07:04');
+  expect(formatDayHeading(at(2026, 9, 25, 20, 56), now)).toBe('今天');
+  expect(formatDayHeading(at(2026, 9, 24, 18, 2), now)).toBe('昨天');
+  expect(formatDayHeading(at(2026, 8, 2, 8, 5), now)).toBe('9月2日');
 });
 
 it('builds a deduplicated viewer summary', () => {
