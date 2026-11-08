@@ -60,8 +60,14 @@ it('shows the three shooting preferences and opens the guide with a feedback lin
   expect(text(tree!)).toContain('相机：设置 → USB → PC(Tether)');
   expect(text(tree!)).toContain('相机开启 Wi-Fi 遥控拍摄');
   expect(text(tree!)).toContain('连不上');
-  expect(text(tree!)).toContain('传回上一张照片');
-  expect(text(tree!)).toContain('对焦方向不对');
+  expect(text(tree!)).toContain('音量键拍摄');
+  expect(text(tree!)).toContain('构图参考');
+  expect(text(tree!)).toContain('快门震动');
+  expect(text(tree!)).toContain('反转对焦');
+  expect(text(tree!)).toContain('传错照片');
+  expect(text(tree!)).toContain('机身快门照片自动同步');
+  expect(text(tree!)).toContain('不要在机身上回放');
+  expect(text(tree!)).not.toContain('传回上一张照片');
   expect(text(tree!)).toContain('Wi-Fi 是实验功能');
   expect(text(tree!)).toContain('请附上连接诊断');
   await act(async () => tree!.root.findByProps({testID: 'guide-feedback'}).props.onPress());
