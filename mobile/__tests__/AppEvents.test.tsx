@@ -1,6 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {expect, it, jest} from '@jest/globals';
+import {AppState} from 'react-native';
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react'); const Context = React.createContext({top: 0, right: 0, bottom: 0, left: 0});
@@ -22,7 +23,7 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
   const listeners: Map<string, Function> = (cameraEvents as any).listeners;
-  expect(listeners.size).toBe(7);
+  expect(listeners.size).toBe(8);
   expect(listeners.has('volumeShutter')).toBe(true);
   act(() => listeners.get('phoneBattery')!({percent: 37, charging: true}));
   expect(tree!.root.findByType(CameraWorkspace).props.state.phoneBattery).toEqual({percent: 37, charging: true});
@@ -65,6 +66,7 @@ it('opens connection diagnostics from a failed capture without asking the user t
 });
 
 it('shows photographer copy for bridge failures and keeps the raw text out of the notice', async () => {
+  AppState.currentState = 'active';
   jest.useFakeTimers();
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
@@ -73,7 +75,8 @@ it('shows photographer copy for bridge failures and keeps the raw text out of th
   expect(JSON.stringify(tree!.toJSON())).toContain('相机正忙，请稍后再按快门');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('0x2019');
   await act(async () => listeners.get('cameraStatus')!({message: 'USB 已拔出 · 照片保留在机身或本机', ready: false}));
-  expect(JSON.stringify(tree!.toJSON())).toContain('相机已断开，请检查数据线');
+  expect(JSON.stringify(tree!.toJSON())).toContain('相机已断开');
+  expect(JSON.stringify(tree!.toJSON())).toContain('重新连接');
   expect(JSON.stringify(tree!.toJSON())).not.toContain('USB 已拔出');
   await act(async () => listeners.get('cameraFailed')!({error: '机身未在时限内确认 Wi-Fi 连接；已取消请求'}));
   const json = JSON.stringify(tree!.toJSON());

@@ -2,7 +2,7 @@ import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {expect, it, jest, beforeEach, afterEach} from '@jest/globals';
 import {PermissionsAndroid, Platform, StyleSheet} from 'react-native';
-import {Switch, TextInput} from 'react-native-paper';
+import {Switch, Text, TextInput} from 'react-native-paper';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
 jest.mock('../src/native', () => ({camera: {capture: jest.fn(), remoteShutter: jest.fn(), focus: jest.fn(), setAudio: jest.fn()}}));
@@ -57,13 +57,34 @@ it('defaults to USB and keeps the experimental mark on the Wi-Fi label only', as
   expect(copy.split('实验').length - 1).toBe(1);
   expect(copy).toContain('相机开启 Wi-Fi 遥控拍摄');
   expect(copy).toContain('手机连上相机热点');
-  expect(copy).toContain('填 IP，默认 192.168.54.1');
+  expect(copy).toContain('确认相机 IP，一般不用改');
   expect(copy).toContain('我已在系统设置里连上相机 Wi-Fi');
   expect(copy).toContain('打开后直接使用当前网络，不会再弹出连接相机热点的请求。');
   expect(copy).not.toContain('LUMIX Sync');
   expect(copy).not.toContain('合成');
   await act(async () => button('连接 Wi-Fi 相机').props.onPress());
   expect(props.onWifi).toHaveBeenCalledWith({manual: true, cameraIp: '192.168.54.1'});
+});
+
+it('keeps every segment on one line and puts a small experimental badge beside Wi-Fi', () => {
+  const label = (text: string) => tree.root.findAllByType(Text).find(node => node.props.children === text)!;
+  expect(visibleText()).not.toContain('Wi-Fi（实验）');
+  for (const text of ['USB', 'Wi-Fi', '演示', '实验']) {
+    expect(label(text).props.numberOfLines).toBe(1);
+    expect(label(text).props.maxFontSizeMultiplier).toBe(1.3);
+  }
+  expect(label('实验').props.style).toBeTruthy();
+});
+
+it('reopens on the remembered way and IP instead of always starting on USB', () => {
+  act(() => tree.update(<ConnectionSheet {...props} remembered={{method: 'wifi', cameraIp: '10.0.0.8'}}/>));
+  expect(button('Wi-Fi（实验）').props.accessibilityState.selected).toBe(true);
+  const field = () => tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 IP')!;
+  expect(field().props.value).toBe('10.0.0.8');
+  act(() => tree.update(<ConnectionSheet {...props} remembered={{method: 'demo', cameraIp: '10.0.0.8'}}/>));
+  expect(button('演示连接方式').props.accessibilityState.selected).toBe(true);
+  act(() => tree.update(<ConnectionSheet {...props} state={{...state, active: true, transport: 'usb'}} remembered={{method: 'demo', cameraIp: '10.0.0.8'}}/>));
+  expect(button('USB 连接方式').props.accessibilityState.selected).toBe(true);
 });
 it('validates known SSID and requests permission only for automatic joining', async () => {
   const permission = jest.spyOn(PermissionsAndroid, 'check').mockResolvedValue(false);

@@ -22,6 +22,7 @@ final class CameraLifecycle implements LifecycleEventListener {
         return true;
     }
     synchronized void cancel() {requestedDevice=null;pendingDevice=null;}
+    synchronized boolean foreground() {return foreground;}
     @Override public synchronized void onHostResume() {
         foreground=true;
         UsbDevice device=pendingDevice;pendingDevice=null;

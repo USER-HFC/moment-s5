@@ -12,6 +12,7 @@ jest.mock('../src/native', () => ({
     getPreferences: jest.fn(async () => ({
       autoExport: false, syncBodyPhotos: true, rememberCapture: true, onboardingSeen: true,
       capture: {motion: true, grid: false, guide: '1:1', timerSeconds: 5},
+      connection: {method: null, cameraIp: '192.168.54.1'},
     })),
     setCaptureSettings: jest.fn(async () => {}),
   },
@@ -42,6 +43,7 @@ it('restores a saved 3:2 guide and drops a ratio this version does not know', as
   const prefs = {
     autoExport: false, syncBodyPhotos: true, rememberCapture: true, onboardingSeen: true,
     volumeShutter: true, reverseFocus: false, shutterVibration: true,
+    connection: {method: null as null, cameraIp: '192.168.54.1'},
   };
   jest.mocked(camera!.getPreferences).mockResolvedValueOnce({...prefs, capture: {motion: false, grid: true, guide: '3:2', timerSeconds: 0}});
   let restored: renderer.ReactTestRenderer;

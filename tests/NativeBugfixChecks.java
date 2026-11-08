@@ -705,9 +705,20 @@ public final class NativeBugfixChecks {
         check(uris.get(1).toString().contains("rendered.jpg"),"still uri is the graded picture");
         expectIo(()->MomentShare.sendMultiple(context,List.of()),"empty multi share accepted");
     }
+    private static void usbAttachChecks() {
+        // An attach only prompts while the app is in front with no camera session. It never connects by itself.
+        check(UsbAttachPrompt.action(UsbAttachPrompt.ATTACHED,true,true,false)==UsbAttachPrompt.PROMPT,"foreground attach prompts once");
+        check(UsbAttachPrompt.action(UsbAttachPrompt.ATTACHED,false,true,false)==UsbAttachPrompt.NONE,"non-S5 attach stays silent");
+        check(UsbAttachPrompt.action(UsbAttachPrompt.ATTACHED,true,false,false)==UsbAttachPrompt.NONE,"background attach stays silent");
+        check(UsbAttachPrompt.action(UsbAttachPrompt.ATTACHED,true,true,true)==UsbAttachPrompt.NONE,"attach during a live session stays silent");
+        check(UsbAttachPrompt.action(UsbAttachPrompt.DETACHED,true,true,true)==UsbAttachPrompt.DETACH,"S5 detach is still handled");
+        check(UsbAttachPrompt.action(UsbAttachPrompt.DETACHED,false,true,true)==UsbAttachPrompt.NONE,"other detach stays silent");
+        check("android.hardware.usb.action.USB_DEVICE_ATTACHED".equals(UsbAttachPrompt.ATTACHED) && "android.hardware.usb.action.USB_DEVICE_DETACHED".equals(UsbAttachPrompt.DETACHED),"USB actions match the platform broadcast names");
+        check(UsbAttachPrompt.EVENT.equals("usbCameraAttached"),"event name matches the JS listener");
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {savedStatusChecks();lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);shareChecks(root);}
+        try {savedStatusChecks();lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);shareChecks(root);usbAttachChecks();}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

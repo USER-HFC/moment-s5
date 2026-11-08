@@ -2,6 +2,13 @@ export type WifiConnectionOptions = {manual: boolean; cameraIp: string; ssid?: s
 export type ConnectionForm = {manual: boolean; cameraIp: string; ssid: string; password: string; debug: boolean; debugEndpoint: string; udpPort: string};
 export const initialConnectionForm: ConnectionForm = {manual: true, cameraIp: '192.168.54.1', ssid: '', password: '', debug: false, debugEndpoint: '10.0.2.2:18080', udpPort: '49152'};
 
+export function cameraIpv4(value: string): string | null {
+  const cameraIp = value.trim();
+  const ip = cameraIp.split('.');
+  if (ip.length !== 4 || ip.some(part => !/^[0-9]{1,3}$/.test(part) || Number(part) > 255)) return null;
+  return cameraIp;
+}
+
 export function connectionOptions(form: ConnectionForm, debugAllowed: boolean): WifiConnectionOptions {
   if (form.debug) {
     if (!debugAllowed) throw new Error('模拟相机调试仅限 debug APK');
@@ -11,9 +18,8 @@ export function connectionOptions(form: ConnectionForm, debugAllowed: boolean): 
     if (!/^[0-9]+$/.test(form.udpPort) || !Number.isInteger(udpPort) || udpPort < 1 || udpPort > 65535) throw new Error('UDP 端口须为 1–65535');
     return {manual: true, cameraIp: form.cameraIp.trim(), debugEndpoint: endpoint, udpPort};
   }
-  const cameraIp = form.cameraIp.trim();
-  const ip = cameraIp.split('.');
-  if (ip.length !== 4 || ip.some(part => !/^[0-9]{1,3}$/.test(part) || Number(part) > 255)) throw new Error('请输入相机 IPv4 地址');
+  const cameraIp = cameraIpv4(form.cameraIp);
+  if (!cameraIp) throw new Error('请输入相机 IPv4 地址');
   if (!form.manual && !form.ssid.trim()) throw new Error('请输入相机 Wi-Fi 名称');
   return {manual: form.manual, cameraIp, ...(form.manual ? {} : {ssid: form.ssid, password: form.password})};
 }

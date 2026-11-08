@@ -5,12 +5,13 @@ import CameraSheet from '../CameraSheet';
 import {ui} from '../theme';
 import {CameraState} from '../native';
 import {connectionOptions, ConnectionForm, initialConnectionForm, WifiConnectionOptions} from './model';
+import {ConnectionMemory, DEFAULT_CONNECTION} from '../preferences';
 import {userFacingError} from '../captureError';
 
-type Props = {visible: boolean; state: CameraState; status: string; debugAllowed: boolean; onClose: () => void; onUsb: () => Promise<void>; onWifi: (options: WifiConnectionOptions) => Promise<void>; onDemo: () => Promise<void>; onDisconnect: () => void};
+type Props = {visible: boolean; state: CameraState; status: string; debugAllowed: boolean; remembered?: ConnectionMemory; onClose: () => void; onUsb: () => Promise<void>; onWifi: (options: WifiConnectionOptions) => Promise<void>; onDemo: () => Promise<void>; onDisconnect: () => void};
 const MODES = [
   {value: 'usb', label: 'USB', accessibilityLabel: 'USB 连接方式'},
-  {value: 'wifi', label: 'Wi-Fi（实验）', accessibilityLabel: 'Wi-Fi（实验）'},
+  {value: 'wifi', label: 'Wi-Fi', badge: '实验', accessibilityLabel: 'Wi-Fi（实验）'},
   {value: 'demo', label: '演示', accessibilityLabel: '演示连接方式'},
 ] as const;
 const USB_STEPS = [
@@ -21,7 +22,7 @@ const USB_STEPS = [
 const WIFI_STEPS = [
   '相机开启 Wi-Fi 遥控拍摄',
   '手机连上相机热点',
-  '填 IP，默认 192.168.54.1',
+  '确认相机 IP，一般不用改',
 ];
 
 function Steps({items, testID}: {items: readonly string[]; testID: string}) {
@@ -38,15 +39,19 @@ export async function requestWifiPermission(): Promise<boolean> {
   return (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-export default function ConnectionSheet({visible, state, status, debugAllowed, onClose, onUsb, onWifi, onDemo, onDisconnect}: Props) {
+export default function ConnectionSheet({visible, state, status, debugAllowed, remembered = DEFAULT_CONNECTION, onClose, onUsb, onWifi, onDemo, onDisconnect}: Props) {
   const [mode, setMode] = useState<'usb' | 'wifi' | 'demo'>('usb');
   const [form, setForm] = useState<ConnectionForm>(initialConnectionForm);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (visible && state.active) setMode(state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb');
-  }, [visible, state.active, state.demo, state.transport]);
+    if (!visible) return;
+    // An active session wins. Otherwise reopen on the last successful way and IP, never on a failed attempt.
+    if (state.active) setMode(state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb');
+    else if (remembered.method) setMode(remembered.method);
+    setForm(current => current.cameraIp === remembered.cameraIp ? current : {...current, cameraIp: remembered.cameraIp});
+  }, [visible, state.active, state.demo, state.transport, remembered.method, remembered.cameraIp]);
   const set = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) => setForm(current => ({...current, [key]: value}));
   const submit = async () => {
     if (pendingRef.current || state.busy) return;
@@ -74,7 +79,10 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, o
             accessibilityLabel={item.accessibilityLabel} accessibilityState={{selected, disabled: busy}} disabled={busy}
             onPress={() => {setMode(item.value); setError('');}}
             style={({pressed}) => [styles.mode, selected && styles.modeSelected, pressed && styles.modePressed]}>
-            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[styles.modeLabel, selected && styles.modeLabelSelected]}>{item.label}</Text>
+            <View style={styles.modeContent}>
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.modeLabel, selected && styles.modeLabelSelected]}>{item.label}</Text>
+              {'badge' in item && <View style={styles.modeBadge}><Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.modeBadgeLabel}>{item.badge}</Text></View>}
+            </View>
           </Pressable>;
         })}</View>
         {mode === 'usb' && <Steps testID="usb-steps" items={USB_STEPS}/>}
@@ -100,7 +108,10 @@ const styles = StyleSheet.create({
   modes: {flexDirection: 'row', flexWrap: 'nowrap', borderWidth: 1, borderColor: ui.color.outline, borderRadius: ui.radius.control, overflow: 'hidden'},
   mode: {flex: 1, minWidth: 0, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ui.space.xs, paddingVertical: ui.space.sm},
   modeSelected: {backgroundColor: ui.color.selected}, modePressed: {backgroundColor: ui.color.pressed},
-  modeLabel: {...ui.type.body, color: ui.color.muted, textAlign: 'center'}, modeLabelSelected: {color: ui.color.accent},
+  modeContent: {maxWidth: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ui.space.xs},
+  modeLabel: {...ui.type.body, flexShrink: 0, color: ui.color.muted, textAlign: 'center'}, modeLabelSelected: {color: ui.color.accent},
+  modeBadge: {flexShrink: 0, borderWidth: 1, borderColor: ui.color.outline, borderRadius: ui.radius.small, paddingHorizontal: ui.space.xs, paddingVertical: 1},
+  modeBadgeLabel: {...ui.type.label, color: ui.color.muted},
   steps: {gap: ui.space.sm}, step: {flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.sm},
   stepIndex: {width: 24, ...ui.type.body, color: ui.color.accent, fontVariant: ['tabular-nums']},
   stepText: {...ui.type.body, flex: 1, color: ui.color.text},

@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class MomentS5Module extends ReactContextBaseJavaModule {
     private static final String USB_PERMISSION="cn.moment.lumix.RN_USB_PERMISSION";
     private static final String PREFS=VolumeShutter.PREFS;
+    private static final String DEFAULT_CAMERA_IP="192.168.54.1";
     private static volatile MomentS5Module active;
     private final ReactApplicationContext context;private final UsbManager usb;private final File lutDir;private final ScopeEmitter scopes;private CaptureEngine engine;private BroadcastReceiver receiver;private final CameraLifecycle lifecycle;private final WifiConnectionManager wifi;private final PhoneBatteryMonitor battery;private final ExecutorService files=Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"moment-files");thread.setDaemon(true);return thread;});private final AtomicBoolean rerendering=new AtomicBoolean();
     public MomentS5Module(ReactApplicationContext context){super(context);this.context=context;usb=(UsbManager)context.getSystemService(Context.USB_SERVICE);lutDir=new File(context.getFilesDir(),"luts");if(!lutDir.isDirectory())lutDir.mkdirs();
@@ -38,8 +39,8 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         battery=new PhoneBatteryMonitor(context,reading->emit("phoneBattery",batteryMap(reading)));context.addLifecycleEventListener(battery);
         lifecycle=new CameraLifecycle(engine,this::connectDevice);context.addLifecycleEventListener(lifecycle);
         wifi=new WifiConnectionManager(context,message->{engine.disconnect();status(message);});context.addLifecycleEventListener(wifi);
-        receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){UsbDevice d=intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(USB_PERMISSION.equals(intent.getAction())){boolean granted=intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false);if(lifecycle.permission(d,granted)&&!granted)status("USB 访问未授权");}else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())&&d!=null&&UsbS5.candidate(d)){lifecycle.cancel();engine.detach();}}};
-        IntentFilter filter=new IntentFilter(USB_PERMISSION);filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);context.registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);
+        receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){UsbDevice d=intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(USB_PERMISSION.equals(intent.getAction())){boolean granted=intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false);if(lifecycle.permission(d,granted)&&!granted)status("USB 访问未授权");}else if(UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())&&d!=null&&UsbS5.candidate(d)){lifecycle.cancel();engine.detach();}else if(UsbAttachPrompt.action(intent.getAction(),d!=null&&UsbS5.candidate(d),lifecycle.foreground(),engine.active())==UsbAttachPrompt.PROMPT){emit(UsbAttachPrompt.EVENT,Arguments.createMap());}}};
+        IntentFilter filter=new IntentFilter(USB_PERMISSION);filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);context.registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);
         active=this;
     }
     public static void emitVolumeShutter(){
@@ -151,7 +152,18 @@ public final class MomentS5Module extends ReactContextBaseJavaModule {
         capture.putString("guide",captureGuide(prefs.getString("captureGuide","off")));
         capture.putInt("timerSeconds",captureTimer(prefs.getInt("captureTimerSeconds",0)));
         map.putMap("capture",capture);
+        WritableMap connection=Arguments.createMap();
+        String connectionMethod=prefs.getString("connectionMethod",null);
+        if(connectionMethod==null)connection.putNull("method");else connection.putString("method",connectionMethod);
+        connection.putString("cameraIp",prefs.getString("connectionCameraIp",DEFAULT_CAMERA_IP));
+        map.putMap("connection",connection);
         promise.resolve(map);
+    }
+    @ReactMethod public void setConnectionMemory(String method,String cameraIp,Promise promise){
+        if(method==null || !List.of("usb","wifi","demo").contains(method)){promise.reject("PREFERENCE","未知的连接方式");return;}
+        if(cameraIp==null || !cameraIp.matches("\\d{1,3}(\\.\\d{1,3}){3}")){promise.reject("PREFERENCE","相机 IP 无效");return;}
+        preferences().edit().putString("connectionMethod",method).putString("connectionCameraIp",cameraIp).apply();
+        promise.resolve(null);
     }
     @ReactMethod public void setPreference(String key,boolean value,Promise promise){
         if(key==null || !List.of("autoExport","syncBodyPhotos","rememberCapture","onboardingSeen",VolumeShutter.PREF_ENABLED,"reverseFocus","shutterVibration").contains(key)){promise.reject("PREFERENCE","未知的设置项");return;}
