@@ -120,20 +120,20 @@ export default function App() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (connectionOpen) { setConnectionOpen(false); return true; }
-      if (page === 'camera') return false;
-      // Settings owns its own back stack (list → capture, subpage → list).
-      if (page === 'settings') return false;
-      setPage('camera'); return true;
+      // This listener is registered after the screens, so it runs first. Album and settings
+      // own their stacks; consuming the key here would skip the viewer and the settings subpages.
+      return false;
     });
     return () => sub.remove();
-  }, [page, connectionOpen]);
+  }, [connectionOpen]);
   const closeSettings = useCallback(() => setPage('camera'), []);
   const cameraFocused = page === 'camera';
-  // Native consumes volume keys only while this stays true, so album and settings keep the system volume.
+  // Capture stays mounted under other pages. Native volume gating uses the same foreground flag as the screen.
+  const captureForeground = cameraFocused && !connectionOpen && !introOpen;
   useEffect(() => {
-    camera?.setCaptureScreen?.(page === 'camera');
+    camera?.setCaptureScreen?.(captureForeground);
     return () => { camera?.setCaptureScreen?.(false); };
-  }, [page]);
+  }, [captureForeground]);
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); showNotice(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { showNotice(errorText(e)); } };
@@ -202,7 +202,7 @@ export default function App() {
     <A11yHideView testID="app-behind" collapsable={false} pointerEvents={introOpen ? 'none' : 'auto'} accessibilityElementsHidden={introOpen} importantForAccessibility={behindIntro} style={styles.fill}>
     <View style={styles.stage}>
       <View testID="camera-layer" pointerEvents={cameraFocused ? 'auto' : 'none'} accessibilityElementsHidden={!cameraFocused} importantForAccessibility={cameraFocused ? 'auto' : 'no-hide-descendants'} style={styles.stage}>
-        <CameraWorkspace focused={cameraFocused} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={cameraFocused ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
+        <CameraWorkspace focused={captureForeground} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={captureForeground ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
       </View>
       {page !== 'camera' && <View style={styles.cover}>
         {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}

@@ -8,9 +8,10 @@ import {ui} from '../theme';
 import {changeScopePanel} from './useScopes';
 import {ScopePanelState, SCOPE_KINDS, SCOPE_TITLES} from './panelState';
 
-export default function ScopeToolbar({panels, landscape, pickerOpen, onPickerOpenChange}: {
+export default function ScopeToolbar({panels, landscape: _landscape, pickerOpen, onPickerOpenChange}: {
   panels: ScopePanelState; landscape: boolean; pickerOpen?: boolean; onPickerOpenChange?: (open: boolean) => void;
 }) {
+  // Callers still pass orientation. The sheet does not change layout with it.
   const [localOpen, setLocalOpen] = useState(false);
   // CameraWorkspace owns the open flag when it handles the back key. The harness keeps the local flag.
   const picker = pickerOpen ?? localOpen;

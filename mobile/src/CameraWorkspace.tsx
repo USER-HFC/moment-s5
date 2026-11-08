@@ -33,7 +33,7 @@ type Props = {
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
   notice?: Notice | null; onDismissNotice?: () => void;
-  /** False while the album or settings cover this screen. The instance stays mounted. */
+  /** False while album, settings, the connection sheet, or the intro covers this screen. The instance stays mounted. */
   focused?: boolean;
   /** Connection sheet owns the back key while it is open. */
   suspendBack?: boolean;
@@ -62,6 +62,9 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const [shutterHint, setShutterHint] = useState<Notice | null>(null);
   const [exitNotice, setExitNotice] = useState<Notice | null>(null);
   const exitArmed = useRef(false);
+  // Updated during render so a subscription that is still registered cannot eat the key.
+  const backSuspended = useRef(false);
+  backSuspended.current = !focused || suspendBack;
   const flash = useRef(new Animated.Value(0)).current;
   const reduceMotion = useRef(false);
   const activeSlotRef = useRef(0);
@@ -95,6 +98,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     else onDismissNotice?.();
   }, [exitNotice, shutterHint, onDismissNotice]);
   const onHardwareBack = useCallback(() => {
+    if (backSuspended.current) return false;
     if (panel) { setPanel(null); exitArmed.current = false; setExitNotice(null); return true; }
     // Not connected and not in demo: one back leaves, and the activity teardown still disconnects.
     if (!state.active) return false;
@@ -128,12 +132,12 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   }, []);
   // A new connection starts a new reveal-hint session; the album does not (it keeps active true).
   useEffect(() => { if (!state.active) resetScopeRevealHint(); }, [state.active]);
-  // Volume keys are delivered once per press. This is the same path as tapping the shutter.
+  // Volume keys use the shutter path. The screen stays mounted, so this listens only while it is in front.
   useEffect(() => {
-    if (!cameraEvents) return undefined;
+    if (!focused || !cameraEvents) return undefined;
     const subscription = cameraEvents.addListener(VOLUME_SHUTTER_EVENT, () => fireRef.current());
     return () => subscription.remove();
-  }, []);
+  }, [focused]);
   useEffect(() => {
     if (!preview) return;
     const nextSlot = (1 - activeSlotRef.current) as 0 | 1;

@@ -248,10 +248,12 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
         setSelected(new Set());
         return true;
       }
-      return false;
+      // The grid is the root of the album. Back returns to capture instead of leaving the app.
+      onBack();
+      return true;
     });
     return () => sub.remove();
-  }, [shareOpen, infoOpen, lutOpen, closeLut, fadeChrome]);
+  }, [shareOpen, infoOpen, lutOpen, closeLut, fadeChrome, onBack]);
   useEffect(() => {
     if (!infoOpen || !viewerId || !onDetails) return undefined;
     let live = true;

@@ -237,6 +237,49 @@ it('tells native whether the capture screen is showing', async () => {
   expect(camera!.setCaptureScreen).toHaveBeenLastCalledWith(true);
 });
 
+it('leaves the volume keys alone while the intro or the connection sheet covers capture', async () => {
+  resetPreferences();
+  mockPreferences.onboardingSeen = false;
+  jest.mocked(camera!.captureStill).mockClear();
+  let tree: renderer.ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<App/>); });
+  mounted = tree!;
+  await settle();
+  expect(tree!.root.findByProps({testID: 'onboarding'})).toBeTruthy();
+  expect(camera!.setCaptureScreen).toHaveBeenLastCalledWith(false);
+  expect(volumeHandlers().has(VOLUME_SHUTTER_EVENT)).toBe(false);
+  await act(async () => tree!.root.findByProps({testID: 'onboarding-skip'}).props.onPress());
+  expect(camera!.setCaptureScreen).toHaveBeenLastCalledWith(true);
+  expect(volumeHandlers().has(VOLUME_SHUTTER_EVENT)).toBe(true);
+
+  press(tree!, '相机连接');
+  expect(camera!.setCaptureScreen).toHaveBeenLastCalledWith(false);
+  expect(volumeHandlers().has(VOLUME_SHUTTER_EVENT)).toBe(false);
+  expect(camera!.captureStill).not.toHaveBeenCalled();
+  press(tree!, '关闭');
+  expect(camera!.setCaptureScreen).toHaveBeenLastCalledWith(true);
+  expect(volumeHandlers().has(VOLUME_SHUTTER_EVENT)).toBe(true);
+  mockPreferences.onboardingSeen = true;
+});
+
+it('names the LUT on a photo taken with the volume key', async () => {
+  resetPreferences();
+  const idle = {active: false, busy: false, ready: false, demo: false, lut: null};
+  jest.mocked(camera!.capture).mockClear();
+  jest.mocked(camera!.captureStill).mockClear();
+  jest.mocked(camera!.getState).mockResolvedValue({active: true, busy: false, ready: true, demo: true, lut: 'Classic Chrome'});
+  let tree: renderer.ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<App/>); });
+  mounted = tree!;
+  await settle();
+  volume();
+  expect(camera!.captureStill).toHaveBeenCalledTimes(1);
+  expect(camera!.capture).not.toHaveBeenCalled();
+  await act(async () => volumeHandlers().get('cameraStatus')!({message: '照片已保存 · Classic Chrome', ready: true}));
+  expect(JSON.stringify(tree!.toJSON())).toContain('照片已保存 · Classic Chrome');
+  jest.mocked(camera!.getState).mockResolvedValue(idle);
+});
+
 it('does not paint a shadow on the new settings rows', async () => {
   resetPreferences();
   let tree: renderer.ReactTestRenderer;
