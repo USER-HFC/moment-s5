@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {Linking, StyleSheet} from 'react-native';
+import {ui} from '../src/theme';
 import {expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
@@ -83,6 +84,10 @@ it('confirms before clearing exported copies and says the card and gallery stay'
   expect(camera!.clearExportedCopies).not.toHaveBeenCalled();
   act(() => tree!.root.findByProps({testID: 'storage-clear'}).props.onPress());
   expect(text(tree!)).toContain('机身 SD 卡和系统相册里的照片不受影响');
+  expect(tree!.root.findAllByProps({testID: 'storage-confirm'}).some(node => node.props.accessibilityViewIsModal)).toBe(true);
+  expect(tree!.root.findByProps({testID: 'storage-body'}).props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(tree!.root.findByProps({testID: 'storage-body'}).props.accessibilityElementsHidden).toBe(true);
+  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'storage-confirm-clear'}).props.style({pressed: false})).backgroundColor).toBe(ui.color.destructive);
   await act(async () => tree!.root.findByProps({testID: 'storage-confirm-clear'}).props.onPress());
   expect(camera!.clearExportedCopies).toHaveBeenCalledTimes(1);
   expect(notices).toEqual(['已清理 1 张已导出的副本']);

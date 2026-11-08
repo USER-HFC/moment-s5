@@ -53,6 +53,17 @@ public final class MomentDetails {
                 exif.width, exif.height, meta.optBoolean("lutApplied", false), export.known, export.exported, files);
     }
 
+    /** Album badge. Same MediaStore result as {@link #read}'s exported field; unknown stays unmarked. */
+    public static boolean exported(Context context, File dir) {
+        try {
+            JSONObject meta = MomentStore.metadata(dir);
+            boolean photo = "photo".equals(meta.optString("captureMode"));
+            return findExport(context, dir.getName() + (photo ? ".jpg" : "_MP.jpg")).exported;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static final class Export {
         final boolean known, exported;
         final String path;

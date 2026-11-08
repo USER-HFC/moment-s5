@@ -393,9 +393,11 @@ public final class NativeBugfixChecks {
         check("ISO 400".equals(details.iso) && "1/125".equals(details.shutter) && "f/1.8".equals(details.aperture) && "50 mm".equals(details.focalLength),"EXIF exposure labels");
         check(details.width==4000 && details.height==6000,"rotated EXIF pixel size is swapped");
         check(details.exported && "DCIM/MomentS5/M2.jpg".equals(details.exportPath) && details.files.stream().anyMatch(file->file.name.equals("original.jpg") && file.bytes>0),"export path and original size");
+        check(MomentDetails.exported(context,photo),"album list reads the same exported field");
         cursor.row=false;
         MomentDetails missingExport=MomentDetails.read(context,photo);
         check(missingExport.exportKnown && !missingExport.exported && missingExport.exportPath==null,"an empty MediaStore result is not an export");
+        check(!MomentDetails.exported(context,photo),"album list drops the badge when MediaStore has no export");
         resolver.failQuery=true;
         MomentDetails unknown=MomentDetails.read(context,photo);
         check(!unknown.exportKnown && !unknown.exported,"a MediaStore failure is unknown rather than not exported");
@@ -674,9 +676,38 @@ public final class NativeBugfixChecks {
         check(CaptureEngine.savedStatus(false,true,"我的 LUT").equals("照片已保存 · 我的 LUT"),"imported LUT name is kept");
         check(CaptureEngine.savedStatus(true,true,"  ").equals("动态照片已保存"),"blank LUT title does not leave an empty suffix");
     }
+    private static void shareChecks(Path root)throws Exception {
+        File files=root.resolve("share-root").toFile();
+        if(!files.mkdirs() && !files.isDirectory()) throw new IOException("share root");
+        File motion=new File(new File(files,"moments"),"Mmotion");
+        File still=new File(new File(files,"moments"),"Mstill");
+        File missing=new File(new File(files,"moments"),"Mmissing");
+        if(!motion.mkdirs() || !still.mkdirs() || !missing.mkdir()) throw new IOException("share dirs");
+        Files.write(new File(motion,"MOMENT_MP.jpg").toPath(),new byte[]{1,2,3});
+        Files.write(new File(motion,"original.jpg").toPath(),new byte[]{4});
+        Files.write(new File(still,"original.jpg").toPath(),new byte[]{5,6});
+        Files.write(new File(still,"rendered.jpg").toPath(),new byte[]{7,8,9});
+        MomentStore.metadata(motion,new JSONObject().put("captureMode","pre-only").put("complete",true));
+        MomentStore.metadata(still,new JSONObject().put("captureMode","photo").put("complete",true).put("lutApplied",true));
+        MomentStore.metadata(missing,new JSONObject().put("captureMode","photo").put("complete",true));
+        check(MomentShare.fileFor(motion).getName().equals("MOMENT_MP.jpg"),"a motion photo shares the motion-photo file");
+        check(MomentShare.fileFor(still).getName().equals("rendered.jpg"),"a graded still shares the current picture");
+        expectIo(()->MomentShare.fileFor(missing),"missing share file accepted");
+        Context context=new Context(files);
+        Intent intent=MomentShare.sendMultiple(context,List.of(MomentShare.fileFor(motion),MomentShare.fileFor(still)));
+        check(Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction()),"multi share uses ACTION_SEND_MULTIPLE");
+        check("image/jpeg".equals(intent.getType()),"multi share sends photos");
+        check((intent.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0,"multi share grants FileProvider read");
+        ArrayList<Uri> uris=intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
+        check(uris!=null && uris.size()==2,"multi share lists every photo");
+        check(intent.getClipData()!=null && intent.getClipData().getItemCount()==2,"clip data carries every FileProvider uri");
+        check("cn.moment.lumix.files".equals(uris.get(0).getAuthority()) && uris.get(0).toString().contains("MOMENT_MP.jpg"),"motion uri comes from the file provider");
+        check(uris.get(1).toString().contains("rendered.jpg"),"still uri is the graded picture");
+        expectIo(()->MomentShare.sendMultiple(context,List.of()),"empty multi share accepted");
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {savedStatusChecks();lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);}
+        try {savedStatusChecks();lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);shareChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }

@@ -12,7 +12,7 @@ const DISMISS_MS = 4500;
 export default function NoticeBar({notice, onDismiss}: {notice: Notice | null; onDismiss?: () => void}) {
   useEffect(() => {
     if (!notice) return undefined;
-    const timer = setTimeout(() => onDismiss?.(), DISMISS_MS);
+    const timer = setTimeout(() => onDismiss?.(), notice.durationMs ?? DISMISS_MS);
     return () => clearTimeout(timer);
   }, [notice, onDismiss]);
   if (!notice) return null;

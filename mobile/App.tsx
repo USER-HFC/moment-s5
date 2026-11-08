@@ -146,6 +146,7 @@ export default function App() {
     try {
       if (!camera) throw new Error('当前平台没有相机桥');
       await camera.exportMoment(id);
+      setMoments((items) => items.map((item) => item.id === id ? {...item, exported: true} : item));
       if (!quiet) showNotice('已导出到 DCIM/MomentS5');
     } catch (e) {
       if (quiet) throw e;
@@ -196,6 +197,12 @@ export default function App() {
       await camera.shareMoment(id, kind);
     } catch (e) { showNotice(errorText(e)); }
   }, [showNotice]);
+  const shareMoments = useCallback(async (ids: string[]) => {
+    try {
+      if (!camera?.shareMoments) throw new Error('当前平台没有相机桥');
+      await camera.shareMoments(ids);
+    } catch (e) { showNotice(errorText(e)); throw e; }
+  }, [showNotice]);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
     {/* Stay mounted under the album and settings so the viewfinder and scopes do not reconnect. Intro hides this whole stack, including the connection sheet and notices. */}
@@ -205,7 +212,7 @@ export default function App() {
         <CameraWorkspace focused={captureForeground} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={captureForeground ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
       </View>
       {page !== 'camera' && <View style={styles.cover}>
-        {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
+        {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment} onShareMany={shareMoments}/>}
         {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
       </View>}
     </View>

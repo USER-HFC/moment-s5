@@ -1,7 +1,8 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {jest, expect, it} from '@jest/globals';
-import {Alert, Animated, View} from 'react-native';
+import {Animated, AppState, Modal, StyleSheet, View} from 'react-native';
+import {ui} from '../src/theme';
 
 jest.mock('react-native-video', () => {
   const React = require('react');
@@ -195,17 +196,27 @@ it('resets playback after leaving the viewer', () => {
 it('can delete a failed app-private record while export stays unavailable', () => {
   const failed = [{...moments[0], complete: false, error: '接收失败'}];
   const remove = jest.fn(async (_id: string) => {});
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={failed} onBack={jest.fn()} onExport={exportMock} onDelete={remove}/>); });
   open(tree!);
   expect(tree!.root.findAllByProps({accessibilityLabel: '导出到系统相册'})).toHaveLength(0);
   expect(tree!.root.findAllByProps({accessibilityLabel: '导出原片到系统相册'})).toHaveLength(0);
   act(() => tree!.root.findByProps({accessibilityLabel: '删除照片'}).props.onPress());
-  const buttons = alert.mock.calls[0][2]!;
-  act(() => buttons[1].onPress!());
-  expect(remove).toHaveBeenCalledWith('M1');
-  act(() => tree!.unmount()); alert.mockRestore();
+  const dialog = tree!.root.findAllByProps({testID: 'confirm-dialog'}).find(node => node.props.accessibilityViewIsModal);
+  expect(dialog).toBeTruthy();
+  expect(tree!.root.findByProps({accessibilityRole: 'header', accessibilityLabel: '删除这张照片？'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-screen'}).props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(tree!.root.findByProps({testID: 'album-screen'}).props.accessibilityElementsHidden).toBe(true);
+  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'confirm-accept'}).props.style({pressed: false})).backgroundColor).toBe(ui.color.destructive);
+  act(() => tree!.root.findByType(Modal).props.onRequestClose());
+  expect(tree!.root.findAllByProps({testID: 'confirm-dialog'})).toHaveLength(0);
+  expect(remove).not.toHaveBeenCalled();
+  act(() => tree!.root.findByProps({accessibilityLabel: '删除照片'}).props.onPress());
+  act(() => tree!.root.findByProps({testID: 'confirm-accept'}).props.onPress());
+  expect(remove).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree!.toJSON())).toContain('已删除 1 张');
+  act(() => tree!.unmount());
+  expect(remove).toHaveBeenCalledWith('M1', true);
 });
 
 it.each([null, 'Classic Chrome'])('shows and exports a static photo without LIVE or a video: %s', async (lut) => {
@@ -335,6 +346,8 @@ it('shows a single no-EXIF line instead of a column of dashes', async () => {
   await act(async () => { tree!.root.findByProps({accessibilityLabel: '照片信息'}).props.onPress(); });
   const text = JSON.stringify(tree!.toJSON());
   expect(text).toContain('这张照片没有拍摄参数（EXIF）');
+  expect(text.indexOf('拍摄参数')).toBeLessThan(text.indexOf('这张照片没有拍摄参数（EXIF）'));
+  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'info-no-exif'}).props.style).color).toBe(ui.color.muted);
   expect(text).not.toContain('—');
   expect(tree!.root.findAllByProps({testID: 'info-params'})).toHaveLength(0);
   expect(text).not.toContain('焦距');
@@ -432,7 +445,6 @@ it('selects photos from a long press and reports batch export and delete', async
   const onExport = jest.fn(async (id: string) => { if (id === 'M2') throw new Error('导出失败'); });
   const onDelete = jest.fn(async () => {});
   const onNotice = jest.fn();
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={onExport} onDelete={onDelete} onNotice={onNotice}/>); });
   expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
@@ -451,14 +463,17 @@ it('selects photos from a long press and reports batch export and delete', async
   act(() => tree!.root.findByProps({testID: 'album-cell-M1'}).props.onLongPress());
   act(() => tree!.root.findByProps({accessibilityLabel: '全选'}).props.onPress());
   act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
-  expect(alert.mock.calls[0][0]).toBe('删除 2 张照片？');
-  expect(alert.mock.calls[0][1]).toBe('只删除 App 内副本，机身 SD 卡和系统相册里的照片不受影响。');
-  await act(async () => { await alert.mock.calls[0][2]![1].onPress!(); });
-  expect(onDelete).toHaveBeenCalledWith('M1', true);
-  expect(onDelete).toHaveBeenCalledWith('M2', true);
-  expect(onNotice).toHaveBeenCalledWith('已删除 2 张');
+  expect(JSON.stringify(tree!.toJSON())).toContain('删除 2 张照片？');
+  expect(JSON.stringify(tree!.toJSON())).toContain('只删除 App 内副本，机身 SD 卡和系统相册里的照片不受影响。');
+  act(() => tree!.root.findByProps({testID: 'confirm-accept'}).props.onPress());
+  expect(onDelete).not.toHaveBeenCalled();
+  expect(tree!.root.findAllByProps({testID: 'album-cell-M1'})).toHaveLength(0);
+  expect(tree!.root.findAllByProps({testID: 'album-cell-M2'})).toHaveLength(0);
+  expect(JSON.stringify(tree!.toJSON())).toContain('已删除 2 张');
+  act(() => tree!.root.findByProps({accessibilityLabel: '撤销'}).props.onPress());
+  expect(cellOrder(tree!)).toEqual(['album-cell-M1', 'album-cell-M2']);
+  expect(onDelete).not.toHaveBeenCalled();
   act(() => tree!.unmount());
-  alert.mockRestore();
 });
 
 it('follows a downward drag and closes the viewer unless the photo is zoomed', () => {
@@ -532,6 +547,101 @@ it('disables LUT save until the choice differs from the saved one', async () => 
   await act(async () => { await tree!.root.findByProps({accessibilityLabel: '选择 LUT Classic Chrome'}).props.onPress(); });
   expect(save().props.disabled).toBe(true);
   act(() => tree!.unmount());
+});
+
+const cellOrder = (tree: renderer.ReactTestRenderer) => {
+  const seen = new Set<string>();
+  const order: string[] = [];
+  for (const node of tree.root.findAll(item => typeof item.props.testID === 'string' && String(item.props.testID).startsWith('album-cell-'))) {
+    const id = String(node.props.testID);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    order.push(id);
+  }
+  return order;
+};
+
+it('restores a deleted photo to its place and only then deletes it', () => {
+  jest.useFakeTimers();
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG'}, {...moments[0], id: 'M3', source: 'T3.JPG'}];
+  const onDelete = jest.fn(async () => {});
+  let tree: renderer.ReactTestRenderer | undefined;
+  try {
+    act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={onDelete}/>); });
+    act(() => tree!.root.findByProps({testID: 'album-cell-M2'}).props.onLongPress());
+    act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
+    act(() => tree!.root.findByProps({testID: 'confirm-accept'}).props.onPress());
+    expect(cellOrder(tree!)).toEqual(['album-cell-M1', 'album-cell-M3']);
+    act(() => tree!.root.findByProps({accessibilityLabel: '撤销'}).props.onPress());
+    expect(cellOrder(tree!)).toEqual(['album-cell-M1', 'album-cell-M2', 'album-cell-M3']);
+    act(() => { jest.advanceTimersByTime(5000); });
+    expect(onDelete).not.toHaveBeenCalled();
+    act(() => tree!.root.findByProps({testID: 'album-cell-M2'}).props.onLongPress());
+    act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
+    act(() => tree!.root.findByProps({testID: 'confirm-accept'}).props.onPress());
+    act(() => { jest.advanceTimersByTime(4999); });
+    expect(onDelete).not.toHaveBeenCalled();
+    act(() => { jest.advanceTimersByTime(1); });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledWith('M2', true);
+  } finally {
+    if (tree) act(() => tree!.unmount());
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  }
+});
+
+it('commits a pending delete as soon as the app leaves the foreground', () => {
+  jest.useFakeTimers();
+  let changed: (next: string) => void = () => {};
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, handler) => {
+    changed = handler as (next: string) => void;
+    return {remove: jest.fn()};
+  });
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'T2.JPG'}];
+  const onDelete = jest.fn(async () => {});
+  let tree: renderer.ReactTestRenderer | undefined;
+  try {
+    act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={onDelete}/>); });
+    act(() => tree!.root.findByProps({testID: 'album-cell-M1'}).props.onLongPress());
+    act(() => tree!.root.findByProps({testID: 'album-cell-M2'}).props.onPress());
+    act(() => tree!.root.findByProps({accessibilityLabel: '批量删除'}).props.onPress());
+    act(() => tree!.root.findByProps({testID: 'confirm-accept'}).props.onPress());
+    expect(onDelete).not.toHaveBeenCalled();
+    act(() => { changed('background'); });
+    expect(onDelete).toHaveBeenCalledWith('M1', true);
+    expect(onDelete).toHaveBeenCalledWith('M2', true);
+    act(() => { jest.advanceTimersByTime(5000); });
+    expect(onDelete).toHaveBeenCalledTimes(2);
+  } finally {
+    if (tree) act(() => tree!.unmount());
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  }
+});
+
+it('shares every selected photo in one action', async () => {
+  const onShareMany = jest.fn(async () => {});
+  const photos = [moments[0], {...moments[0], id: 'M2', source: 'STILL.JPG', captureMode: 'photo' as const, videoUri: undefined}];
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onShareMany={onShareMany}/>); });
+  act(() => tree!.root.findByProps({testID: 'album-cell-M1'}).props.onLongPress());
+  act(() => tree!.root.findByProps({testID: 'album-cell-M2'}).props.onPress());
+  expect(tree!.root.findByProps({testID: 'album-batch-bar'})).toBeTruthy();
+  await act(async () => { await tree!.root.findByProps({accessibilityLabel: '分享'}).props.onPress(); });
+  expect(onShareMany).toHaveBeenCalledWith(['M1', 'M2']);
+  expect(tree!.root.findAllByProps({testID: 'album-select-bar'})).toHaveLength(0);
+  act(() => tree!.unmount());
+});
+
+it('shows an exported badge from the photo exported field', () => {
+  const photos = [{...moments[0], exported: true}, {...moments[0], id: 'M2', source: 'T2.JPG', exported: false}];
+  const tree = renderer.create(<MotionAlbum moments={photos} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>);
+  expect(tree.root.findByProps({testID: 'album-exported-M1'}).props.children).toBe('已导出');
+  expect(tree.root.findByProps({testID: 'album-cell-M1'}).props.accessibilityLabel).toContain('已导出');
+  expect(tree.root.findAllByProps({testID: 'album-exported-M2'})).toHaveLength(0);
+  act(() => tree.unmount());
 });
 
 it('tells a still photo that saving only replaces the in-app copy', () => {

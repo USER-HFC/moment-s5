@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AccessibilityInfo, Alert, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StatusBar, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StatusBar, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
@@ -9,8 +9,11 @@ import {ui} from './theme';
 import CameraControl from './CameraControl';
 import CameraIcon from './CameraIcon';
 import AlbumSheet from './AlbumSheet';
+import ConfirmDialog from './ConfirmDialog';
 import LutFilmstrip from './LutFilmstrip';
+import NoticeBar from './NoticeBar';
 import PhotoInfo from './PhotoInfo';
+import {Notice} from './notice';
 import {ALBUM_FILTERS, AlbumFilter, albumFilterCounts, albumFilterEmpty, batchResultMessage, formatCaptureTitle, groupMomentsByDay, matchesAlbumFilter, momentAccessibilityName, momentSummary, shareDialogTitle, shareKindLabel, shareKinds, shareOptionHint, shareOptionLabel, viewerDismissPastThreshold} from './albumFormat';
 import {A11yHideView} from './A11yHideView';
 
@@ -30,7 +33,14 @@ type Props = {
   onThumbnail?: (id: string, lutId: string) => Promise<string | null>;
   onDetails?: (id: string) => Promise<MomentDetails>;
   onShare?: (id: string, kind: string) => Promise<void>;
+  /** Selected photos, motion files included, handed to the system share sheet together. */
+  onShareMany?: (ids: string[]) => Promise<void>;
 };
+
+type ConfirmRequest = {title: string; body: string; onConfirm: () => void};
+
+// The grid drops the photo at once. Native deletion waits so 撤销 can restore the same slot.
+const UNDO_MS = 5000;
 
 const hasMotion = (moment: MomentItem) => moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete;
 // A fresh [] default would retrigger the thumbnail effect on every render once the sheet opens.
@@ -54,7 +64,7 @@ function Gradient({top}: {top: boolean}) {
   </Svg>;
 }
 
-export default function MotionAlbum({moments, luts = noLuts, initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onNotice, onRender, onPreview, onThumbnail, onDetails, onShare}: Props) {
+export default function MotionAlbum({moments, luts = noLuts, initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onNotice, onRender, onPreview, onThumbnail, onDetails, onShare, onShareMany}: Props) {
   const [frame, setFrame] = useState({width: 0, height: 0});
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [chrome, setChrome] = useState(true);
@@ -73,6 +83,9 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [shareOpen, setShareOpen] = useState(false);
   const [batching, setBatching] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [undoNotice, setUndoNotice] = useState<Notice | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string | undefined>>({});
   const [mediaAspect, setMediaAspect] = useState<number | null>(null);
   const viewerIdRef = useRef<string | null>(null);
@@ -92,6 +105,13 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const indexRef = useRef(0);
   const appliedInitial = useRef<string | null>(null);
   const selectingRef = useRef(false);
+  const confirmRef = useRef<ConfirmRequest | null>(null);
+  const pendingRef = useRef<Set<string>>(new Set());
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushRef = useRef<() => void>(() => {});
+  const alive = useRef(true);
+  const onDeleteRef = useRef(onDelete);
+  const onNoticeRef = useRef(onNotice);
   const sheetOpenRef = useRef(false);
   const pageHeightRef = useRef(640);
   const videoRef = useRef<VideoRef>(null);
@@ -115,12 +135,13 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const columns = pageWidth >= 900 ? 5 : pageWidth >= 600 ? 4 : 3;
   const topBarHeight = landscape ? 58 : 88;
   const bottomBarHeight = landscape ? 60 : 78;
-  const current = moments.find((moment) => moment.id === viewerId) || null;
-  const index = Math.max(0, moments.findIndex((moment) => moment.id === viewerId));
+  const listed = useMemo(() => moments.filter((moment) => !pendingIds.has(moment.id)), [moments, pendingIds]);
+  const current = listed.find((moment) => moment.id === viewerId) || null;
+  const index = Math.max(0, listed.findIndex((moment) => moment.id === viewerId));
   const savedLutId = current ? current.lutId || (current.lut ? luts.find((lut) => lut.name === current.lut)?.id : null) || null : null;
   const selectedLutId = previewLutId ?? savedLutId ?? 'off';
-  const counts = useMemo(() => albumFilterCounts(moments), [moments]);
-  const filtered = useMemo(() => moments.filter((moment) => matchesAlbumFilter(moment, albumFilter)), [moments, albumFilter]);
+  const counts = useMemo(() => albumFilterCounts(listed), [listed]);
+  const filtered = useMemo(() => listed.filter((moment) => matchesAlbumFilter(moment, albumFilter)), [listed, albumFilter]);
   const sections = useMemo(() => groupMomentsByDay(filtered).map((section) => ({...section, data: chunk(section.moments, columns)})), [filtered, columns]);
   const visibleIds = useMemo(() => filtered.map((moment) => moment.id), [filtered]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
@@ -137,6 +158,9 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   chromeRef.current = chrome;
   indexRef.current = current ? index : 0;
   selectingRef.current = selecting;
+  confirmRef.current = confirm;
+  onDeleteRef.current = onDelete;
+  onNoticeRef.current = onNotice;
   sheetOpenRef.current = lutOpen || infoOpen || shareOpen;
   pageHeightRef.current = pageHeight;
 
@@ -218,9 +242,21 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     if (viewerId && !moments.some((moment) => moment.id === viewerId)) setViewerId(moments[0]?.id ?? null);
   }, [moments, viewerId]);
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (next) => { if (next !== 'active') stopPlayback(); });
-    return () => { sub.remove(); imageOpacity.stopAnimation(); videoOpacity.stopAnimation(); chromeOpacity.stopAnimation(); };
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') return;
+      stopPlayback();
+      // Leaving the app must not leave a confirmed delete sitting only in memory.
+      flushRef.current();
+    });
+    return () => {
+      sub.remove();
+      imageOpacity.stopAnimation();
+      videoOpacity.stopAnimation();
+      chromeOpacity.stopAnimation();
+      flushRef.current();
+    };
   }, [imageOpacity, stopPlayback, videoOpacity, chromeOpacity]);
+  useEffect(() => () => { alive.current = false; }, []);
   useEffect(() => {
     const ids = new Set(moments.map((moment) => moment.id));
     setSelected((prev) => {
@@ -235,6 +271,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   }, [moments]);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (confirmRef.current) { setConfirm(null); return true; }
       if (shareOpen) { setShareOpen(false); return true; }
       if (infoOpen) { setInfoOpen(false); return true; }
       if (lutOpen) { closeLut(); return true; }
@@ -384,22 +421,71 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       return;
     }
     const atStart = indexRef.current <= 0 && event.translationX > 0;
-    const atEnd = indexRef.current >= moments.length - 1 && event.translationX < 0;
+    const atEnd = indexRef.current >= listed.length - 1 && event.translationX < 0;
     dragX.setValue(atStart || atEnd ? event.translationX * 0.25 : event.translationX);
   }).onEnd((event) => {
     dragX.setValue(0);
     if (pinching.current || scaleRef.current >= 1.05 || zoomedRef.current) return;
     const threshold = Math.max(48, pageWidth * 0.18);
     const direction = event.translationX <= -threshold ? 1 : event.translationX >= threshold ? -1 : 0;
-    const next = moments[indexRef.current + direction];
+    const next = listed[indexRef.current + direction];
     if (direction !== 0 && next) setViewerId(next.id);
   });
   const gesture = Gesture.Simultaneous(pinch, longPress, Gesture.Race(dismissPan, pan, Gesture.Exclusive(doubleTap, singleTap)));
   const transform = [{translateX}, {translateY}, {scale: zoom}];
 
-  const askDelete = (id: string) => Alert.alert('删除这张照片？', '只删除 App 内副本；相机 SD 卡原片和已导出到系统相册的副本会保留。', [
-    {text: '取消', style: 'cancel'}, {text: '删除', style: 'destructive', onPress: () => { void onDelete(id); }},
-  ]);
+  const dropPending = (id: string) => {
+    if (!alive.current) return;
+    setPendingIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+  const flushPending = () => {
+    if (undoTimer.current) { clearTimeout(undoTimer.current); undoTimer.current = null; }
+    const ids = [...pendingRef.current];
+    pendingRef.current = new Set();
+    if (ids.length === 0) return;
+    if (alive.current) setUndoNotice(null);
+    for (const id of ids) {
+      void onDeleteRef.current(id, true).then(() => { dropPending(id); }).catch(() => {
+        dropPending(id);
+        if (alive.current) onNoticeRef.current?.('有照片未能删除');
+      });
+    }
+  };
+  flushRef.current = flushPending;
+  const undoPending = () => {
+    if (undoTimer.current) { clearTimeout(undoTimer.current); undoTimer.current = null; }
+    const restoring = pendingRef.current;
+    pendingRef.current = new Set();
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      for (const id of restoring) next.delete(id);
+      return next;
+    });
+    setUndoNotice(null);
+  };
+  const stageDelete = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const next = new Set(pendingRef.current);
+    for (const id of ids) next.add(id);
+    pendingRef.current = next;
+    setPendingIds(new Set(next));
+    if (viewerIdRef.current && next.has(viewerIdRef.current)) setViewerId(null);
+    setSelecting(false);
+    setSelected(new Set());
+    setUndoNotice({message: `已删除 ${next.size} 张`, durationMs: UNDO_MS, action: {label: '撤销', onPress: undoPending}});
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => { undoTimer.current = null; flushRef.current(); }, UNDO_MS);
+  };
+  const askDelete = (id: string) => setConfirm({
+    title: '删除这张照片？',
+    body: '只删除 App 内副本；相机 SD 卡原片和已导出到系统相册的副本会保留。',
+    onConfirm: () => { setConfirm(null); stageDelete([id]); },
+  });
   const exitSelection = () => { setSelecting(false); setSelected(new Set()); };
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
@@ -427,10 +513,18 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   };
   const confirmBatchDelete = () => {
     if (batching || selected.size === 0) return;
-    Alert.alert(`删除 ${selected.size} 张照片？`, '只删除 App 内副本，机身 SD 卡和系统相册里的照片不受影响。', [
-      {text: '取消', style: 'cancel'},
-      {text: '删除', style: 'destructive', onPress: () => runBatch('删除', (id) => onDelete(id, true))},
-    ]);
+    const ids = [...selected];
+    setConfirm({
+      title: `删除 ${ids.length} 张照片？`,
+      body: '只删除 App 内副本，机身 SD 卡和系统相册里的照片不受影响。',
+      onConfirm: () => { setConfirm(null); stageDelete(ids); },
+    });
+  };
+  const shareSelected = async () => {
+    if (batching || selected.size === 0 || !onShareMany) return;
+    const ids = [...selected];
+    try { await onShareMany(ids); exitSelection(); }
+    catch { /* The app reports the failure and rethrows so the selection stays. */ }
   };
   // The system dialog keeps only three buttons, which hid 「分享动态照片」 and 「取消」.
   const share = () => { if (current && onShare) setShareOpen(true); };
@@ -542,12 +636,13 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       renderSectionHeader={({section}) => <Text style={styles.sectionHeader}>{section.title}</Text>}
       renderItem={({item: row}) => <View style={styles.gridRow}>
         {row.map((item) => {
-          const name = momentAccessibilityName(item);
+          const name = item.exported ? `${momentAccessibilityName(item)}，已导出` : momentAccessibilityName(item);
           const chosen = selected.has(item.id);
           return <Pressable key={item.id} testID={`album-cell-${item.id}`} accessibilityRole="button" accessibilityLabel={selecting ? `选择${name}` : name} accessibilityState={selecting ? {selected: chosen} : undefined} onPress={() => { if (selecting) toggleSelected(item.id); else openViewer(item.id); }} onLongPress={() => { if (selecting) toggleSelected(item.id); else beginSelection(item.id); }} style={[styles.cell, {width: Math.floor(pageWidth / columns), height: Math.floor(pageWidth / columns)}]}>
             {item.imageUri ? <Image source={{uri: item.imageUri}} style={styles.thumb}/> : <View style={[styles.thumb, styles.thumbEmpty]}/>}
             {selecting && chosen && <View pointerEvents="none" style={styles.selectedFrame}/>}
             <View style={styles.cellTop}>
+              {item.exported && <Text testID={`album-exported-${item.id}`} maxFontSizeMultiplier={1.3} style={styles.exportedBadge}>已导出</Text>}
               {selecting && <View style={[styles.selectMark, chosen && styles.selectMarkOn]}>{chosen && <Text style={styles.selectGlyph}>✓</Text>}</View>}
               {!item.complete && <Text style={styles.statusMark}>{item.error ? '失败' : '未完成'}</Text>}
             </View>
@@ -566,13 +661,17 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       </View>}
     />}
     {selecting && <View testID="album-batch-bar" style={styles.batchBar}>
+      {!!onShareMany && <Pressable accessibilityRole="button" accessibilityLabel="分享" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={() => { void shareSelected(); }} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
+        <CameraIcon name="share"/>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabel}>分享</Text>
+      </Pressable>}
       <Pressable accessibilityRole="button" accessibilityLabel="批量导出" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={() => runBatch('导出', (id) => onExport(id, true))} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
         <CameraIcon name="save"/>
-        <Text maxFontSizeMultiplier={1.3} style={styles.batchLabel}>批量导出</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabel}>批量导出</Text>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="批量删除" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={confirmBatchDelete} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
         <CameraIcon name="delete" destructive/>
-        <Text maxFontSizeMultiplier={1.3} style={styles.batchLabelDestructive}>批量删除</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabelDestructive}>批量删除</Text>
       </Pressable>
     </View>}
   </A11yHideView>;
@@ -603,7 +702,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
           </View>
           <Text testID="album-subtitle" numberOfLines={1} style={[styles.viewerSubtitle, !!current.error && styles.viewerError]}>{current.error || momentSummary(current)}</Text>
         </View>
-        <Text testID="album-index" style={styles.viewerIndex}>{`${index + 1} / ${moments.length}`}</Text>
+        <Text testID="album-index" style={styles.viewerIndex}>{`${index + 1} / ${listed.length}`}</Text>
       </View>
     </Animated.View>
 
@@ -658,8 +757,12 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   </View>;
 
   return <View style={styles.root} onLayout={(event) => { const {width, height} = event.nativeEvent.layout; if (width > 0 && height > 0) setFrame((prev) => prev.width === width && prev.height === height ? prev : {width, height}); }}>
-    {grid}
-    {viewer}
+    <View testID="album-screen" accessibilityElementsHidden={!!confirm} importantForAccessibility={confirm ? 'no-hide-descendants' : 'auto'} style={styles.fill}>
+      {grid}
+      {viewer}
+      {undoNotice && <View pointerEvents="box-none" style={styles.undoHost}><NoticeBar notice={undoNotice} onDismiss={() => setUndoNotice(null)}/></View>}
+    </View>
+    {confirm && <ConfirmDialog visible destructive testID="confirm-dialog" confirmTestID="confirm-accept" title={confirm.title} body={confirm.body} confirmLabel="删除" onCancel={() => setConfirm(null)} onConfirm={confirm.onConfirm}/>}
   </View>;
 }
 
@@ -687,7 +790,9 @@ const styles = StyleSheet.create({
   selectMark: {width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: ui.color.text, backgroundColor: ui.color.badge, alignItems: 'center', justifyContent: 'center'},
   selectMarkOn: {backgroundColor: ui.color.accent, borderColor: ui.color.accent},
   selectGlyph: {color: ui.color.background, fontSize: 14, lineHeight: 18, fontWeight: '700'},
-  cellTop: {position: 'absolute', top: ui.space.xs, left: ui.space.xs, right: ui.space.xs, flexDirection: 'row'},
+  cellTop: {position: 'absolute', top: ui.space.xs, left: ui.space.xs, right: ui.space.xs, flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.xs},
+  exportedBadge: {...ui.type.label, color: ui.color.background, backgroundColor: ui.color.accent, paddingHorizontal: ui.space.xs, borderRadius: ui.space.xs, overflow: 'hidden'},
+  undoHost: {position: 'absolute', left: ui.space.gutter, right: ui.space.gutter, bottom: ui.space.lg, zIndex: 60},
   statusMark: {...ui.type.label, color: ui.color.text, backgroundColor: ui.color.badge, paddingHorizontal: ui.space.xs, borderRadius: ui.space.xs, overflow: 'hidden'},
   cellMarks: {position: 'absolute', top: ui.space.xs, right: ui.space.xs, flexDirection: 'row', gap: ui.space.xs},
   mark: {width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.badge},
