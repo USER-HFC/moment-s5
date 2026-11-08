@@ -23,6 +23,8 @@ describe('truthful four-corner camera HUD', () => {
     expect(text(tree, 'hud-aperture')).toBe('f/4.0');expect(text(tree, 'hud-shutter')).toBe('1/80');expect(text(tree, 'hud-iso')).toBe('ISO AUTO');
     const json = JSON.stringify(tree.toJSON());
     expect(tree.root.findByProps({accessibilityLabel: '手机电量37%，充电中'})).toBeTruthy();
+    expect(tree.root.findAllByProps({testID: 'hud-charging'}).length).toBeGreaterThan(0);
+    expect(JSON.stringify(tree.toJSON())).not.toContain('↯');
     expect(tree.root.findAllByProps({accessibilityLabel: '相机电量不可用，当前连接未提供机身电量'})).toHaveLength(0);
     expect(json).not.toContain('相机 —');
     expect(json).toContain('USB · 已连接');expect(json).toContain('Classic Chrome');expect(json).toContain('可拍');expect(json).not.toContain('scopes-overlay');

@@ -1,6 +1,7 @@
 import React from 'react';
 import {LayoutChangeEvent, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
+import Svg, {Path} from 'react-native-svg';
 import {CameraState} from '../native';
 import {ui} from '../theme';
 import {lutDisplayName} from '../lutName';
@@ -36,7 +37,11 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
         {state.lut && <Text style={styles.secondary}>LUT · {lutDisplayName(state.lut)}</Text>}
       </View>
       <View testID="hud-batteries" style={styles.right}>
-        {showPhone && <Text style={styles.primary} accessibilityLabel={`手机电量${phone}${state.phoneBattery?.charging ? '，充电中' : ''}`}>手机 {phone}{state.phoneBattery?.charging ? ' ↯' : ''}</Text>}
+        {showPhone && <View style={styles.battery} accessible accessibilityLabel={`手机电量${phone}${state.phoneBattery?.charging ? '，充电中' : ''}`}>
+          <Text style={styles.primary}>手机 {phone}</Text>
+          {/* The「↯」glyph falls back to a thin symbol font on many phones; a drawn bolt matches the HUD text. */}
+          {state.phoneBattery?.charging && <Svg testID="hud-charging" width={8} height={11} viewBox="0 0 8 11"><Path d="M4.8 0 0 6.2h3.2L2.6 11 8 4.6H4.6z" fill={ui.color.text}/></Svg>}
+        </View>}
         {showCamera && <Text style={[styles.secondary, cameraLow && styles.low]} accessibilityLabel={`相机电量${camera}${cameraLow ? '，电量低' : ''}`}>相机 {camera}</Text>}
       </View>
     </View>
@@ -70,6 +75,7 @@ const styles = StyleSheet.create({
   source: {flex: 1, minWidth: 0, gap: ui.space.xs}, right: {flexShrink: 0, alignItems: 'flex-end', gap: ui.space.xs},
   exposure: {flex: 1, minWidth: 0, gap: ui.space.xs}, capture: {maxWidth: '54%', flexShrink: 1, marginLeft: 'auto', alignItems: 'flex-end', gap: ui.space.xs},
   triangle: {flexDirection: 'row', flexWrap: 'wrap', columnGap: ui.space.md, rowGap: ui.space.xs},
+  battery: {flexDirection: 'row', alignItems: 'center', gap: 4},
   primary: {...ui.type.caption, ...ink, fontWeight: '600', fontVariant: ['tabular-nums']},
   secondary: {...ui.type.label, ...ink, color: '#D1D8CD'},
   low: {color: ui.color.destructive},

@@ -400,6 +400,9 @@ it('separates the timer and audio labels and lets them wrap instead of truncatin
   expect(side.flexDirection).toBe('row');
   expect(side.alignItems).toBe('center');
   expect(side.gap).toBeGreaterThanOrEqual(8);
+  // Each pair spreads over its half of the dock instead of huddling at the edge.
+  expect(side.flex).toBe(1);
+  expect(side.justifyContent).toBe('space-evenly');
   expect(timer.findByType(Text).props.children).toBe('定时 关');
   expect(audio.findByType(Text).props.children).toBe('收音 关');
   expect(timer.findByType(Text).props.numberOfLines).toBe(2);

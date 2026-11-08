@@ -699,7 +699,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
             {renderPage(moments[index + 1], false, 'next')}
           </Animated.View>
         </View>
-        {hasMotion(current) && <Pressable testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} style={[styles.liveButton, {left: mediaBox.left + 4, top: mediaTop}]}>
+        {hasMotion(current) && <Pressable testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} style={[styles.liveButton, {left: mediaBox.left + ui.space.md, top: mediaTop}]}>
           <Text maxFontSizeMultiplier={1.3} style={styles.liveBadge}>LIVE</Text>
         </Pressable>}
         {compareOriginal && <View pointerEvents="none" style={[styles.compareMark, {top: mediaTop}]}><Text style={styles.compareText}>原片</Text></View>}

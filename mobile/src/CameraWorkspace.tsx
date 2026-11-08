@@ -219,7 +219,8 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
   const timerLabel = waiting ? '取消' : timerEnabled ? `${delay} 秒` : '定时 关';
   const timerA11y = waiting ? '取消定时' : timerEnabled ? `定时 ${delay} 秒` : '定时 关';
   const audioLabel = audio ? '收音 开' : '收音 关';
-  const guideLabel = guide === 'off' ? '参考' : guide;
+  // Off reads「参考 关」like「定时 关」; on shows the ratio the way the timer shows「5 秒」.
+  const guideLabel = guide === 'off' ? '参考 关' : guide;
   const commitPreview = (slot: 0 | 1, uri: string) => {
     if (pendingSlotRef.current !== slot || slotUrisRef.current[slot] !== uri) return;
     activeSlotRef.current = slot; pendingSlotRef.current = null; setActiveSlot(slot);
@@ -288,13 +289,13 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
       </View>
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]} onLayout={event => setDock({width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height})}>
         <View style={[styles.captureRow, landscape && styles.captureRowLandscape]}>
-          <View style={styles.captureSide}>
+          <View testID="capture-side" style={[styles.captureSide, landscape && styles.captureSideLandscape]}>
             <CameraControl label={timerLabel} labelLines={2} icon="timer" active={timerEnabled || panel === 'delay'} accessibilityLabel={timerA11y}
               accessibilityHint={waiting ? '取消倒计时并关闭定时' : panel === 'delay' ? '收起定时面板' : '打开定时面板'} onPress={toggleTimer}/>
             <CameraControl label={audioLabel} labelLines={2} icon={audio ? 'mic' : 'muted'} active={audio} checked={audio} accessibilityLabel={audioLabel} onPress={() => {void toggleAudio();}}/>
           </View>
           <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
-          <View style={styles.captureSide}>
+          <View testID="capture-side" style={[styles.captureSide, landscape && styles.captureSideLandscape]}>
             <CameraControl label={guideLabel} icon="ratio" active={guide !== 'off' || panel === 'guide'} accessibilityLabel={guide === 'off' ? '构图参考 关' : `构图参考 ${guide}`}
               accessibilityHint={panel === 'guide' ? '收起构图参考' : '打开构图参考，只叠加参考线，不改变预览和照片'} onPress={toggleGuide}/>
             <CameraControl label="相册" icon="album" thumbnail={latestPhoto} accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); setPanel(null); onAlbum();}}/>
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
   focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
   noticeSlot: {position: 'absolute', zIndex: 1080, left: ui.space.gutter, right: ui.space.gutter},
   dock: {padding: ui.space.gutter, gap: ui.space.sm}, dockLandscape: {width: 120, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm},
-  captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm},
+  captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', gap: ui.space.sm}, captureSideLandscape: {flex: 0, justifyContent: 'center', gap: ui.space.sm},
   shutter: {width: 76, height: 76, flexShrink: 0, borderRadius: 38, borderWidth: 2, borderColor: ui.color.text, alignItems: 'center', justifyContent: 'center'}, shutterCore: {width: 64, height: 64, borderRadius: 32, backgroundColor: ui.color.text}, shutterDisabled: {opacity: .45}, shutterCounting: {width: 24, height: 24, borderRadius: ui.radius.small, backgroundColor: ui.color.accent},
   modes: {width: 208, alignSelf: 'center', flexDirection: 'row', padding: ui.space.xs, backgroundColor: ui.color.surface, borderRadius: ui.radius.control}, modesLandscape: {width: '100%'},
   mode: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.small, gap: ui.space.xs}, modeSelected: {backgroundColor: ui.color.selected}, modeLabel: {...ui.type.label, color: ui.color.muted}, activeLabel: {color: ui.color.accent},
