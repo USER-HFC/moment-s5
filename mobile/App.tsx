@@ -17,10 +17,12 @@ import SettingsScreen, {SettingsPage} from './src/SettingsScreen';
 import OnboardingCards from './src/OnboardingCards';
 import {buildInfoFromModule} from './src/buildInfo';
 import {Notice} from './src/notice';
-import {loadPreferences, savePreference} from './src/preferences';
+import {ConnectionMemory, DEFAULT_CONNECTION, loadPreferences, saveConnectionMemory, savePreference} from './src/preferences';
 import {captureFailureNotice, userFacingError} from './src/captureError';
 import {savedNoticeMessage} from './src/savedNotice';
 import {A11yHideView} from './src/A11yHideView';
+import {DISCONNECT_BANNER, RECONNECT_ACTION, USB_ATTACH_ACTION, USB_ATTACH_BANNER, classifySessionLoss, connectionToRemember, reconnectPlan, sessionLossAction} from './src/connection/sessionNotice';
+import {USB_CAMERA_ATTACHED_EVENT} from './src/volumeShutter';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -30,6 +32,15 @@ export default function App() {
   pageRef.current = page;
   const [settingsPage, setSettingsPage] = useState<SettingsPage>('list');
   const [state, setState] = useState<CameraState>(emptyState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  // Unknown at first render still means this foreground activity; only an explicit pause is background.
+  const appActiveRef = useRef(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
+  const bannerHeldRef = useRef(false);
+  const attemptedWifiIp = useRef<string | null>(null);
+  const [connectionMemory, setConnectionMemory] = useState<ConnectionMemory>(DEFAULT_CONNECTION);
+  const connectionMemoryRef = useRef(connectionMemory);
+  connectionMemoryRef.current = connectionMemory;
   const [preview, setPreview] = useState<string>();
   const [buffered, setBuffered] = useState(0);
   const [luts, setLuts] = useState<LutItem[]>([]);
@@ -46,6 +57,32 @@ export default function App() {
   const showNotice = useCallback((message: string, action?: Notice['action']) => {
     setNotice(action ? {message, action} : {message});
   }, []);
+  const connect = useCallback(async () => {
+    if (!camera) throw new Error('当前平台没有相机桥');
+    attemptedWifiIp.current = null;
+    await camera.connect();
+  }, []);
+  const connectWifi = useCallback(async (options: WifiConnectionOptions) => {
+    if (!camera) throw new Error('当前平台没有相机桥');
+    attemptedWifiIp.current = options.cameraIp;
+    await camera.connectWifi(options);
+  }, []);
+  const reconnectLast = useCallback(async () => {
+    if (!camera) throw new Error('当前平台没有相机桥');
+    const plan = reconnectPlan(connectionMemoryRef.current);
+    if (plan.method === 'wifi') {
+      attemptedWifiIp.current = plan.cameraIp;
+      await camera.connectWifi({manual: true, cameraIp: plan.cameraIp});
+    } else if (plan.method === 'demo') {
+      camera.demo();
+    } else {
+      attemptedWifiIp.current = null;
+      await camera.connect();
+    }
+  }, []);
+  const showReconnectBanner = useCallback(() => {
+    setNotice({message: DISCONNECT_BANNER, durationMs: 12000, action: {label: RECONNECT_ACTION, onPress: () => { void reconnectLast().catch(e => showNotice(errorText(e))); }}});
+  }, [reconnectLast, showNotice]);
   const refresh = useCallback(async () => {
     if (!camera) return;
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
@@ -53,13 +90,27 @@ export default function App() {
   }, [showNotice]);
   useEffect(() => {
     let live = true;
-    void loadPreferences().then(prefs => { if (live && prefs && !prefs.onboardingSeen) setIntroOpen(true); });
+    void loadPreferences().then(prefs => {
+      if (!live || !prefs) return;
+      setConnectionMemory(prefs.connection);
+      if (!prefs.onboardingSeen) setIntroOpen(true);
+    });
     return () => { live = false; };
   }, []);
   const finishIntro = useCallback(() => {
     setIntroOpen(false);
     void savePreference('onboardingSeen', true).catch(() => undefined);
   }, []);
+  // Only a session that actually came up replaces the remembered way. Failed attempts keep the old one.
+  useEffect(() => {
+    const memory = connectionToRemember(state.active, state.demo, state.transport, attemptedWifiIp.current, connectionMemoryRef.current.cameraIp);
+    if (!memory) return;
+    const previous = connectionMemoryRef.current;
+    if (memory.method === previous.method && memory.cameraIp === previous.cameraIp) return;
+    setConnectionMemory(memory);
+    void saveConnectionMemory(memory).catch(() => undefined);
+  }, [state.active, state.demo, state.transport]);
+  useEffect(() => { if (state.active) bannerHeldRef.current = false; }, [state.active]);
   const autoExportSaved = useCallback(async (id: string | undefined) => {
     if (!id || !camera?.getPreferences || !camera.exportMoment) return;
     try {
@@ -79,15 +130,27 @@ export default function App() {
     const subs = [
       cameraEvents.addListener('cameraStatus', (e) => {
         const raw = typeof e.message === 'string' ? e.message : '';
-        const saved = savedNoticeMessage(raw);
-        if (saved) {
-          const id = pendingSavedId.current;
-          pendingSavedId.current = undefined;
-          showNotice(saved, id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
-        } else if (raw) showNotice(userFacingError(raw));
+        const loss = classifySessionLoss(raw, appActiveRef.current);
+        const action = sessionLossAction(loss, stateRef.current.active, bannerHeldRef.current);
+        if (action === 'banner') {
+          bannerHeldRef.current = true;
+          showReconnectBanner();
+        } else if (action !== 'quiet') {
+          const saved = savedNoticeMessage(raw);
+          if (saved) {
+            const id = pendingSavedId.current;
+            pendingSavedId.current = undefined;
+            showNotice(saved, id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
+          } else if (raw) showNotice(userFacingError(raw));
+        }
         setConnectionStatus(raw ? userFacingError(raw) : raw);
         setState((s) => ({...s, ready: !!e.ready}));
         void refresh();
+      }),
+      cameraEvents.addListener(USB_CAMERA_ATTACHED_EVENT, () => {
+        // The native side already checked foreground and an idle session; this guard covers a stale event.
+        if (stateRef.current.active || !appActiveRef.current) return;
+        showNotice(USB_ATTACH_BANNER, {label: USB_ATTACH_ACTION, onPress: () => { void connect().catch(e => showNotice(errorText(e))); }});
       }),
       cameraEvents.addListener('cameraFrame', (e) => {
         const now = performance.now();
@@ -114,9 +177,12 @@ export default function App() {
         void refresh();
       }),
     ];
-    const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
+    const app = AppState.addEventListener('change', (next) => {
+      appActiveRef.current = next === 'active';
+      if (next === 'active') void refresh();
+    });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
-  }, [autoExportSaved, refresh, showNotice]);
+  }, [autoExportSaved, connect, refresh, showNotice, showReconnectBanner]);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (connectionOpen) { setConnectionOpen(false); return true; }
@@ -134,8 +200,6 @@ export default function App() {
     camera?.setCaptureScreen?.(captureForeground);
     return () => { camera?.setCaptureScreen?.(false); };
   }, [captureForeground]);
-  const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
-  const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); showNotice(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { showNotice(errorText(e)); } };
   const importLut = async () => {
     if (!camera) return showNotice('当前平台没有相机桥');
@@ -217,7 +281,7 @@ export default function App() {
         {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
       </View>}
     </View>
-    <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
+    <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} remembered={connectionMemory} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
     </A11yHideView>
     {introOpen && <OnboardingCards onDone={finishIntro}/>}
