@@ -1,11 +1,11 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {AccessibilityInfo, Animated, AppState, Dimensions, Modal, StyleSheet, Vibration} from 'react-native';
+import {AccessibilityInfo, Animated, AppState, BackHandler, Dimensions, Modal, StyleSheet, Vibration} from 'react-native';
 import {Text} from 'react-native-paper';
 import {afterEach, beforeEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
-jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: jest.fn(), focus: jest.fn(), setAudio: jest.fn()}}));
+jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: jest.fn(), focus: jest.fn(), setAudio: jest.fn(), disconnect: jest.fn()}}));
 jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true)}));
 
 import CameraWorkspace from '../src/CameraWorkspace';
@@ -16,9 +16,17 @@ import {requestMicrophonePermission} from '../src/microphonePermission';
 const state: CameraState = {active: true, busy: false, ready: true, demo: false, lut: null};
 const props = {state, buffered: 3, luts: [], onAlbum: jest.fn(), onLut: async () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
 let tree: renderer.ReactTestRenderer;
+const backHandlers: Array<() => boolean | null | undefined> = [];
 
 beforeEach(() => {
   jest.useFakeTimers(); jest.clearAllMocks(); AppState.currentState = 'active';
+  backHandlers.length = 0;
+  jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+    const wrapped = handler as () => boolean | null | undefined;
+    backHandlers.push(wrapped);
+    return {remove: () => { const index = backHandlers.lastIndexOf(wrapped); if (index >= 0) backHandlers.splice(index, 1); }};
+  });
+  jest.spyOn(BackHandler, 'exitApp').mockImplementation(() => undefined);
   jest.mocked(requestMicrophonePermission).mockResolvedValue(true);
   act(() => { tree = renderer.create(<CameraWorkspace {...props}/>); });
 });
@@ -29,6 +37,12 @@ const press = (label: string) => act(() => {
   target.props.onPress();
 });
 const tick = (ms: number) => act(() => jest.advanceTimersByTime(ms));
+const pressBack = () => act(() => {
+  const chain = [...backHandlers].reverse();
+  let handled = false;
+  for (const handler of chain) if (handler()) { handled = true; break; }
+  if (!handled) BackHandler.exitApp();
+});
 
 it('opens LUTs as a flat side flyout that stays open for live switching', async () => {
   const onLut = jest.fn(async (_id: string) => {});
@@ -305,4 +319,87 @@ it('pins the timer between the rail and the dock and wraps the guide on a short 
   expect(option.minWidth).toBe(64);
   expect(StyleSheet.flatten(optionNode.parent?.props.style).flexWrap).toBe('wrap');
   act(() => { Dimensions.set({window: original, screen: original}); });
+});
+
+it('closes an open panel on back, then asks before leaving a connected or demo camera', () => {
+  press('LUT 风格');
+  pressBack();
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
+  press('定时 关');
+  pressBack();
+  expect(tree.root.findAllByProps({testID: 'timer-flyout'})).toHaveLength(0);
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, transport: 'usb'}}/>));
+  press('对焦');
+  pressBack();
+  expect(tree.root.findAllByProps({testID: 'focus-flyout'})).toHaveLength(0);
+  press('示波器');
+  expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(true);
+  pressBack();
+  expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(false);
+  press('构图参考 关');
+  pressBack();
+  expect(tree.root.findByProps({accessibilityLabel: '构图参考 16:9'})).toBeTruthy();
+  expect(JSON.stringify(tree.toJSON())).toContain('再按一次退出，相机会断开');
+  expect(BackHandler.exitApp).not.toHaveBeenCalled();
+  expect(camera!.disconnect).not.toHaveBeenCalled();
+  pressBack();
+  expect(BackHandler.exitApp).toHaveBeenCalledTimes(1);
+  expect(camera!.disconnect).not.toHaveBeenCalled();
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, demo: true}}/>));
+  pressBack();
+  expect(JSON.stringify(tree.toJSON())).toContain('再按一次退出，相机会断开');
+  expect(BackHandler.exitApp).toHaveBeenCalledTimes(1);
+});
+
+it('forgets the exit prompt after two seconds and when a panel takes the next press', () => {
+  pressBack();
+  tick(2000);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
+  pressBack();
+  expect(BackHandler.exitApp).not.toHaveBeenCalled();
+  press('LUT 风格');
+  pressBack();
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
+  expect(BackHandler.exitApp).not.toHaveBeenCalled();
+});
+
+it('leaves on one back when nothing is connected', () => {
+  act(() => tree.update(<CameraWorkspace {...props} state={{...state, active: false}}/>));
+  pressBack();
+  expect(BackHandler.exitApp).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
+  expect(camera!.disconnect).not.toHaveBeenCalled();
+});
+
+it('lets the connection sheet own back and ignores back while another page covers capture', () => {
+  press('LUT 风格');
+  act(() => tree.update(<CameraWorkspace {...props} suspendBack/>));
+  pressBack();
+  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+  expect(BackHandler.exitApp).toHaveBeenCalledTimes(1);
+  act(() => tree.update(<CameraWorkspace {...props} focused={false}/>));
+  pressBack();
+  expect(BackHandler.exitApp).toHaveBeenCalledTimes(2);
+});
+
+it('separates the timer and audio labels and lets them wrap instead of truncating', () => {
+  const control = (label: string) => tree.root.findAllByProps({accessibilityLabel: label}).find(node => typeof node.props.style === 'function')!;
+  const timer = control('定时 关');
+  const audio = control('收音 关');
+  let sideNode: renderer.ReactTestInstance | null = timer;
+  while (sideNode && !(StyleSheet.flatten(sideNode.props.style)?.gap >= 8 && StyleSheet.flatten(sideNode.props.style)?.flexDirection === 'row')) sideNode = sideNode.parent;
+  const side = StyleSheet.flatten(sideNode?.props.style);
+  expect(side.flexDirection).toBe('row');
+  expect(side.alignItems).toBe('center');
+  expect(side.gap).toBeGreaterThanOrEqual(8);
+  expect(timer.findByType(Text).props.children).toBe('定时 关');
+  expect(audio.findByType(Text).props.children).toBe('收音 关');
+  expect(timer.findByType(Text).props.numberOfLines).toBe(2);
+  expect(audio.findByType(Text).props.numberOfLines).toBe(2);
+  expect(timer.findByType(Text).props.maxFontSizeMultiplier).toBe(1.3);
+  const timerStyle = StyleSheet.flatten(timer.props.style({pressed: false}));
+  expect(timerStyle.width).toBe(48);
+  expect(timerStyle.minHeight).toBeGreaterThanOrEqual(48);
 });

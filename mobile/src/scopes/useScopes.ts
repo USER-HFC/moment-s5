@@ -4,7 +4,7 @@ import {cameraEvents} from '../native';
 import {createScopePanelState, ScopePanelAction, updateScopePanelState} from './panelState';
 import {decodeScopeFrame, ScopeFrame} from './protocol';
 
-// CameraWorkspace unmounts for the album; keep the open set and positions for this JS session.
+// Open set for this JS session. The capture screen stays mounted across the album, so this is not a resubscribe.
 let session = createScopePanelState();
 let revealHintShown = false;
 const listeners = new Set<() => void>();
@@ -16,7 +16,7 @@ export const changeScopePanel = (action: ScopePanelAction) => {
 };
 export function useScopePanels() {return useSyncExternalStore(subscribe, snapshot, snapshot);}
 
-/** The hint belongs to a camera connection, not to a mounted workspace: the album unmounts the latter. */
+/** The hint belongs to a camera connection. Leaving for the album does not remount the workspace. */
 export function takeScopeRevealHint() {
   if (revealHintShown) return false;
   revealHintShown = true;
