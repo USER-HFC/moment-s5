@@ -197,6 +197,7 @@ export default function App() {
     } catch (e) { showNotice(errorText(e)); }
   }, [showNotice]);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
+    {/* FLAG_FULLSCREEN from this component does not stay hidden on targetSdk 35. The activity hides the bars; SafeAreaView then only pads insets that remain, such as a cutout. */}
     <StatusBar hidden />
     {/* Stay mounted under the album and settings so the viewfinder and scopes do not reconnect. Intro hides this whole stack, including the connection sheet and notices. */}
     <A11yHideView testID="app-behind" collapsable={false} pointerEvents={introOpen ? 'none' : 'auto'} accessibilityElementsHidden={introOpen} importantForAccessibility={behindIntro} style={styles.fill}>

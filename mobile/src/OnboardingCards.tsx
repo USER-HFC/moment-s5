@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {AccessibilityInfo, findNodeHandle, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {AccessibilityInfo, BackHandler, findNodeHandle, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';
@@ -17,6 +17,15 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
   const portrait = window.height >= window.width && window.height > 0;
   const card = CARDS[index];
   const last = index === CARDS.length - 1;
+  // Back moves to the previous card. On the first card it is the same as 跳过, so the activity does not finish.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (index > 0) { setIndex(value => value - 1); return true; }
+      onDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [index, onDone]);
   useEffect(() => {
     const node = findNodeHandle(nextRef.current);
     if (node == null) return undefined;

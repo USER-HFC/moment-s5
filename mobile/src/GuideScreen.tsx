@@ -15,10 +15,15 @@ const WIFI = [
   '手机连上相机的 Wi-Fi',
   '填写相机 IP，常见是 192.168.54.1',
 ];
+const SHOOTING = [
+  {title: '音量键拍摄', body: '在拍摄页按音量键等于按快门。定时开着时先倒计时，倒计时中再按一次取消。不在拍摄页时，音量键仍调节音量。'},
+  {title: '构图参考', body: '可在关、16:9、1:1、4:5 之间切换，按钮上显示当前比例。只加参考框，不裁切预览，也不改变照片。'},
+  {title: '快门震动', body: '按下快门时手机会轻震一下。可在设置里关掉「快门震动」。'},
+  {title: '反转对焦', body: '近和远在不同机身上可能是反的。打开设置里的「反转近 / 远对焦方向」，两个按钮的动作会互换，按钮上的字不变。'},
+];
 const QUESTIONS = [
   {title: '连不上', body: '先看相机是不是 PC(Tether)、线能不能传数据、手机有没有打开 OTG。换一条线或另一个接口后再试。还是不行，打开连接诊断看记录。'},
-  {title: '传回上一张照片', body: '拍摄时会避开已经在机身里的照片。如果仍传回上一张，多半是这张在按下快门前就已经在卡上。再拍一张新的；仍反复出现时，把连接诊断一起反馈。'},
-  {title: '对焦方向不对', body: '近和远在不同机身上可能是反的。打开设置里的「反转近 / 远对焦方向」，两个按钮的动作会互换，按钮上的字不变。'},
+  {title: '传错照片', body: '先确认设置里的「机身快门照片自动同步」。开着时，用机身快门拍的照片会传进 App。拍摄时不要在机身上回放，以免把正在看的那张传过来。'},
   {title: 'Wi-Fi 是实验功能', body: 'Wi-Fi 遥控还在试验，没有在真实相机上验证。连不上或画面不稳定时，请改用 USB。'},
 ];
 
@@ -34,6 +39,13 @@ function Block({title, children}: {title: string; children: React.ReactNode}) {
     <Text style={styles.groupTitle}>{title}</Text>
     <View style={styles.card}>{children}</View>
   </View>;
+}
+
+function Entries({items}: {items: readonly {title: string; body: string}[]}) {
+  return <>{items.map((item, index) => <View key={item.title} style={index > 0 ? styles.divider : null}>
+    <Text style={styles.question}>{item.title}</Text>
+    <Text style={styles.answer}>{item.body}</Text>
+  </View>)}</>;
 }
 
 export default function GuideScreen({onBack, onShowIntro}: {onBack: () => void; onShowIntro: () => void}) {
@@ -52,11 +64,11 @@ export default function GuideScreen({onBack, onShowIntro}: {onBack: () => void; 
           <Steps items={WIFI}/>
           <Text style={styles.note}>这是实验功能，重要的拍摄请用 USB。</Text>
         </Block>
+        <Block title="拍摄">
+          <Entries items={SHOOTING}/>
+        </Block>
         <Block title="常见问题">
-          {QUESTIONS.map((item, index) => <View key={item.title} style={index > 0 ? styles.divider : null}>
-            <Text style={styles.question}>{item.title}</Text>
-            <Text style={styles.answer}>{item.body}</Text>
-          </View>)}
+          <Entries items={QUESTIONS}/>
         </Block>
         <Block title="还有问题">
           <Text style={styles.answer}>把问题发到项目页面时，请附上连接诊断，方便对照发生了什么。</Text>

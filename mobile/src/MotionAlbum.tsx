@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AccessibilityInfo, Alert, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StatusBar, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Alert, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
@@ -579,7 +579,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
 
   const sheetCover = lutOpen || infoOpen || shareOpen;
   const viewer = current && <View style={styles.viewer} testID="motion-viewer" accessibilityViewIsModal>
-    <StatusBar hidden={!chrome} animated/>
+    {/* Chrome used to set StatusBar hidden={false}, which put the clock back on the title. The activity keeps the system bars hidden. */}
     <GestureDetector gesture={gesture}><A11yHideView testID="album-viewer-body" collapsable={false} style={styles.fill} accessibilityElementsHidden={sheetCover} importantForAccessibility={sheetCover ? 'no-hide-descendants' : 'auto'}>
       <Animated.View testID="album-dismiss-layer" style={[styles.fill, {opacity: dismissOpacity, transform: [{translateY: dismissY}]}]}>
         <View testID="album-pager" style={styles.viewport} accessibilityRole="button" accessibilityState={{selected: zoomed}} accessibilityHint={hasMotion(current) ? '单击切换沉浸模式，双击缩放，长按播放动态照片' : '单击切换沉浸模式，双击缩放'} accessibilityLabel={hasMotion(current) ? '单击显示或隐藏操作，双指缩放查看动态照片' : '单击显示或隐藏操作，双指缩放查看照片'} onAccessibilityTap={() => fadeChrome(!chromeRef.current)}>
