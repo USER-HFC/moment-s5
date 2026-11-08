@@ -1,20 +1,21 @@
-import {Alert, PermissionsAndroid, Platform} from 'react-native';
+import {Linking, PermissionsAndroid, Platform} from 'react-native';
+import {camera} from './native';
 
+/** True when recording is already allowed. A denial is handled by the in-app dialog, not a system alert. */
 export async function requestMicrophonePermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
   try {
-    const permission = PermissionsAndroid.PERMISSIONS.RECORD_AUDIO;
-    if (await PermissionsAndroid.check(permission)) return true;
-    const result = await PermissionsAndroid.request(permission, {
-      title: '录制环境声',
-      message: '动态照片可使用手机麦克风收音。允许后，仅在前台连接相机时录制。',
-      buttonPositive: '允许',
-      buttonNegative: '取消',
-    });
-    if (result === PermissionsAndroid.RESULTS.GRANTED) return true;
-    Alert.alert('未开启环境声', '没有麦克风权限，本次动态照片将保持无声。可在系统设置中允许录音权限。');
-  } catch (e) {
-    Alert.alert('未开启环境声', String((e as Error)?.message || e));
+    return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+  } catch {
+    return false;
   }
-  return false;
+}
+
+/** App details in system settings. The page is where the microphone toggle can be turned on. */
+export async function openMicrophoneSettings(): Promise<void> {
+  if (camera?.openAppSettings) {
+    await camera.openAppSettings();
+    return;
+  }
+  await Linking.openSettings();
 }

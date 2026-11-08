@@ -7,6 +7,7 @@ import {lutDisplayName} from '../lutName';
 import {hudSource} from '../cameraLabel';
 import {bufferReadout} from './bufferStatus';
 import {batteryText, exposureReading, exposureShown} from './readings';
+import {cameraBatteryLow} from '../lowBattery';
 
 type Props = {state: CameraState; buffered: number; motion: boolean; waiting: boolean; onTopLayout: (event: LayoutChangeEvent) => void; onBottomLayout: (event: LayoutChangeEvent) => void};
 
@@ -15,7 +16,9 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
   const source = hudSource(state);
   const phone = batteryText(state.phoneBattery);
   const camera = batteryText(state.cameraBattery);
-  const showCamera = state.active && !state.demo && camera !== '—';
+  const cameraLow = cameraBatteryLow(state.cameraBattery?.percent);
+  // A reading exists only when the body (or a test launch) supplied one; a plain demo has none.
+  const showCamera = state.active && camera !== '—';
   const showPhone = phone !== '—';
   const showExposure = exposureShown(exposure);
   const buffer = bufferReadout(buffered, state.ready);
@@ -34,7 +37,7 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
       </View>
       <View testID="hud-batteries" style={styles.right}>
         {showPhone && <Text style={styles.primary} accessibilityLabel={`手机电量${phone}${state.phoneBattery?.charging ? '，充电中' : ''}`}>手机 {phone}{state.phoneBattery?.charging ? ' ↯' : ''}</Text>}
-        {showCamera && <Text style={styles.secondary} accessibilityLabel={`相机电量${camera}`}>相机 {camera}</Text>}
+        {showCamera && <Text style={[styles.secondary, cameraLow && styles.low]} accessibilityLabel={`相机电量${camera}${cameraLow ? '，电量低' : ''}`}>相机 {camera}</Text>}
       </View>
     </View>
     <View pointerEvents="none" testID="hud-bottom" style={[styles.row, styles.bottom]} onLayout={onBottomLayout}>
@@ -69,6 +72,7 @@ const styles = StyleSheet.create({
   triangle: {flexDirection: 'row', flexWrap: 'wrap', columnGap: ui.space.md, rowGap: ui.space.xs},
   primary: {...ui.type.caption, ...ink, fontWeight: '600', fontVariant: ['tabular-nums']},
   secondary: {...ui.type.label, ...ink, color: '#D1D8CD'},
+  low: {color: ui.color.destructive},
   track: {alignSelf: 'stretch', height: 2, borderRadius: 1, backgroundColor: '#D1D8CD55', overflow: 'hidden'},
   bar: {height: 2, backgroundColor: ui.color.accent},
 });

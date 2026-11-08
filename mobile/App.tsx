@@ -21,6 +21,7 @@ import {loadPreferences, savePreference} from './src/preferences';
 import {captureFailureNotice, userFacingError} from './src/captureError';
 import {savedNoticeMessage} from './src/savedNotice';
 import {A11yHideView} from './src/A11yHideView';
+import {BatteryNoticeSession, LOW_CAMERA_BATTERY_MESSAGE, noteLowCameraBattery} from './src/lowBattery';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -39,8 +40,10 @@ export default function App() {
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('');
   const [introOpen, setIntroOpen] = useState(false);
+  const [storageLow, setStorageLow] = useState(false);
   const lastPreviewAt = useRef(-Infinity);
   const pendingSavedId = useRef<string | undefined>(undefined);
+  const batteryNotice = useRef<BatteryNoticeSession>({connection: false, warned: false});
   useCameraReadings(state, setState, page === 'camera');
   const dismissNotice = useCallback(() => setNotice(null), []);
   const showNotice = useCallback((message: string, action?: Notice['action']) => {
@@ -51,6 +54,17 @@ export default function App() {
     try { setLuts(await camera.listLuts()); setMoments(await camera.listMoments()); setState(await camera.getState()); }
     catch (e) { showNotice(errorText(e)); }
   }, [showNotice]);
+  const refreshUsable = useCallback(async () => {
+    if (!camera?.usableSpace) return;
+    try { setStorageLow(!!(await camera.usableSpace()).storageLow); }
+    catch { /* Keep the last reading: a failed probe must not block the shutter. */ }
+  }, []);
+  // A low body battery is worth one warning per connection, not one per one-second reading.
+  useEffect(() => {
+    const next = noteLowCameraBattery(batteryNotice.current, state.active, state.cameraBattery?.percent);
+    batteryNotice.current = next;
+    if (next.notify) showNotice(LOW_CAMERA_BATTERY_MESSAGE);
+  }, [state.active, state.cameraBattery?.percent, showNotice]);
   useEffect(() => {
     let live = true;
     void loadPreferences().then(prefs => { if (live && prefs && !prefs.onboardingSeen) setIntroOpen(true); });
@@ -75,6 +89,7 @@ export default function App() {
   }), []);
   useEffect(() => {
     void refresh();
+    void refreshUsable();
     if (!cameraEvents) { showNotice('当前平台没有相机桥'); return; }
     const subs = [
       cameraEvents.addListener('cameraStatus', (e) => {
@@ -103,6 +118,7 @@ export default function App() {
         // The following status line is the notice. It already names the shot type and LUT.
         pendingSavedId.current = momentIdFromDirectory(event?.directory);
         void refresh();
+        void refreshUsable();
         void autoExportSaved(pendingSavedId.current);
       }),
       cameraEvents.addListener('cameraFailed', (e) => {
@@ -114,9 +130,13 @@ export default function App() {
         void refresh();
       }),
     ];
-    const app = AppState.addEventListener('change', (next) => { if (next === 'active') void refresh(); });
+    const app = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      void refresh();
+      void refreshUsable();
+    });
     return () => { subs.forEach((s) => s.remove()); app.remove(); };
-  }, [autoExportSaved, refresh, showNotice]);
+  }, [autoExportSaved, refresh, refreshUsable, showNotice]);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (connectionOpen) { setConnectionOpen(false); return true; }
@@ -134,6 +154,13 @@ export default function App() {
     camera?.setCaptureScreen?.(captureForeground);
     return () => { camera?.setCaptureScreen?.(false); };
   }, [captureForeground]);
+  // A photo can fill the last few hundred megabytes while this screen stays in front.
+  useEffect(() => {
+    if (!cameraFocused) return undefined;
+    void refreshUsable();
+    const timer = setInterval(() => { void refreshUsable(); }, 15_000);
+    return () => clearInterval(timer);
+  }, [cameraFocused, refreshUsable]);
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); showNotice(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { showNotice(errorText(e)); } };
@@ -210,7 +237,7 @@ export default function App() {
     <A11yHideView testID="app-behind" collapsable={false} pointerEvents={introOpen ? 'none' : 'auto'} accessibilityElementsHidden={introOpen} importantForAccessibility={behindIntro} style={styles.fill}>
     <View style={styles.stage}>
       <View testID="camera-layer" pointerEvents={cameraFocused ? 'auto' : 'none'} accessibilityElementsHidden={!cameraFocused} importantForAccessibility={cameraFocused ? 'auto' : 'no-hide-descendants'} style={styles.stage}>
-        <CameraWorkspace focused={captureForeground} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={captureForeground ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
+        <CameraWorkspace focused={captureForeground} suspendBack={connectionOpen} storageLow={storageLow} latestPhoto={moments[0]?.imageUri} notice={captureForeground ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} onStorage={() => {setSettingsPage('storage'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
       </View>
       {page !== 'camera' && <View style={styles.cover}>
         {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment} onShareMany={shareMoments}/>}

@@ -7,6 +7,7 @@ import CameraHud from '../src/hud/CameraHud';
 // The scopes branch removed hudSafeBounds when charts were freed to cover the whole preview.
 import {batteryText, EXPOSURE_STALE_MS, exposureReading} from '../src/hud/readings';
 import {CameraState} from '../src/native';
+import {ui} from '../src/theme';
 
 const connected: CameraState = {active: true, busy: false, ready: true, demo: false, transport: 'usb', lut: null};
 function hud(state: CameraState, motion = false, buffered = 3) {
@@ -113,5 +114,15 @@ describe('truthful four-corner camera HUD', () => {
     expect(JSON.stringify(demo.toJSON())).toContain('演示');
     expect(JSON.stringify(demo.toJSON())).not.toContain('DC-S5');
     act(() => demo.unmount());
+  });
+  it('turns the camera battery red at or below 15 percent and leaves healthy readings neutral', () => {
+    const low = hud({...connected, cameraBattery: {percent: 15}});
+    const lowText = low.root.findByProps({accessibilityLabel: '相机电量15%，电量低'});
+    expect(StyleSheet.flatten(lowText.props.style).color).toBe(ui.color.destructive);
+    act(() => low.unmount());
+    const healthy = hud({...connected, cameraBattery: {percent: 16}});
+    const healthyText = healthy.root.findByProps({accessibilityLabel: '相机电量16%'});
+    expect(StyleSheet.flatten(healthyText.props.style).color).not.toBe(ui.color.destructive);
+    act(() => healthy.unmount());
   });
 });

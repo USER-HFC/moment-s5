@@ -9,7 +9,7 @@ export type AppPreferences = {
   volumeShutter: boolean; reverseFocus: boolean; shutterVibration: boolean;
   capture: CaptureMemory;
 };
-export type StorageUsage = {count: number; bytes: number; exportedCount: number; exportedBytes: number};
+export type StorageUsage = {count: number; bytes: number; exportedCount: number; exportedBytes: number; usableBytes?: number};
 
 const GUIDES: readonly Guide[] = GUIDE_ORDER;
 const TIMERS = [0, 2, 5, 10, 30];
