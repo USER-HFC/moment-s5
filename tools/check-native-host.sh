@@ -13,5 +13,7 @@ while IFS= read -r file; do sources+=("$file"); done < <(find app/src/main/java 
 "$compiler" -encoding UTF-8 -cp "$classpath" -d build/native-compile "${sources[@]}"
 stubs=()
 while IFS= read -r file; do stubs+=("$file"); done < <(find tests/android-stubs -name '*.java')
-"$compiler" -encoding UTF-8 -cp "build/native-compile:$classpath" -d build/native-host-checks "${stubs[@]}" tests/NativeBugfixChecks.java
-"$runtime" -cp "build/native-host-checks:build/native-compile:$classpath" cn.moment.lumix.NativeBugfixChecks
+"$compiler" -encoding UTF-8 -cp "build/native-compile:$classpath" -d build/native-host-checks "${stubs[@]}" tests/NativeBugfixChecks.java tests/Iteration5SystemChecks.java
+for suite in NativeBugfixChecks Iteration5SystemChecks; do
+  "$runtime" -cp "build/native-host-checks:build/native-compile:$classpath" "cn.moment.lumix.$suite"
+done

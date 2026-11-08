@@ -49,6 +49,7 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
 
   const count = usage ? `${usage.count} 张` : '…';
   const bytes = usage ? formatBytes(usage.bytes) : '…';
+  const usable = usage ? formatBytes(usage.usableBytes ?? -1) : '…';
   const clearable = !!usage && usage.exportedCount > 0;
   const summary = usage ? clearableSummary(usage.exportedCount, usage.exportedBytes) : '…';
   const clearBody = clearError
@@ -72,6 +73,11 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
           <View style={styles.stat}>
             <Text style={styles.statLabel}>占用空间</Text>
             <Text testID="storage-bytes" style={styles.statValue}>{bytes}</Text>
+          </View>
+          <View style={styles.divider}/>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>手机剩余空间</Text>
+            <Text testID="storage-usable" style={styles.statValue}>{usable}</Text>
           </View>
         </View>
         {!!problem && <Text testID="storage-error" style={styles.error}>{problem}</Text>}

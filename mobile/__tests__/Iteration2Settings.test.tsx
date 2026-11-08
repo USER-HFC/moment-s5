@@ -20,7 +20,7 @@ jest.mock('../src/native', () => ({
   camera: {
     getPreferences: jest.fn(async () => mockPreferences),
     setPreference: jest.fn(async () => {}),
-    storageUsage: jest.fn(async () => ({count: 2, bytes: 1536, exportedCount: 1, exportedBytes: 512})),
+    storageUsage: jest.fn(async () => ({count: 2, bytes: 1536, exportedCount: 1, exportedBytes: 512, usableBytes: 500 * 1024 * 1024})),
     clearExportedCopies: jest.fn(async () => ({removed: 1})),
     diagnostics: async () => '',
   },
@@ -89,6 +89,7 @@ it('confirms before clearing exported copies and says the card and gallery stay'
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
   expect(tree!.root.findByProps({testID: 'storage-count'}).props.children).toBe('2 张');
   expect(tree!.root.findByProps({testID: 'storage-bytes'}).props.children).toBe('1.5 KB');
+  expect(tree!.root.findByProps({testID: 'storage-usable'}).props.children).toBe('500 MB');
   expect(tree!.root.findByProps({testID: 'storage-clearable'}).props.children).toBe('可清理 1 张，约 512 B');
   expect(tree!.root.findByProps({testID: 'storage-clear'}).props.accessibilityState.disabled).toBe(false);
   expect(camera!.clearExportedCopies).not.toHaveBeenCalled();

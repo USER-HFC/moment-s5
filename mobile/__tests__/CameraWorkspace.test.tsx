@@ -6,12 +6,12 @@ import {afterEach, beforeEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
 jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: jest.fn(), focus: jest.fn(), setAudio: jest.fn(), disconnect: jest.fn()}}));
-jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true)}));
+jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true), openMicrophoneSettings: jest.fn(async () => {})}));
 
 import CameraWorkspace from '../src/CameraWorkspace';
 import LutFlyout from '../src/LutFlyout';
 import {camera, CameraState} from '../src/native';
-import {requestMicrophonePermission} from '../src/microphonePermission';
+import {openMicrophoneSettings, requestMicrophonePermission} from '../src/microphonePermission';
 
 const state: CameraState = {active: true, busy: false, ready: true, demo: false, lut: null};
 const props = {state, buffered: 3, luts: [], onAlbum: jest.fn(), onLut: async () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
@@ -408,4 +408,30 @@ it('separates the timer and audio labels and lets them wrap instead of truncatin
   const timerStyle = StyleSheet.flatten(timer.props.style({pressed: false}));
   expect(timerStyle.width).toBe(48);
   expect(timerStyle.minHeight).toBeGreaterThanOrEqual(48);
+});
+
+it('uses the dark in-app dialog for a missing microphone permission and offers app settings', async () => {
+  jest.mocked(requestMicrophonePermission).mockResolvedValue(false);
+  await act(async () => tree.root.findByProps({accessibilityLabel: '收音 关'}).props.onPress());
+  expect(tree.root.findByProps({testID: 'microphone-confirm'})).toBeTruthy();
+  expect(JSON.stringify(tree.toJSON())).toContain('没有麦克风权限');
+  expect(camera!.setAudio).not.toHaveBeenCalled();
+
+  press('暂不');
+  expect(tree.root.findAllByProps({testID: 'microphone-confirm'})).toHaveLength(0);
+
+  await act(async () => tree.root.findByProps({accessibilityLabel: '收音 关'}).props.onPress());
+  await act(async () => tree.root.findByProps({accessibilityLabel: '去设置'}).props.onPress());
+  expect(openMicrophoneSettings).toHaveBeenCalledTimes(1);
+  expect(camera!.setAudio).not.toHaveBeenCalled();
+});
+
+it('names low storage first and opens the storage page from the shutter reason', () => {
+  const onStorage = jest.fn();
+  act(() => tree.update(<CameraWorkspace {...props} storageLow onStorage={onStorage}/>));
+  press('拍摄照片');
+  expect(camera!.captureStill).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('手机存储空间不足，请先清理');
+  press('去清理');
+  expect(onStorage).toHaveBeenCalledTimes(1);
 });

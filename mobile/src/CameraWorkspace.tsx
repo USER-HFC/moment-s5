@@ -9,7 +9,8 @@ import {ui} from './theme';
 import CameraIcon from './CameraIcon';
 import CameraControl from './CameraControl';
 import useCaptureCountdown from './useCaptureCountdown';
-import {requestMicrophonePermission} from './microphonePermission';
+import {openMicrophoneSettings, requestMicrophonePermission} from './microphonePermission';
+import ConfirmDialog from './ConfirmDialog';
 import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
 import {resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
@@ -22,7 +23,7 @@ import CameraHud from './hud/CameraHud';
 import NoticeBar, {Notice} from './NoticeBar';
 import {Guide, guideRect, shadeOutside} from './referenceFrame';
 import useRememberedCapture from './useRememberedCapture';
-import {shutterBlockedReason} from './shutterReason';
+import {LOW_STORAGE_REASON, shutterBlockedReason} from './shutterReason';
 import {connectionControlLabel} from './cameraLabel';
 
 const SHUTTER_FLASH_MS = 140;
@@ -30,10 +31,12 @@ const EXIT_CONFIRM_MS = 2000;
 
 type Panel = 'lut' | 'delay' | 'focus' | 'scopes' | 'guide' | null;
 type Props = {
-  onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
+  onAlbum: () => void; onSettings?: () => void; onStorage?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
+  /** Native free-space reading: below the native threshold the shutter names storage first. */
+  storageLow?: boolean;
   notice?: Notice | null; onDismissNotice?: () => void;
   /** False while album, settings, the connection sheet, or the intro covers this screen. The instance stays mounted. */
   focused?: boolean;
@@ -44,7 +47,7 @@ type PreviewSlots = [string | undefined, string | undefined];
 
 const CONNECT_STEPS = ['相机选 PC(Tether)', '接上数据线', '手机打开 OTG'];
 
-export default function CameraWorkspace({onAlbum, onSettings, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto, notice = null, onDismissNotice, focused = true, suspendBack = false}: Props) {
+export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, storageLow = false, latestPhoto, notice = null, onDismissNotice, focused = true, suspendBack = false}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const scopePanels = useScopePanels();
@@ -55,6 +58,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const {reverseFocus, shutterVibration} = useShootingPreferences();
   const fireRef = useRef<() => void>(() => {});
   const [audio, setAudio] = useState(!!state.audio);
+  const [micPrompt, setMicPrompt] = useState(false);
   const audioPending = useRef(false);
   const [working, setWorking] = useState(false);
   const [finderSize, setFinderSize] = useState({width: 0, height: 0});
@@ -167,10 +171,14 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     if (motionEnabled) { if (state.ready) camera?.capture(); }
     else camera?.captureStill();
   }
-  const blockedReason = waiting ? null : shutterBlockedReason({active: state.active, busy: state.busy, motion: motionEnabled, ready: state.ready, buffered});
+  const blockedReason = waiting ? null : shutterBlockedReason({active: state.active, busy: state.busy, motion: motionEnabled, ready: state.ready, buffered, storageLow});
   const fire = () => {
     if (waiting) { cancelCountdown(); return; }
-    if (blockedReason) { setShutterHint({message: blockedReason}); return; }
+    if (blockedReason) {
+      if (blockedReason === LOW_STORAGE_REASON && onStorage) setShutterHint({message: blockedReason, action: {label: '去清理', onPress: onStorage}});
+      else setShutterHint({message: blockedReason});
+      return;
+    }
     if (timerEnabled) { startCountdown(delay); return; }
     captureNow();
   };
@@ -193,9 +201,14 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     audioPending.current = true;
     try {
       const enabled = !audio;
-      if (enabled && !(await requestMicrophonePermission())) return;
+      if (enabled && !(await requestMicrophonePermission())) { setMicPrompt(true); return; }
       camera.setAudio(enabled); setAudio(enabled);
     } finally { audioPending.current = false; }
+  };
+  const goMicrophoneSettings = async () => {
+    setMicPrompt(false);
+    try { await openMicrophoneSettings(); }
+    catch { setShutterHint({message: '无法打开系统设置，请手动允许录音权限'}); }
   };
   const captureLabel = waiting ? '取消倒计时' : motionEnabled ? '拍摄动态照片' : timerEnabled ? '开始倒计时' : '拍摄照片';
   const disabled = blockedReason != null;
@@ -299,6 +312,9 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
       onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))} onClose={() => setPanel(null)}/>}
     {panel === 'delay' && <TimerFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={timerEnabled ? delay : null} onSelect={selectDelay} onClose={() => setPanel(null)}/>}
     {panel === 'guide' && <ReferenceFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={guide} onSelect={selectGuide} onClose={() => setPanel(null)}/>}
+    {micPrompt && <ConfirmDialog visible testID="microphone-confirm" confirmTestID="microphone-confirm-settings"
+      title="开启收音" body="没有麦克风权限。请在系统设置里允许录音，再回来打开收音。" confirmLabel="去设置" cancelLabel="暂不"
+      onCancel={() => setMicPrompt(false)} onConfirm={() => {void goMicrophoneSettings();}}/>}
     </View>
   </View>;
 }
