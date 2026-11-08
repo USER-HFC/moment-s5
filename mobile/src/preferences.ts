@@ -91,6 +91,12 @@ export function formatBytes(bytes: number) {
   return `${value.toFixed(digits).replace(/\.0$/, '')} ${units[unit]}`;
 }
 
+/** Settings list subtitle. Count and size come from `storageUsage()`, shown the same way as the storage page. */
+export function storageSummary(usage: Pick<StorageUsage, 'count' | 'bytes'> | null | undefined) {
+  if (!usage || !Number.isFinite(usage.count) || !Number.isFinite(usage.bytes) || usage.count < 0 || usage.bytes < 0) return '未知';
+  return `${Math.floor(usage.count)} 张 · ${formatBytes(usage.bytes)}`;
+}
+
 /** Line under the storage cleanup button. Zero means there is nothing the button can remove. */
 export function clearableSummary(exportedCount: number, exportedBytes: number) {
   if (!Number.isFinite(exportedCount) || exportedCount <= 0) return '没有可清理的照片';
