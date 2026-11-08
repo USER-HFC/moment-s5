@@ -30,8 +30,8 @@ it('shows native capture errors and removes all camera listeners on unmount', as
   await act(async () => listeners.get('cameraStatus')!({message: '未找到本次 JPEG', ready: false}));
   expect(JSON.stringify(tree!.toJSON())).toContain('未找到本次 JPEG');
   act(() => listeners.get('cameraSaved')!({directory: '/data/moments/M9'}));
-  act(() => listeners.get('cameraStatus')!({message: '实况已保存', ready: false}));
-  expect(JSON.stringify(tree!.toJSON())).toContain('已保存');
+  act(() => listeners.get('cameraStatus')!({message: '动态照片已保存 · Classic Chrome', ready: false}));
+  expect(JSON.stringify(tree!.toJSON())).toContain('动态照片已保存 · Classic Chrome');
   await act(async () => tree!.root.findByProps({accessibilityLabel: '查看'}).props.onPress());
   expect(tree!.root.findByType(MotionAlbum).props.initialMomentId).toBe('M9');
   act(() => tree!.unmount()); expect(listeners.size).toBe(0);

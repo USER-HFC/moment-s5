@@ -22,8 +22,9 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
   const showBuffer = state.active && motion && !state.busy;
   const capture = state.busy ? '处理中…' : waiting ? '倒计时' : motion && !state.ready ? '缓存中' : '可拍';
   const modeName = motion ? '动态' : '照片';
-  // The buffer line already says 可拍 or 缓存中, so the mode line does not repeat it.
-  const modeLine = showBuffer && !waiting ? modeName : `${modeName} · ${capture}`;
+  // The buffer line already says 可拍 or 缓存中. A lone「动态」repeats the mode switch.
+  const modeLine = `${modeName} · ${capture}`;
+  const showModeLine = !showBuffer || waiting;
   return <>
     <View pointerEvents="none" testID="hud-top" style={[styles.row, styles.top]} onLayout={onTopLayout}>
       <View testID="hud-source" style={styles.source}>
@@ -47,7 +48,7 @@ export default React.memo(function CameraHud({state, buffered, motion, waiting, 
         {!!exposure.detail && <Text testID="hud-exposure-detail" style={styles.secondary}>{exposure.detail}</Text>}
       </View>}
       {state.active && <View testID="hud-capture" style={styles.capture}>
-        <Text numberOfLines={2} style={styles.secondary}>{modeLine}</Text>
+        {showModeLine && <Text numberOfLines={2} style={styles.secondary}>{modeLine}</Text>}
         {showBuffer && <>
           <Text testID="hud-buffer" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.primary}>{buffer.label}</Text>
           <View style={styles.track} accessibilityLabel={buffer.label}>

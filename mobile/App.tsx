@@ -19,6 +19,7 @@ import {buildInfoFromModule} from './src/buildInfo';
 import {Notice} from './src/notice';
 import {loadPreferences, savePreference} from './src/preferences';
 import {captureFailureNotice, userFacingError} from './src/captureError';
+import {savedNoticeMessage} from './src/savedNotice';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -38,6 +39,7 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState('');
   const [introOpen, setIntroOpen] = useState(false);
   const lastPreviewAt = useRef(-Infinity);
+  const pendingSavedId = useRef<string | undefined>(undefined);
   useCameraReadings(state, setState, page === 'camera');
   const dismissNotice = useCallback(() => setNotice(null), []);
   const showNotice = useCallback((message: string, action?: Notice['action']) => {
@@ -76,7 +78,12 @@ export default function App() {
     const subs = [
       cameraEvents.addListener('cameraStatus', (e) => {
         const raw = typeof e.message === 'string' ? e.message : '';
-        if (raw && !isSavedStatus(raw)) showNotice(userFacingError(raw));
+        const saved = savedNoticeMessage(raw);
+        if (saved) {
+          const id = pendingSavedId.current;
+          pendingSavedId.current = undefined;
+          showNotice(saved, id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
+        } else if (raw) showNotice(userFacingError(raw));
         setConnectionStatus(raw ? userFacingError(raw) : raw);
         setState((s) => ({...s, ready: !!e.ready}));
         void refresh();
@@ -92,10 +99,10 @@ export default function App() {
       cameraEvents.addListener('cameraExposure', (e) => setState(s => ({...s, exposure: e.value, exposureAgeMs: e.exposureAgeMs}))),
       cameraEvents.addListener('phoneBattery', (e) => setState(s => ({...s, phoneBattery: e}))),
       cameraEvents.addListener('cameraSaved', (event: {directory?: string}) => {
-        const id = momentIdFromDirectory(event?.directory);
-        showNotice('已保存', id ? {label: '查看', onPress: () => { setOpenedMomentId(id); setPage('album'); }} : undefined);
+        // The following status line is the notice. It already names the shot type and LUT.
+        pendingSavedId.current = momentIdFromDirectory(event?.directory);
         void refresh();
-        void autoExportSaved(id);
+        void autoExportSaved(pendingSavedId.current);
       }),
       cameraEvents.addListener('cameraFailed', (e) => {
         const detail = typeof e.error === 'string' ? e.error.trim() : '';
@@ -111,14 +118,16 @@ export default function App() {
   }, [autoExportSaved, refresh, showNotice]);
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (connectionOpen) { setConnectionOpen(false); return true; }
       if (page === 'camera') return false;
       // Settings owns its own back stack (list → capture, subpage → list).
       if (page === 'settings') return false;
       setPage('camera'); return true;
     });
     return () => sub.remove();
-  }, [page]);
+  }, [page, connectionOpen]);
   const closeSettings = useCallback(() => setPage('camera'), []);
+  const cameraFocused = page === 'camera';
   const connect = async () => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connect(); };
   const connectWifi = async (options: WifiConnectionOptions) => { if (!camera) throw new Error('当前平台没有相机桥'); await camera.connectWifi(options); };
   const setLut = async (id: string) => { if (!camera) return; try { const title = await camera.setLut(id); setState((s) => ({...s, lut: title})); showNotice(id === 'off' ? 'LUT 已关闭' : 'LUT 已启用'); } catch (e) { showNotice(errorText(e)); } };
@@ -180,16 +189,22 @@ export default function App() {
   }, [showNotice]);
   return <GestureHandlerRootView style={styles.root}><SafeAreaProvider><PaperProvider theme={theme}><SafeAreaView style={styles.root}>
     <StatusBar hidden />
-    {page === 'camera' && <CameraWorkspace latestPhoto={moments[0]?.imageUri} notice={notice} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>}
-    {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
-    {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
+    {/* Stay mounted under the album and settings so the viewfinder and scopes do not reconnect. */}
+    <View style={styles.stage}>
+      <View testID="camera-layer" pointerEvents={cameraFocused ? 'auto' : 'none'} accessibilityElementsHidden={!cameraFocused} importantForAccessibility={cameraFocused ? 'auto' : 'no-hide-descendants'} style={styles.stage}>
+        <CameraWorkspace focused={cameraFocused} suspendBack={connectionOpen} latestPhoto={moments[0]?.imageUri} notice={cameraFocused ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
+      </View>
+      {page !== 'camera' && <View style={styles.cover}>
+        {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment}/>}
+        {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
+      </View>}
+    </View>
     {introOpen && <OnboardingCards onDone={finishIntro}/>}
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}
   </SafeAreaView></PaperProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
 function errorText(e: unknown) { return userFacingError(String((e as Error)?.message || e)); }
-function isSavedStatus(message: string) { return typeof message === 'string' && message.includes('已保存'); }
 function momentIdFromDirectory(directory: unknown) {
   if (typeof directory !== 'string' || !directory) return undefined;
   const name = directory.split(/[/\\]/).filter(Boolean).pop();
@@ -197,5 +212,7 @@ function momentIdFromDirectory(directory: unknown) {
 }
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: theme.colors.background},
+  stage: {flex: 1, minHeight: 0},
+  cover: {...StyleSheet.absoluteFillObject, zIndex: 2, backgroundColor: theme.colors.background},
   noticeHost: {position: 'absolute', left: ui.space.gutter, right: ui.space.gutter, bottom: ui.space.lg, zIndex: 40},
 });

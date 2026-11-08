@@ -8,8 +8,13 @@ import {ui} from '../theme';
 import {changeScopePanel} from './useScopes';
 import {ScopePanelState, SCOPE_KINDS, SCOPE_TITLES} from './panelState';
 
-export default function ScopeToolbar({panels}: {panels: ScopePanelState; landscape: boolean}) {
-  const [picker, setPicker] = useState(false);
+export default function ScopeToolbar({panels, landscape, pickerOpen, onPickerOpenChange}: {
+  panels: ScopePanelState; landscape: boolean; pickerOpen?: boolean; onPickerOpenChange?: (open: boolean) => void;
+}) {
+  const [localOpen, setLocalOpen] = useState(false);
+  // CameraWorkspace owns the open flag when it handles the back key. The harness keeps the local flag.
+  const picker = pickerOpen ?? localOpen;
+  const setPicker = (open: boolean) => { if (onPickerOpenChange) onPickerOpenChange(open); else setLocalOpen(open); };
   const open = SCOPE_KINDS.some(kind => panels[kind].open);
   return <>
     <CameraControl icon="scopes" label="示波器" accessibilityLabel="示波器" active={open} onPress={() => setPicker(true)}/>

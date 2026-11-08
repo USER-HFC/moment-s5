@@ -249,6 +249,15 @@ public final class CaptureEngine {
         finally {Files.deleteIfExists(part.toPath());}
     }
     public boolean ready() {return active && !busy && !ring.preCaptureWindow(now()).isEmpty();}
+    /** The save notice is this status line, so the type and LUT name match the shot that was stored. */
+    static String savedStatus(boolean motion, boolean lutApplied, String lutTitle) {
+        String base=motion?"动态照片已保存":"照片已保存";
+        if(!lutApplied) return base;
+        String name=lutTitle==null?"":lutTitle.trim();
+        if(name.startsWith("内置 · ")) name=name.substring("内置 · ".length()).trim();
+        if(name.startsWith("Fuji 风格 · ")) name=name.substring("Fuji 风格 · ".length()).trim();
+        return name.isEmpty()?base:base+" · "+name;
+    }
     public void capture() {capture(true);}
     /** Retrieve this shutter's JPEG without requiring preview frames or creating video. */
     public void captureStill() {capture(false);}
@@ -317,7 +326,7 @@ public final class CaptureEngine {
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
                 if(!motion) {
                     meta.put("durationUs",0);meta.put("complete",true);meta.remove("error");MomentStore.metadata(dir,meta);
-                    ring.clear();busy=false;refreshExposure();listener.saved(dir);listener.status("照片已保存",false);return;
+                    ring.clear();busy=false;refreshExposure();listener.saved(dir);listener.status(savedStatus(false,lutApplied,filter==null?null:filter.title),false);return;
                 }
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
@@ -344,7 +353,7 @@ public final class CaptureEngine {
                     finally {ring.clear();busy=false;refreshExposure();}
                     // Observers must see the completed state when the result event arrives.
                     if(failure!=null) {listener.failed(finalDir,failure.getMessage());fail(failure);}
-                    else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status("动态照片已保存",false);}
+                    else {listener.saved(finalDir);log("已合成 "+fs.size()+" 帧，最长取景间隔 "+FrameRing.maxGap(fs)/1000+" ms");listener.status(savedStatus(true,rendered,filter==null?null:filter.title),false);}
                 });
             } catch(Exception e) {if(dir!=null)saveFailure(dir,meta,e);ring.clear();busy=false;refreshExposure();if(dir!=null)listener.failed(dir,e.getMessage());fail(e);}
         });

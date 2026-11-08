@@ -90,8 +90,7 @@ describe('truthful four-corner camera HUD', () => {
     const motionLabels = motion.root.findAllByType(Text).map(node => node.props.children).filter(child => typeof child === 'string');
     expect(motionJson).toContain('已缓存 3 秒 · 可拍');
     expect(motionLabels.filter(label => label.includes('可拍'))).toEqual(['已缓存 3 秒 · 可拍']);
-    expect(motionLabels).toContain('动态');
-    expect(motionLabels).not.toContain('动态 · 可拍');
+    expect(motionLabels.filter(label => label === '动态' || label.startsWith('动态'))).toEqual([]);
     expect(motionJson).not.toContain('3.0');
     expect(StyleSheet.flatten(motion.root.findByProps({testID: 'hud-buffer-bar'}).props.style).width).toBe('100%');
     act(() => motion.unmount());

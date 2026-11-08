@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, Vibration, View} from 'react-native';
+import {AccessibilityInfo, Animated, BackHandler, Easing, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, Vibration, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {camera, CameraState, LutItem} from './native';
 import {ui} from './theme';
@@ -21,20 +21,25 @@ import {shutterBlockedReason} from './shutterReason';
 import {connectionControlLabel} from './cameraLabel';
 
 const SHUTTER_FLASH_MS = 140;
+const EXIT_CONFIRM_MS = 2000;
 
-type Panel = 'lut' | 'delay' | 'focus' | null;
+type Panel = 'lut' | 'delay' | 'focus' | 'scopes' | null;
 type Props = {
   onAlbum: () => void; onSettings?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
   onLut: (id: string) => Promise<void>; onImportLut: () => Promise<void>;
   onRefresh: () => Promise<void>; onConnect: () => Promise<void>;
   notice?: Notice | null; onDismissNotice?: () => void;
+  /** False while the album or settings cover this screen. The instance stays mounted. */
+  focused?: boolean;
+  /** Connection sheet owns the back key while it is open. */
+  suspendBack?: boolean;
 };
 type PreviewSlots = [string | undefined, string | undefined];
 
 const CONNECT_STEPS = ['相机选 PC(Tether)', '接上数据线', '手机打开 OTG'];
 
-export default function CameraWorkspace({onAlbum, onSettings, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto, notice = null, onDismissNotice}: Props) {
+export default function CameraWorkspace({onAlbum, onSettings, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, latestPhoto, notice = null, onDismissNotice, focused = true, suspendBack = false}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const scopePanels = useScopePanels();
@@ -50,6 +55,8 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
   const [previewSlots, setPreviewSlots] = useState<PreviewSlots>([undefined, undefined]);
   const [activeSlot, setActiveSlot] = useState(0);
   const [shutterHint, setShutterHint] = useState<Notice | null>(null);
+  const [exitNotice, setExitNotice] = useState<Notice | null>(null);
+  const exitArmed = useRef(false);
   const flash = useRef(new Animated.Value(0)).current;
   const reduceMotion = useRef(false);
   const activeSlotRef = useRef(0);
@@ -76,13 +83,38 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
     top: (previewFrame.height - previewFrame.width) / 2,
     transform: [{rotate: '90deg'}],
   } : StyleSheet.absoluteFillObject;
-  const shownNotice = shutterHint ?? notice;
+  const shownNotice = exitNotice ?? shutterHint ?? notice;
   const dismissShown = useCallback(() => {
+    if (exitNotice) { exitArmed.current = false; setExitNotice(null); return; }
     if (shutterHint) setShutterHint(null);
     else onDismissNotice?.();
-  }, [shutterHint, onDismissNotice]);
+  }, [exitNotice, shutterHint, onDismissNotice]);
+  const onHardwareBack = useCallback(() => {
+    if (panel) { setPanel(null); exitArmed.current = false; setExitNotice(null); return true; }
+    // Not connected and not in demo: one back leaves, and the activity teardown still disconnects.
+    if (!state.active) return false;
+    if (exitArmed.current) { exitArmed.current = false; setExitNotice(null); return false; }
+    exitArmed.current = true;
+    setExitNotice({message: '再按一次退出，相机会断开'});
+    return true;
+  }, [panel, state.active]);
 
   useEffect(() => { if (state.audio !== undefined) setAudio(state.audio); }, [state.audio]);
+  useEffect(() => {
+    if (!exitNotice) return undefined;
+    const timer = setTimeout(() => { exitArmed.current = false; setExitNotice(null); }, EXIT_CONFIRM_MS);
+    return () => clearTimeout(timer);
+  }, [exitNotice]);
+  useEffect(() => {
+    if (focused && !suspendBack) return undefined;
+    exitArmed.current = false;
+    setExitNotice(null);
+  }, [focused, suspendBack]);
+  useEffect(() => {
+    if (!focused || suspendBack) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => sub.remove();
+  }, [focused, suspendBack, onHardwareBack]);
   useEffect(() => {
     let live = true;
     AccessibilityInfo.isReduceMotionEnabled?.().then(value => { if (live) reduceMotion.current = value; }).catch(() => {});
@@ -163,7 +195,7 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
       <View style={[styles.viewTools, landscape && styles.viewToolsLandscape]}>
         <CameraControl label="网格" accessibilityLabel="构图网格" icon="grid" active={grid} checked={grid} onPress={() => setGrid(value => !value)}/>
         <CameraControl label="LUT" accessibilityLabel="LUT 风格" accessibilityHint={panel === 'lut' ? '收起 LUT 面板' : '在侧边展开 LUT 面板，切换时实时预览'} icon="lut" active={!!state.lut || panel === 'lut'} onPress={() => setPanel(value => value === 'lut' ? null : 'lut')}/>
-        <ScopeToolbar panels={scopePanels} landscape={landscape}/>
+        <ScopeToolbar panels={scopePanels} landscape={landscape} pickerOpen={panel === 'scopes'} onPickerOpenChange={open => setPanel(current => open ? 'scopes' : current === 'scopes' ? null : current)}/>
         {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
             0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
             not flip either side without checking on a real S5. */}
@@ -220,9 +252,9 @@ export default function CameraWorkspace({onAlbum, onSettings, state, preview, bu
       <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]} onLayout={event => setDock({width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height})}>
         <View style={[styles.captureRow, landscape && styles.captureRowLandscape]}>
           <View style={styles.captureSide}>
-            <CameraControl label={timerLabel} icon="timer" active={timerEnabled || panel === 'delay'} accessibilityLabel={timerA11y}
+            <CameraControl label={timerLabel} labelLines={2} icon="timer" active={timerEnabled || panel === 'delay'} accessibilityLabel={timerA11y}
               accessibilityHint={waiting ? '取消倒计时并关闭定时' : panel === 'delay' ? '收起定时面板' : '打开定时面板'} onPress={toggleTimer}/>
-            <CameraControl label={audioLabel} icon={audio ? 'mic' : 'muted'} active={audio} checked={audio} accessibilityLabel={audioLabel} onPress={() => {void toggleAudio();}}/>
+            <CameraControl label={audioLabel} labelLines={2} icon={audio ? 'mic' : 'muted'} active={audio} checked={audio} accessibilityLabel={audioLabel} onPress={() => {void toggleAudio();}}/>
           </View>
           <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
           <View style={styles.captureSide}>
@@ -279,7 +311,7 @@ const styles = StyleSheet.create({
   noticeSlot: {position: 'absolute', zIndex: 1080, left: ui.space.gutter, right: ui.space.gutter},
   countdown: {...StyleSheet.absoluteFillObject, zIndex: 1100, alignItems: 'center', justifyContent: 'center'},
   dock: {padding: ui.space.gutter, gap: ui.space.sm}, dockLandscape: {width: 120, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm},
-  captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flexDirection: 'row'},
+  captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm},
   shutter: {width: 76, height: 76, flexShrink: 0, borderRadius: 38, borderWidth: 2, borderColor: ui.color.text, alignItems: 'center', justifyContent: 'center'}, shutterCore: {width: 64, height: 64, borderRadius: 32, backgroundColor: ui.color.text}, shutterDisabled: {opacity: .45}, shutterCounting: {width: 24, height: 24, borderRadius: ui.radius.small, backgroundColor: ui.color.accent},
   modes: {width: 208, alignSelf: 'center', flexDirection: 'row', padding: ui.space.xs, backgroundColor: ui.color.surface, borderRadius: ui.radius.control}, modesLandscape: {width: '100%'},
   mode: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.small, gap: ui.space.xs}, modeSelected: {backgroundColor: ui.color.selected}, modeLabel: {...ui.type.label, color: ui.color.muted}, activeLabel: {color: ui.color.accent},

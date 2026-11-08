@@ -252,8 +252,9 @@ public final class NativeBugfixChecks {
         Path files=Files.createDirectory(root.resolve("stills"));Context context=new Context(files.toFile());
         AtomicReference<File> saved=new AtomicReference<>(),failed=new AtomicReference<>();AtomicReference<CaptureEngine> reference=new AtomicReference<>();
         AtomicBoolean savedBusy=new AtomicBoolean();
+        List<String> statuses=new ArrayList<>();
         CaptureEngine engine=new CaptureEngine(context,new CaptureEngine.Listener(){
-            public void status(String text,boolean ready){}public void frame(byte[] jpeg,long buffered,boolean demo){}
+            public void status(String text,boolean ready){statuses.add(text);}public void frame(byte[] jpeg,long buffered,boolean demo){}
             public void saved(File dir){saved.set(dir);savedBusy.set(reference.get().busy());}
             public void failed(File dir,String error){failed.set(dir);}public void log(String text){}public void exposure(String text){}
         });reference.set(engine);
@@ -291,6 +292,7 @@ public final class NativeBugfixChecks {
                 check(meta.getBoolean("complete") && meta.getString("captureMode").equals("photo") && meta.getString("source").equals("THIS_SHUTTER.JPG"),"static metadata records complete shutter source");
                 check(meta.getInt("frames")==0 && meta.getLong("durationUs")==0 && !meta.getBoolean("audio"),"static capture has no frames, audio or video duration");
                 check(meta.getBoolean("lutApplied")==filtered && (filtered?meta.getString("lut").equals("Shutter LUT"):meta.isNull("lut")),"still LUT metadata uses shutter snapshot");
+                check(statuses.get(statuses.size()-1).equals(filtered?"照片已保存 · Shutter LUT":"照片已保存"),"still save notice names the photo and the LUT that was stored");
                 check(meta.getString("transport").equals(camera.kind()) && meta.getBoolean("experimentalWifi")==wifi,"still preserves transport provenance");
                 check(!new File(dir,"motion.mp4").exists() && !new File(dir,"MOMENT_MP.jpg").exists(),"ordinary still never creates video or motion container");
                 check(new MomentStore(context).list().contains(dir),"ordinary still is indexed in App album storage");
@@ -309,6 +311,11 @@ public final class NativeBugfixChecks {
             File unavailable=dir;expectIo(()->MomentStore.export(context,unavailable),"incomplete JPEG exported");
             camera=new StillCamera(false);field(CaptureEngine.class,"camera").set(engine,camera);CountDownLatch resume=block(engine);engine.captureStill();engine.disconnect();resume.countDown();settle(engine);
             check(camera.shutters==0 && !engine.busy(),"disconnect before queued static capture sends no shutter");
+            File chrome=files.resolve("chrome.cube").toFile();Files.writeString(chrome.toPath(),"TITLE \"Fuji 风格 · Classic Chrome\"\nLUT_3D_SIZE 2\n"+cube(2));
+            camera=new StillCamera(false);field(CaptureEngine.class,"camera").set(engine,camera);field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"demo").set(engine,false);field(CaptureEngine.class,"preparedHandles").set(engine,camera.baseline);
+            engine.setLut(LutEngine.load(chrome));saved.set(null);engine.captureStill();settle(engine);
+            check(statuses.get(statuses.size()-1).equals("照片已保存 · Classic Chrome"),"still save notice strips the catalog prefix");
+            engine.setLut(null);
             field(CaptureEngine.class,"active").set(engine,true);field(CaptureEngine.class,"demo").set(engine,true);saved.set(null);engine.captureStill();settle(engine);
             check(saved.get()!=null && MomentStore.metadata(saved.get()).getBoolean("demo"),"demo ordinary still works without prebuffer and carries provenance");
         }finally{Bitmap.failPixels=false;engine.shutdown();worker(engine).awaitTermination(3,TimeUnit.SECONDS);}
@@ -659,9 +666,17 @@ public final class NativeBugfixChecks {
         check(unsafe.isDirectory() && new File(unsafe,"original.jpg").isFile() && outside.isFile(),"refusing a symlink leaves the app copy and the link target");
         check(kept.isDirectory() && unknown.isDirectory(),"the refused cleanup does not remove unexported photos");
     }
+    private static void savedStatusChecks() {
+        check(CaptureEngine.savedStatus(false,false,null).equals("照片已保存"),"photo save notice without a LUT");
+        check(CaptureEngine.savedStatus(true,false,"Fuji 风格 · Classic Chrome").equals("动态照片已保存"),"motion save notice without a LUT omits the name");
+        check(CaptureEngine.savedStatus(true,true,"Fuji 风格 · Classic Chrome").equals("动态照片已保存 · Classic Chrome"),"motion save notice keeps the type and LUT name");
+        check(CaptureEngine.savedStatus(false,true,"内置 · Fuji 风格 · Classic Chrome").equals("照片已保存 · Classic Chrome"),"photo save notice drops the catalog prefix");
+        check(CaptureEngine.savedStatus(false,true,"我的 LUT").equals("照片已保存 · 我的 LUT"),"imported LUT name is kept");
+        check(CaptureEngine.savedStatus(true,true,"  ").equals("动态照片已保存"),"blank LUT title does not leave an empty suffix");
+    }
     public static void main(String[] args)throws Exception {
         Path root=Files.createTempDirectory("native-bugfix-");
-        try {lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);}
+        try {savedStatusChecks();lutChecks(root);audioChecks();usbChecks();batteryChecks();engineChecks(root);storeChecks(root);stillChecks(root);codecChecks(root);renderChecks(root);exposureRefreshChecks(root);bodySyncChecks(root);diagnosticClockChecks(root);storageChecks(root);}
         finally {try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("PASS "+checks+" native bugfix checks (Android doubles, no camera)");
     }
