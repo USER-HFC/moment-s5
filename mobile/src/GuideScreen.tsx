@@ -1,8 +1,8 @@
 import React from 'react';
 import {Linking, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import CameraControl from './CameraControl';
 import {ui} from './theme';
+import {PageHeader} from './ui';
 
 const ISSUES = 'https://github.com/USER-HFC/moment-s5/issues/new';
 const USB = [
@@ -50,11 +50,7 @@ function Entries({items}: {items: readonly {title: string; body: string}[]}) {
 
 export default function GuideScreen({onBack, onShowIntro}: {onBack: () => void; onShowIntro: () => void}) {
   return <View style={styles.screen} testID="guide-screen">
-    <View style={styles.header}>
-      <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
-      <Text style={styles.title}>使用指南</Text>
-      <View style={styles.headerSpacer}/>
-    </View>
+    <PageHeader title="使用指南" backLabel="返回设置" onBack={onBack}/>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
       <View style={styles.content}>
         <Block title="USB">

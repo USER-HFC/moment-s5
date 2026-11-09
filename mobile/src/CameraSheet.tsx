@@ -1,39 +1,39 @@
 import React from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Modal, Pressable, ScrollView, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {Button, Text} from 'react-native-paper';
-import {ui} from './theme';
+import {X} from 'lucide-react-native';
+import {cn, color, Icon, RoundButton, Text} from './ui';
 
-export default function CameraSheet({visible, title, onClose, actions, children, footer, anchor = 'center', dismissLabel, dismissAccessibilityLabel}: {
+/**
+ * Direction B sheet: a rounded grey card floating 8 dp above the bottom edge, with a grabber,
+ * a bold title and a small round close button. The scrim only dims; tapping it closes.
+ */
+export default function CameraSheet({visible, title, onClose, actions, children, footer, anchor = 'bottom', dismissAccessibilityLabel}: {
   visible: boolean; title: string; onClose: () => void; actions?: React.ReactNode;
   children: React.ReactNode; footer?: React.ReactNode;
-  /** Bottom sheets leave the photo visible, so a LUT change can be previewed above the list. */
+  /** Kept for callers; every sheet now rises from the bottom. */
   anchor?: 'center' | 'bottom';
   dismissLabel?: string; dismissAccessibilityLabel?: string;
 }) {
-  const bottom = anchor === 'bottom';
-  return <Modal visible={visible} transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={onClose}>
-    <SafeAreaView style={[styles.scrim, bottom && styles.scrimBottom]}>
-      <View style={[styles.sheet, bottom && styles.sheetBottom]} accessibilityViewIsModal>
-        <View style={styles.header}><Text style={styles.title}>{title}</Text><View style={styles.actions}>{actions}{dismissLabel
-          ? <Pressable accessibilityRole="button" accessibilityLabel={dismissAccessibilityLabel ?? dismissLabel} onPress={onClose} style={({pressed}) => [styles.dismiss, pressed && styles.dismissPressed]}><Text style={styles.dismissLabel}>{dismissLabel}</Text></Pressable>
-          : <Button textColor={ui.color.text} accessibilityLabel={`完成${title}`} onPress={onClose} contentStyle={styles.touch}>完成</Button>}</View></View>
-        <ScrollView keyboardShouldPersistTaps="handled" style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator>{children}</ScrollView>
-        {footer}
-      </View>
-    </SafeAreaView>
+  return <Modal visible={visible} transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onClose}>
+    <View className="flex-1 justify-end bg-black/55">
+      <Pressable accessibilityRole="button" accessibilityLabel="关闭" importantForAccessibility="no" className="absolute inset-0" onPress={onClose}/>
+      <SafeAreaView edges={['bottom', 'left', 'right']} className={cn('w-full max-w-[560px] self-center p-2', anchor === 'center' && 'pb-2')} style={{maxHeight: '94%'}}>
+        <View accessibilityViewIsModal className="shrink gap-3.5 rounded-sheet bg-grouped px-4 pb-4 pt-1.5" style={{elevation: 0}}>
+          <View className="h-[5px] w-9 self-center rounded-full bg-[#48484A]"/>
+          <View className="flex-row items-center justify-between gap-2">
+            <Text accessibilityRole="header" numberOfLines={1} className="shrink text-title" style={{letterSpacing: -0.3}}>{title}</Text>
+            <View className="flex-row items-center gap-1">
+              {actions}
+              <RoundButton size={30} className="bg-raised" accessibilityLabel={dismissAccessibilityLabel ?? `完成${title}`} onPress={onClose}>
+                <Icon as={X} size={15} strokeWidth={2.6} color={color.subtle}/>
+              </RoundButton>
+            </View>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" className="shrink grow-0" contentContainerClassName="gap-3.5 pb-0.5" showsVerticalScrollIndicator>{children}</ScrollView>
+          {footer}
+        </View>
+      </SafeAreaView>
+    </View>
   </Modal>;
 }
-
-const styles = StyleSheet.create({
-  scrim: {flex: 1, justifyContent: 'center', padding: ui.space.gutter, backgroundColor: ui.color.scrim},
-  scrimBottom: {justifyContent: 'flex-end', padding: 0, backgroundColor: 'transparent'},
-  sheet: {width: '100%', maxWidth: 520, maxHeight: '90%', minHeight: 0, alignSelf: 'center', padding: ui.space.gutter, gap: ui.space.md, borderRadius: ui.radius.sheet, backgroundColor: ui.color.background, borderWidth: 1, borderColor: ui.color.outline},
-  sheetBottom: {maxWidth: '100%', maxHeight: '46%', borderRadius: 0, borderTopLeftRadius: ui.radius.sheet, borderTopRightRadius: ui.radius.sheet},
-  header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: ui.icon.touch, gap: ui.space.sm},
-  title: {...ui.type.title, color: ui.color.text, flexShrink: 1}, actions: {flexDirection: 'row', alignItems: 'center'},
-  dismiss: {width: ui.icon.touch, height: ui.icon.touch, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control},
-  dismissPressed: {backgroundColor: ui.color.pressed},
-  dismissLabel: {fontSize: 20, lineHeight: 24, color: ui.color.text},
-  touch: {minHeight: ui.icon.touch}, scroll: {flexGrow: 0, flexShrink: 1}, content: {gap: ui.space.sm, paddingBottom: ui.space.xs},
-});

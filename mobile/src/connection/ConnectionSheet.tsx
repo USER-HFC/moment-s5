@@ -1,8 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {PermissionsAndroid, Platform, Pressable, StyleSheet, View} from 'react-native';
-import {Button, Switch, Text, TextInput} from 'react-native-paper';
+import {ActivityIndicator, PermissionsAndroid, Platform, Pressable, StyleSheet, TextInput, TextInputProps, View} from 'react-native';
+import {Button, cn, color, Switch, Text} from '../ui';
 import CameraSheet from '../CameraSheet';
-import {ui} from '../theme';
 import {CameraState} from '../native';
 import {connectionOptions, ConnectionForm, initialConnectionForm, WifiConnectionOptions} from './model';
 import {ConnectionMemory, DEFAULT_CONNECTION} from '../preferences';
@@ -25,11 +24,33 @@ const WIFI_STEPS = [
   '确认相机 IP，一般不用改',
 ];
 
+/** Numbered steps in a grouped card, separators inset past the number like iOS lists. */
 function Steps({items, testID}: {items: readonly string[]; testID: string}) {
-  return <View testID={testID} style={styles.steps}>{items.map((item, index) => <View key={item} style={styles.step}>
-    <Text style={styles.stepIndex}>{index + 1}</Text>
-    <Text style={styles.stepText}>{item}</Text>
+  return <View testID={testID} className="overflow-hidden rounded-card bg-raised">{items.map((item, index) => <View key={item} className="flex-row items-center gap-3 pl-3.5">
+    <View className="h-[22px] w-[22px] items-center justify-center rounded-full bg-[#48484A]">
+      <Text className="text-caption font-bold" style={{fontVariant: ['tabular-nums']}}>{index + 1}</Text>
+    </View>
+    <View className={cn('min-h-[48px] flex-1 justify-center py-2 pr-3.5', index < items.length - 1 && 'border-b border-[#48484A]')}>
+      <Text className="text-[15px] leading-[20px]">{item}</Text>
+    </View>
   </View>)}</View>;
+}
+
+/** Labelled text field: grey well, no outline, label above in small grey type. */
+function Field({label, ...props}: TextInputProps & {label: string}) {
+  return <View className="gap-1.5">
+    <Text className="px-1 text-footnote text-muted">{label}</Text>
+    <TextInput placeholderTextColor={color.faint} selectionColor={color.ink} cursorColor={color.ink} accessibilityLabel={props.accessibilityLabel ?? label}
+      className="h-12 rounded-xl bg-raised px-3.5 text-body text-ink" style={styles.input} {...props}/>
+  </View>;
+}
+
+function ToggleRow({label, value, disabled, onValueChange}: {label: string; value: boolean; disabled?: boolean; onValueChange: (value: boolean) => void}) {
+  return <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{checked: value, disabled: !!disabled}} disabled={disabled}
+    onPress={() => onValueChange(!value)} className={cn('min-h-[52px] flex-row items-center gap-3 rounded-card bg-raised px-3.5 py-2 active:opacity-80', disabled && 'opacity-45')}>
+    <Text className="flex-1 text-[15px] leading-[20px]">{label}</Text>
+    <Switch value={value}/>
+  </Pressable>;
 }
 
 export async function requestWifiPermission(): Promise<boolean> {
@@ -71,52 +92,51 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
   const currentConnection = !state.active ? '未连接' : state.demo ? '演示中' : state.transport === 'wifi' ? 'Wi-Fi 已连接' : 'USB 已连接';
   const submitLabel = mode === 'usb' ? '连接 USB 相机' : mode === 'wifi' ? '连接 Wi-Fi 相机' : '体验演示';
   const busy = pending || state.busy;
-  return <CameraSheet visible={visible} title="连接相机" onClose={onClose} dismissLabel="✕" dismissAccessibilityLabel="关闭">
-        <Text style={styles.connection} accessibilityLiveRegion="polite">{`${currentConnection}${state.busy ? ' · 处理中' : ''}`}</Text>
-        <View testID="connection-modes" accessibilityRole="tablist" style={styles.modes}>{MODES.map(item => {
+  return <CameraSheet visible={visible} title="连接相机" onClose={onClose} dismissAccessibilityLabel="关闭">
+        <Text className="-mt-1.5 text-footnote text-muted" accessibilityLiveRegion="polite">{`${currentConnection}${state.busy ? ' · 处理中' : ''}`}</Text>
+        <View testID="connection-modes" accessibilityRole="tablist" className="h-9 flex-row gap-0.5 rounded-[10px] bg-raised p-0.5">{MODES.map(item => {
           const selected = mode === item.value;
           return <Pressable key={item.value} testID={`connection-mode-${item.value}`} accessibilityRole="tab"
             accessibilityLabel={item.accessibilityLabel} accessibilityState={{selected, disabled: busy}} disabled={busy}
             onPress={() => {setMode(item.value); setError('');}}
-            style={({pressed}) => [styles.mode, selected && styles.modeSelected, pressed && styles.modePressed]}>
-            <View style={styles.modeContent}>
-              <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.modeLabel, selected && styles.modeLabelSelected]}>{item.label}</Text>
-              {'badge' in item && <View style={styles.modeBadge}><Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.modeBadgeLabel}>{item.badge}</Text></View>}
-            </View>
+            className={cn('flex-1 flex-row items-center justify-center gap-1.5 rounded-lg active:opacity-70', selected && 'bg-faint')}>
+            <Text numberOfLines={1} className={cn('text-[14px] leading-[18px]', selected ? 'font-semibold' : 'font-medium text-[#D1D1D6]')}>{item.label}</Text>
+            {'badge' in item && <Text numberOfLines={1} className="text-[10px] leading-[13px] font-semibold text-muted">{item.badge}</Text>}
           </Pressable>;
         })}</View>
         {mode === 'usb' && <Steps testID="usb-steps" items={USB_STEPS}/>}
-        {mode === 'demo' && <Text style={styles.detail}>演示画面，不连接相机。</Text>}
+        {mode === 'demo' && <Text className="text-[15px] leading-[20px] text-muted">演示画面，不连接相机。可以先熟悉拍摄、相册和 LUT。</Text>}
         {mode === 'wifi' && <>
           <Steps testID="wifi-steps" items={WIFI_STEPS}/>
-          <View style={styles.switchBlock}>
-            <View style={styles.row}><Text style={styles.rowLabel}>我已在系统设置里连上相机 Wi-Fi</Text><Switch accessibilityLabel="我已在系统设置里连上相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/></View>
-            <Text style={styles.detail}>打开后直接使用当前网络，不会再弹出连接相机热点的请求。</Text>
+          <View className="gap-1.5">
+            <ToggleRow label="我已在系统设置里连上相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/>
+            <Text className="px-1 text-footnote text-muted">打开后直接使用当前网络，不会再弹出连接相机热点的请求。</Text>
           </View>
-          {!form.manual && !form.debug && <><TextInput mode="outlined" label="相机 Wi-Fi 名称" accessibilityLabel="相机 Wi-Fi 名称" autoCapitalize="none" autoCorrect={false} value={form.ssid} onChangeText={value => set('ssid', value)}/><TextInput mode="outlined" label="Wi-Fi 密码（开放网络可留空）" accessibilityLabel="相机 Wi-Fi 密码" secureTextEntry value={form.password} onChangeText={value => set('password', value)}/></>}
+          {!form.manual && !form.debug && <>
+            <Field label="相机 Wi-Fi 名称" autoCapitalize="none" autoCorrect={false} value={form.ssid} onChangeText={value => set('ssid', value)}/>
+            <Field label="Wi-Fi 密码（开放网络可留空）" accessibilityLabel="相机 Wi-Fi 密码" secureTextEntry value={form.password} onChangeText={value => set('password', value)}/>
+          </>}
           {/* Android decimal-pad is one decimal number, so a second '.' in an IPv4 address never arrives. */}
-          {!form.debug && <TextInput mode="outlined" label="相机 IP" accessibilityLabel="相机 IP" autoCapitalize="none" autoCorrect={false} keyboardType="numbers-and-punctuation" value={form.cameraIp} onChangeText={value => set('cameraIp', value)}/>}
-          {debugAllowed && <><View style={styles.row}><Text style={styles.rowLabel}>模拟相机调试（仅 debug）</Text><Switch accessibilityLabel="模拟相机调试" value={form.debug} onValueChange={value => set('debug', value)}/></View>{form.debug && <><TextInput mode="outlined" label="调试主机:端口" accessibilityLabel="调试主机:端口" autoCapitalize="none" autoCorrect={false} value={form.debugEndpoint} onChangeText={value => set('debugEndpoint', value)}/><TextInput mode="outlined" label="UDP 接收端口" accessibilityLabel="UDP 接收端口" keyboardType="number-pad" value={form.udpPort} onChangeText={value => set('udpPort', value)}/><Text style={styles.detail}>使用本项目 mock。模拟器须单独配置 UDP 端口转发。</Text></>}</>}
+          {!form.debug && <Field label="相机 IP" autoCapitalize="none" autoCorrect={false} keyboardType="numbers-and-punctuation" value={form.cameraIp} onChangeText={value => set('cameraIp', value)}/>}
+          {debugAllowed && <>
+            <ToggleRow label="模拟相机调试（仅 debug）" value={form.debug} onValueChange={value => set('debug', value)}/>
+            {form.debug && <>
+              <Field label="调试主机:端口" autoCapitalize="none" autoCorrect={false} value={form.debugEndpoint} onChangeText={value => set('debugEndpoint', value)}/>
+              <Field label="UDP 接收端口" keyboardType="number-pad" value={form.udpPort} onChangeText={value => set('udpPort', value)}/>
+              <Text className="px-1 text-footnote text-muted">使用本项目 mock。模拟器须单独配置 UDP 端口转发。</Text>
+            </>}
+          </>}
         </>}
-        {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" style={[styles.detail, error && styles.error]}>{error || userFacingError(status)}</Text>}
+        {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" className={cn('text-footnote', error ? 'text-danger' : 'text-muted')}>{error || userFacingError(status)}</Text>}
 
-        <Button mode="contained" contentStyle={styles.touch} accessibilityLabel={submitLabel} loading={pending} disabled={busy} onPress={() => {void submit();}}>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi' : '体验演示'}</Button>
-        {state.active && <Button contentStyle={styles.touch} disabled={busy} onPress={onDisconnect}>{state.demo ? '结束演示' : '断开相机'}</Button>}
+        <Button variant="primary" size="lg" accessibilityLabel={submitLabel} disabled={busy} onPress={() => {void submit();}}>
+          {pending && <ActivityIndicator color="#000000"/>}
+          <Text>{mode === 'usb' ? '连接 USB' : mode === 'wifi' ? '连接 Wi-Fi' : '体验演示'}</Text>
+        </Button>
+        {state.active && <Button variant="tinted" tone="danger" accessibilityLabel={state.demo ? '结束演示' : '断开相机'} disabled={busy} onPress={onDisconnect}><Text>{state.demo ? '结束演示' : '断开相机'}</Text></Button>}
   </CameraSheet>;
 }
 const styles = StyleSheet.create({
-  modes: {flexDirection: 'row', flexWrap: 'nowrap', borderWidth: 1, borderColor: ui.color.outline, borderRadius: ui.radius.control, overflow: 'hidden'},
-  mode: {flex: 1, minWidth: 0, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ui.space.xs, paddingVertical: ui.space.sm},
-  modeSelected: {backgroundColor: ui.color.selected}, modePressed: {backgroundColor: ui.color.pressed},
-  modeContent: {maxWidth: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ui.space.xs},
-  modeLabel: {...ui.type.body, flexShrink: 0, color: ui.color.muted, textAlign: 'center'}, modeLabelSelected: {color: ui.color.accent},
-  modeBadge: {flexShrink: 0, borderWidth: 1, borderColor: ui.color.outline, borderRadius: ui.radius.small, paddingHorizontal: ui.space.xs, paddingVertical: 1},
-  modeBadgeLabel: {...ui.type.label, color: ui.color.muted},
-  steps: {gap: ui.space.sm}, step: {flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.sm},
-  stepIndex: {width: 24, ...ui.type.body, color: ui.color.accent, fontVariant: ['tabular-nums']},
-  stepText: {...ui.type.body, flex: 1, color: ui.color.text},
-  switchBlock: {gap: ui.space.xs}, touch: {minHeight: ui.icon.touch},
-  row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm, minHeight: ui.icon.touch},
-  rowLabel: {...ui.type.body, flex: 1, color: ui.color.text}, connection: {...ui.type.body, color: ui.color.text},
-  detail: {...ui.type.body, color: ui.color.muted}, error: {color: ui.color.destructive},
+  // Android adds vertical padding to TextInput; zero it so the 48 dp well centres the text.
+  input: {paddingVertical: 0},
 });

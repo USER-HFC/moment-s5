@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {BackHandler, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import CameraControl from './CameraControl';
 import ConfirmDialog from './ConfirmDialog';
 import {camera} from './native';
 import {Notice} from './notice';
 import {clearableSummary, formatBytes, StorageUsage} from './preferences';
 import {ui} from './theme';
+import {PageHeader} from './ui';
 
 export default function StorageScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {
   const [usage, setUsage] = useState<StorageUsage | null>(null);
@@ -57,11 +57,7 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
     : '只删除已经导出到系统相册的 App 内副本。机身 SD 卡和系统相册里的照片不受影响。';
   return <View style={styles.screen} testID="storage-screen">
     <View testID="storage-body" accessibilityElementsHidden={confirm} importantForAccessibility={confirm ? 'no-hide-descendants' : 'auto'} style={styles.screen}>
-    <View style={styles.header}>
-      <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
-      <Text style={styles.title}>存储</Text>
-      <View style={styles.headerSpacer}/>
-    </View>
+    <PageHeader title="存储" backLabel="返回设置" onBack={onBack}/>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
       <View style={styles.content}>
         <View style={styles.card}>

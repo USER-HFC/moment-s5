@@ -2,11 +2,12 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Clipboard, Platform, ScrollView, Share, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {buildInfoFromModule} from './buildInfo';
-import CameraControl from './CameraControl';
 import {connectionModeLabel, diagnosticFacts, diagnosticHeader, diagnosticRows, diagnosticShareText, DiagnosticFacts, presentDiagnostics, scrollDiagnosticsToEnd} from './connection/diagnostics';
 import {camera} from './native';
 import {Notice} from './notice';
 import {ui} from './theme';
+import {RotateCw} from 'lucide-react-native';
+import {Icon, PageHeader, RoundButton} from './ui';
 
 const EMPTY = '还没有诊断记录，连接相机后再来看';
 
@@ -70,11 +71,8 @@ export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => voi
 
   const showEmpty = log === '' && !problem;
   return <View style={styles.screen} testID="diagnostics-screen">
-    <View style={styles.header}>
-      <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
-      <Text style={styles.title}>连接诊断</Text>
-      <CameraControl icon="refresh" accessibilityLabel="刷新诊断记录" onPress={() => { void load(); }}/>
-    </View>
+    <PageHeader title="连接诊断" backLabel="返回设置" onBack={onBack}
+      right={<RoundButton size={36} accessibilityLabel="刷新诊断记录" onPress={() => { void load(); }}><Icon as={RotateCw} size={18}/></RoundButton>}/>
     {/* Same label / value card as 关于, read out as one block. */}
     <View testID="diagnostics-context" accessible accessibilityLabel={diagnosticHeader(facts)} style={styles.context}>
       {diagnosticRows(facts).map(([label, value], index) => <View key={label} style={[styles.contextRow, index > 0 && styles.contextDivider]}>

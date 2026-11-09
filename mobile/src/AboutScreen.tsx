@@ -2,11 +2,11 @@ import React, {useEffect, useState} from 'react';
 import {Clipboard, Image, Linking, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import {BuildInfo, buildInfoText, formatBuiltAt, minAndroidLabel} from './buildInfo';
-import CameraControl from './CameraControl';
 import CameraIcon from './CameraIcon';
 // Rasterized from app/src/main/res/drawable/ic_moment.xml: Image cannot load a native vector drawable by resource name.
 import appIcon from './assets/ic_moment.png';
 import {ui} from './theme';
+import {PageHeader} from './ui';
 
 const REPO = 'https://github.com/USER-HFC/moment-s5';
 const NOTICE = 'https://github.com/USER-HFC/moment-s5/blob/main/NOTICE.md';
@@ -67,11 +67,7 @@ export default function AboutScreen({build, onBack}: {build: BuildInfo; onBack: 
     return () => clearTimeout(timer);
   }, [copied]);
   return <View style={styles.screen} testID="about-screen">
-    <View style={styles.header}>
-      <CameraControl icon="back" accessibilityLabel="返回设置" onPress={onBack}/>
-      <Text style={styles.title}>关于</Text>
-      <View style={styles.headerSpacer}/>
-    </View>
+    <PageHeader title="关于" backLabel="返回设置" onBack={onBack}/>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
       <View style={styles.content}>
         <View style={styles.hero}>
