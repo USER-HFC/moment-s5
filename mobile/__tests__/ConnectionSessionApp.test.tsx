@@ -35,6 +35,7 @@ import App from '../App';
 import {camera, cameraEvents} from '../src/native';
 import {USB_CAMERA_ATTACHED_EVENT} from '../src/volumeShutter';
 import {USER_DISCONNECT_STATUS} from '../src/connection/sessionNotice';
+import {pressLabel} from './support/press';
 
 let mounted: renderer.ReactTestRenderer | undefined;
 afterEach(() => {
@@ -51,10 +52,7 @@ afterEach(() => {
 });
 const listeners = () => (cameraEvents as unknown as {listeners: Map<string, Function>}).listeners;
 const text = (tree: renderer.ReactTestRenderer) => JSON.stringify(tree.toJSON());
-const press = (tree: renderer.ReactTestRenderer, label: string) => act(() => {
-  const nodes = tree.root.findAllByProps({accessibilityLabel: label});
-  (nodes.find(node => typeof node.props.onPress === 'function') || nodes.find(node => typeof node.props.style === 'function') || nodes[0]).props.onPress();
-});
+const press = (tree: renderer.ReactTestRenderer, label: string) => pressLabel(tree, label);
 async function settle() {
   for (let step = 0; step < 8; step += 1) await act(async () => { await Promise.resolve(); });
 }

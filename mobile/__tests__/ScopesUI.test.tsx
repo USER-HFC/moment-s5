@@ -21,6 +21,7 @@ import {changeScopePanel, resetScopeRevealHint, useScopePanels} from '../src/sco
 import {scopePanelLayout} from '../src/scopes/panelState';
 import {SCOPE_SHAPE} from '../src/scopes/protocol';
 import CameraWorkspace from '../src/CameraWorkspace';
+import {pressLabel} from './support/press';
 
 function Harness({portrait = true, ratio = 1.5}: {portrait?: boolean; ratio?: number}) {
   const panels = useScopePanels();
@@ -57,7 +58,7 @@ describe('scope overlays and native subscription lifecycle', () => {
   it('lets the picker open multiple cards and closes one while keeping analysis subscribed', () => {
     act(() => {tree = renderer.create(<Harness/>);});
     expect(api.setScopesEnabled).not.toHaveBeenCalledWith(true, true, 1.5);
-    act(() => tree!.root.findByProps({accessibilityLabel: '示波器'}).props.onPress());
+    pressLabel(tree!, '示波器');
     act(() => tree!.root.findByProps({testID: 'scope-option-histogram'}).props.onPress());
     act(() => tree!.root.findByProps({testID: 'scope-option-waveform'}).props.onPress());
     expect(tree!.root.findByProps({testID: 'scope-panel-histogram'})).toBeTruthy();
@@ -90,10 +91,10 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(waveform().width).toBe(other.width);expect(waveform().height).toBe(other.height);
     expect(tree!.root.findByProps({accessibilityLabel: '缩小RGB 直方图'})).toBeTruthy();
     const handle = tree!.root.findByProps({testID: 'scope-move-histogram'});
-    const touch = StyleSheet.flatten(handle.props.style);expect(touch.width).toBeGreaterThanOrEqual(48);expect(touch.height).toBeGreaterThanOrEqual(48);
+    const touch = StyleSheet.flatten(handle.props.style);expect(touch.width).toBeGreaterThanOrEqual(44);expect(touch.height).toBeGreaterThanOrEqual(44);
     act(() => handle.props.onAccessibilityAction({nativeEvent: {actionName: 'down'}}));
     const resize = tree!.root.findByProps({testID: 'scope-resize-histogram'});
-    expect(StyleSheet.flatten(resize.props.style).height).toBeGreaterThanOrEqual(48);
+    expect(StyleSheet.flatten(resize.props.style).height).toBeGreaterThanOrEqual(44);
     act(() => resize.props.onPress());expect(panel().width).toBe(before.width);
     act(() => tree!.root.findByProps({testID: 'scope-close-histogram'}).props.onPress());
     expect(tree!.root.findAllByProps({testID: 'scope-panel-histogram'})).toHaveLength(0);
@@ -171,7 +172,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     expect(overlayZ).toBeLessThan(1100);
     act(() => tree!.root.findByProps({testID: 'scope-close-waveform'}).props.onPress());
     expect(tree!.root.findAllByProps({testID: 'scopes-overlay'})).toHaveLength(0);
-    for (const testID of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree!.root.findByProps({testID})).toBeTruthy();
+    for (const testID of ['hud-batteries', 'hud-exposure', 'lut-pill']) expect(tree!.root.findByProps({testID})).toBeTruthy();
     expect(JSON.stringify(tree!.toJSON())).toContain('ISO 640');
   });
   it('preserves the session when leaving the camera and applies the new preview orientation on return', () => {
@@ -203,7 +204,7 @@ describe('scope overlays and native subscription lifecycle', () => {
     const props = {state, preview: 'data:image/jpeg;base64,frame', buffered: 3, luts, onLut, onAlbum: () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
     act(() => {tree = renderer.create(<CameraWorkspace {...props}/>);});
     act(() => tree!.root.findByProps({testID: 'viewfinder'}).props.onLayout({nativeEvent: {layout: {width: 375, height: 560}}}));
-    act(() => tree!.root.findByProps({accessibilityLabel: '示波器'}).props.onPress());
+    pressLabel(tree!, '示波器');
     act(() => tree!.root.findByProps({testID: 'scope-option-waveform'}).props.onPress());
     act(() => tree!.root.findByProps({accessibilityLabel: 'LUT 风格'}).props.onPress());
     const before = api.setScopesEnabled.mock.calls.length;

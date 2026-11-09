@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {Linking, StyleSheet} from 'react-native';
+import {Linking, StyleSheet, Text} from 'react-native';
 import {ui} from '../src/theme';
 import {expect, it, jest} from '@jest/globals';
 
@@ -98,7 +98,8 @@ it('confirms before clearing exported copies and says the card and gallery stay'
   expect(tree!.root.findAllByProps({testID: 'storage-confirm'}).some(node => node.props.accessibilityViewIsModal)).toBe(true);
   expect(tree!.root.findByProps({testID: 'storage-body'}).props.importantForAccessibility).toBe('no-hide-descendants');
   expect(tree!.root.findByProps({testID: 'storage-body'}).props.accessibilityElementsHidden).toBe(true);
-  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'storage-confirm-clear'}).props.style({pressed: false})).backgroundColor).toBe(ui.color.destructive);
+  // Destructive confirm reads red text on a grey capsule.
+  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'storage-confirm-clear'}).findByType(Text).props.style).color).toBe(ui.color.destructive);
   await act(async () => tree!.root.findByProps({testID: 'storage-confirm-clear'}).props.onPress());
   expect(camera!.clearExportedCopies).toHaveBeenCalledTimes(1);
   expect(notices).toEqual(['已清理 1 张已导出的副本']);

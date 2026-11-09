@@ -1,7 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {jest, expect, it} from '@jest/globals';
-import {Animated, AppState, Modal, StyleSheet, View} from 'react-native';
+import {Animated, AppState, Modal, StyleSheet, Text, View} from 'react-native';
 import {ui} from '../src/theme';
 
 jest.mock('react-native-video', () => {
@@ -65,12 +65,12 @@ it('opens a photo from the grid and swipes to the next one', () => {
   expect(tree.root.findByProps({testID: 'album-grid'})).toBeTruthy();
   expect(tree.root.findAllByProps({testID: 'motion-viewer'})).toHaveLength(0);
   open(tree);
-  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
+  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1/2');
   const pan = latest('pan')!;
   act(() => { pan.onBegin?.(); pan.onUpdate?.({translationX: -30, translationY: 0}); pan.onEnd?.({translationX: -30, translationY: 0}); });
-  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
+  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1/2');
   act(() => { pan.onBegin?.(); pan.onUpdate?.({translationX: -220, translationY: 0}); pan.onEnd?.({translationX: -220, translationY: 0}); });
-  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('2 / 2');
+  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('2/2');
   expect(tree.root.findByProps({testID: 'album-photo'}).props.source.uri).toBe('content://moment/image2');
   act(() => tree.unmount());
 });
@@ -125,12 +125,12 @@ it('does not change photos while the current one is zoomed', () => {
   expect(tree.root.findByProps({testID: 'album-pager'}).props.accessibilityState.selected).toBe(true);
   const pan = latest('pan')!;
   act(() => { pan.onBegin?.(); pan.onUpdate?.({translationX: -220, translationY: 0}); pan.onEnd?.({translationX: -220, translationY: 0}); });
-  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
+  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('1/2');
   const release = latest('pinch')!;
   act(() => { release.onBegin?.(); release.onUpdate?.({scale: 0.2}); release.onEnd?.({}); });
   const swipe = latest('pan')!;
   act(() => { swipe.onEnd?.({translationX: -220, translationY: 0}); });
-  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('2 / 2');
+  expect(tree.root.findByProps({testID: 'album-index'}).props.children).toBe('2/2');
   act(() => tree.unmount());
 });
 
@@ -207,7 +207,7 @@ it('can delete a failed app-private record while export stays unavailable', () =
   expect(tree!.root.findByProps({accessibilityRole: 'header', accessibilityLabel: '删除这张照片？'})).toBeTruthy();
   expect(tree!.root.findByProps({testID: 'album-screen'}).props.importantForAccessibility).toBe('no-hide-descendants');
   expect(tree!.root.findByProps({testID: 'album-screen'}).props.accessibilityElementsHidden).toBe(true);
-  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'confirm-accept'}).props.style({pressed: false})).backgroundColor).toBe(ui.color.destructive);
+  expect(StyleSheet.flatten(tree!.root.findByProps({testID: 'confirm-accept'}).findByType(Text).props.style).color).toBe(ui.color.destructive);
   act(() => tree!.root.findByType(Modal).props.onRequestClose());
   expect(tree!.root.findAllByProps({testID: 'confirm-dialog'})).toHaveLength(0);
   expect(remove).not.toHaveBeenCalled();
@@ -436,7 +436,7 @@ it('filters the grid and shows an empty state for the active filter', () => {
   act(() => tree!.update(<MotionAlbum moments={[moments[0]]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>));
   expect(tree!.root.findByProps({testID: 'album-empty'})).toBeTruthy();
   expect(JSON.stringify(tree!.toJSON())).toContain('没有照片');
-  expect(tree!.root.findByProps({testID: 'camera-icon-photo'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-empty-icon-photo'})).toBeTruthy();
   expect(tree!.root.findAllByProps({testID: 'album-empty-shoot'})).toHaveLength(0);
   expect(tree!.root.findAllByProps({testID: 'album-grid'})).toHaveLength(0);
   act(() => tree!.unmount());
@@ -446,7 +446,7 @@ it('returns to capture from an empty album and names each empty filter', () => {
   const onBack = jest.fn();
   let tree: renderer.ReactTestRenderer;
   act(() => { tree = renderer.create(<MotionAlbum moments={[]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>); });
-  expect(tree!.root.findByProps({testID: 'album-empty'}).findByProps({testID: 'camera-icon-album'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-empty'}).findByProps({testID: 'album-empty-icon-all'})).toBeTruthy();
   expect(JSON.stringify(tree!.toJSON())).toContain('还没有照片');
   // Four zero counts say nothing, so the filters wait until there is a photo.
   expect(tree!.root.findAllByProps({testID: 'album-filters'})).toHaveLength(0);
@@ -458,12 +458,12 @@ it('returns to capture from an empty album and names each empty filter', () => {
   act(() => tree!.update(<MotionAlbum moments={[still]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>));
   act(() => tree!.root.findByProps({testID: 'album-filter-motion'}).props.onPress());
   expect(JSON.stringify(tree!.toJSON())).toContain('没有动态照片');
-  expect(tree!.root.findByProps({testID: 'camera-icon-motion'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-empty-icon-motion'})).toBeTruthy();
   expect(tree!.root.findAllByProps({testID: 'album-empty-shoot'})).toHaveLength(0);
   act(() => tree!.root.findByProps({testID: 'album-filter-camera'}).props.onPress());
   expect(JSON.stringify(tree!.toJSON())).toContain('没有机身同步的照片');
   expect(JSON.stringify(tree!.toJSON())).toContain('机身快门');
-  expect(tree!.root.findByProps({testID: 'camera-icon-camera'})).toBeTruthy();
+  expect(tree!.root.findByProps({testID: 'album-empty-icon-camera'})).toBeTruthy();
   // Deleting the last photo while a filter is on falls back to the whole-album copy, not「没有机身同步的照片」.
   act(() => tree!.update(<MotionAlbum moments={[]} onBack={onBack} onExport={exportMock} onDelete={exportMock}/>));
   expect(JSON.stringify(tree!.toJSON())).toContain('还没有照片');
@@ -516,7 +516,7 @@ it('follows a downward drag and closes the viewer unless the photo is zoomed', (
   act(() => { dismissGesture().onUpdate?.({translationX: 0, translationY: 70, velocityY: 0}); });
   expect(moved()).toBe(70);
   act(() => { dismissGesture().onEnd?.({translationX: 0, translationY: 70, velocityY: 0}); });
-  expect(tree!.root.findByProps({testID: 'album-index'}).props.children).toBe('1 / 2');
+  expect(tree!.root.findByProps({testID: 'album-index'}).props.children).toBe('1/2');
   const double = [...gestures()].reverse().find((gesture) => gesture.kind === 'tap' && gesture.numberOfTaps === 2)!;
   act(() => double.onEnd?.({}, true));
   act(() => { dismissGesture().onUpdate?.({translationX: 0, translationY: 240, velocityY: 0}); dismissGesture().onEnd?.({translationX: 0, translationY: 240, velocityY: 0}); });

@@ -45,10 +45,10 @@ it('opens About from the settings list and returns through both levels', async (
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true as never);
   let tree: renderer.ReactTestRenderer;
   await act(async () => { tree = renderer.create(<App/>); });
-  const settings = tree!.root.findAllByProps({testID: 'settings-button'}).find(node => typeof node.props.style === 'function')!;
-  const style = StyleSheet.flatten(settings.props.style({pressed: false}));
-  expect(style.width).toBeGreaterThanOrEqual(48);
-  expect(style.height).toBeGreaterThanOrEqual(48);
+  const settings = tree!.root.findAllByProps({testID: 'settings-button'}).find(node => typeof node.props.onPress === 'function' && node.props.hitSlop !== undefined)!;
+  // A 36 dp circle with hitSlop still gives a 44 dp target.
+  const size = StyleSheet.flatten(settings.props.style).width;
+  expect(size + settings.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
   act(() => settings.props.onPress());
   expect(tree!.root.findByProps({testID: 'settings-screen'})).toBeTruthy();
   expect(tree!.root.findByProps({testID: 'settings-about'})).toBeTruthy();

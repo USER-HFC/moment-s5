@@ -1,8 +1,8 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {jest, expect, it} from '@jest/globals';
-import {Pressable} from 'react-native';
-import {PaperProvider, Text} from 'react-native-paper';
+import {Pressable, Text} from 'react-native';
+import {PaperProvider} from 'react-native-paper';
 import LutPresetList, {lutDisplayName} from '../src/LutPresetList';
 import {LutItem} from '../src/native';
 

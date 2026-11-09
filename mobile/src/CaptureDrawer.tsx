@@ -86,7 +86,7 @@ export default function CaptureDrawer(props: Props) {
   }
   if (option === 'scopes') {
     const segments: Segment<ScopeKind>[] = SCOPE_KINDS.map(kind => ({
-      value: kind, label: SCOPE_SHORT[kind], accessibilityLabel: SCOPE_TITLES[kind], selected: props.scopes[kind].open,
+      value: kind, label: SCOPE_SHORT[kind], accessibilityLabel: SCOPE_TITLES[kind], selected: props.scopes[kind].open, testID: `scope-option-${kind}`,
     }));
     return row('scope-options', '示波器选项', <Head icon={Activity} accessibilityLabel="收起示波器" onPress={close}/>,
       <Segmented segments={segments} role="checkbox" vertical={vertical} accessibilityLabel="示波器" onSelect={props.onScope}/>,

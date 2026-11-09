@@ -1,13 +1,12 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {describe, expect, it, jest} from '@jest/globals';
-import {StyleSheet} from 'react-native';
-import {Text} from 'react-native-paper';
+import {StyleSheet, Text} from 'react-native';
 import CameraHud from '../src/hud/CameraHud';
+import {connectionPill} from '../src/cameraLabel';
 // The scopes branch removed hudSafeBounds when charts were freed to cover the whole preview.
 import {batteryText, EXPOSURE_STALE_MS, exposureReading} from '../src/hud/readings';
 import {CameraState} from '../src/native';
-import {ui} from '../src/theme';
 
 const connected: CameraState = {active: true, busy: false, ready: true, demo: false, transport: 'usb', lut: null};
 function hud(state: CameraState, motion = false, buffered = 3) {
@@ -27,8 +26,8 @@ describe('truthful four-corner camera HUD', () => {
     expect(JSON.stringify(tree.toJSON())).not.toContain('↯');
     expect(tree.root.findAllByProps({accessibilityLabel: '相机电量不可用，当前连接未提供机身电量'})).toHaveLength(0);
     expect(json).not.toContain('相机 —');
-    expect(json).toContain('USB · 已连接');expect(json).toContain('Classic Chrome');expect(json).toContain('可拍');expect(json).not.toContain('scopes-overlay');
-    for (const id of ['hud-source', 'hud-batteries', 'hud-exposure', 'hud-capture']) expect(tree.root.findByProps({testID: id})).toBeTruthy();
+    expect(json).toContain('Classic Chrome');expect(json).not.toContain('可拍');expect(json).not.toContain('scopes-overlay');
+    for (const id of ['hud-batteries', 'hud-exposure', 'lut-pill']) expect(tree.root.findByProps({testID: id})).toBeTruthy();
     expect(StyleSheet.flatten(tree.root.findByProps({testID: 'hud-top'}).props.style).zIndex).toBe(1000);
     act(() => tree.unmount());
   });
@@ -45,10 +44,8 @@ describe('truthful four-corner camera HUD', () => {
   it('preserves unrecognized Wi-Fi encodings and camera messages verbatim, with explicit field placeholders', () => {
     for (const raw of ['ISO 800     f/1024/256     快门 256/65400', 'f/400     快门 256/65400', 'f/28', '曝光参数暂不可读 · 可用机身调整', 'ISO 100 F4 1/60']) {
       const tree = hud({...connected, transport: 'wifi', exposure: raw, exposureAgeMs: 0});
-      const json = JSON.stringify(tree.toJSON());
       expect(text(tree, 'hud-aperture')).toBe('f/—');
       expect(text(tree, 'hud-shutter')).toBe('快门 —');
-      expect(json).toContain('未经真机验证');
       expect(text(tree, 'hud-exposure-detail')).toBe(raw.split(/\s{2,}/).filter(part => !/^ISO (?:[1-9]\d*|AUTO)$/.test(part)).join(' · '));
       act(() => tree.unmount());
     }
@@ -61,7 +58,6 @@ describe('truthful four-corner camera HUD', () => {
     const demo = hud({...connected, exposure, demo: true}, true);
     const demoJson = JSON.stringify(demo.toJSON());
     expect(demo.root.findAllByProps({testID: 'hud-aperture'})).toHaveLength(0);
-    expect(demoJson).toContain('演示');
     expect(demoJson).not.toContain('DEMO');
     expect(demoJson).not.toContain('合成演示');
     expect(demoJson).not.toContain('640');
@@ -102,29 +98,21 @@ describe('truthful four-corner camera HUD', () => {
     expect(StyleSheet.flatten(filling.root.findByProps({testID: 'hud-buffer-bar'}).props.style).width).toBe('40%');
     act(() => filling.unmount());
   });
-  it('names the connected body and keeps Wi-Fi marked experimental', () => {
-    const usb = hud({...connected, cameraModel: 'DC-S5'});
-    const usbLabels = usb.root.findAllByType(Text).map(node => node.props.children).filter(child => typeof child === 'string');
-    expect(usbLabels).toContain('DC-S5 · USB');
-    expect(usbLabels).not.toContain('USB · 已连接');
-    act(() => usb.unmount());
-    const wifi = hud({...connected, transport: 'wifi', cameraModel: ' DC-S5 '});
-    expect(JSON.stringify(wifi.toJSON())).toContain('DC-S5 · Wi-Fi');
-    expect(wifi.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
-    act(() => wifi.unmount());
-    const demo = hud({...connected, demo: true, cameraModel: 'DC-S5'});
-    expect(JSON.stringify(demo.toJSON())).toContain('演示');
-    expect(JSON.stringify(demo.toJSON())).not.toContain('DC-S5');
-    act(() => demo.unmount());
+  it('names the connected body in the top-bar pill and keeps Wi-Fi marked experimental', () => {
+    expect(connectionPill({...connected, cameraModel: 'DC-S5'})).toEqual({title: 'DC-S5', detail: 'USB'});
+    expect(connectionPill({...connected, transport: 'wifi', cameraModel: ' DC-S5 '})).toEqual({title: 'DC-S5', detail: 'Wi-Fi 实验'});
+    expect(connectionPill({...connected, transport: 'wifi'})).toEqual({title: 'Wi-Fi 实验', detail: '已连接'});
+    expect(connectionPill({...connected, demo: true, cameraModel: 'DC-S5'})).toEqual({title: '演示', detail: ''});
+    expect(connectionPill({...connected, active: false})).toEqual({title: '未连接', detail: ''});
   });
   it('turns the camera battery red at or below 15 percent and leaves healthy readings neutral', () => {
     const low = hud({...connected, cameraBattery: {percent: 15}});
     const lowText = low.root.findByProps({accessibilityLabel: '相机电量15%，电量低'});
-    expect(StyleSheet.flatten(lowText.props.style).color).toBe(ui.color.destructive);
+    expect(lowText.props.className).toContain('text-danger');
     act(() => low.unmount());
     const healthy = hud({...connected, cameraBattery: {percent: 16}});
     const healthyText = healthy.root.findByProps({accessibilityLabel: '相机电量16%'});
-    expect(StyleSheet.flatten(healthyText.props.style).color).not.toBe(ui.color.destructive);
+    expect(healthyText.props.className).not.toContain('text-danger');
     act(() => healthy.unmount());
   });
 });

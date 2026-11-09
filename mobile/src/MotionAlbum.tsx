@@ -627,7 +627,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const grid = <A11yHideView testID="album-grid-layer" collapsable={false} style={styles.fill} pointerEvents={current ? 'none' : 'auto'} accessibilityElementsHidden={!!current} importantForAccessibility={current ? 'no-hide-descendants' : 'auto'}>
     {filtered.length === 0 ? <View className="flex-1 items-center justify-center gap-3 px-8" style={{paddingTop: 104}} testID="album-empty">
       <View className="mb-1 h-[72px] w-[72px] items-center justify-center rounded-full bg-grouped">
-        {emptyFilter === 'motion' ? <MotionGlyph size={32}/> : <Icon as={emptyAlbumIcon(emptyFilter)} size={32}/>}
+        {emptyFilter === 'motion' ? <MotionGlyph size={32} testID="album-empty-icon-motion"/> : <Icon as={emptyAlbumIcon(emptyFilter)} size={32} testID={`album-empty-icon-${emptyFilter}`}/>}
       </View>
       <Text className="text-title text-center">{emptyCopy.title}</Text>
       <Text className="text-[15px] leading-[21px] text-center text-muted">{emptyCopy.body}</Text>

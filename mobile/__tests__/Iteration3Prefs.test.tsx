@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
-import {Animated, AppState, StyleSheet, Vibration} from 'react-native';
+import {Animated, AppState, Vibration} from 'react-native';
 import {afterEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
@@ -48,6 +48,7 @@ import {camera, cameraEvents, CameraState} from '../src/native';
 import {savePreference} from '../src/preferences';
 import {VOLUME_SHUTTER_EVENT} from '../src/volumeShutter';
 import {BuildInfo} from '../src/buildInfo';
+import {pressLabel} from './support/press';
 
 const state: CameraState = {active: true, busy: false, ready: true, demo: true, lut: null, transport: 'demo'};
 const props = {state, buffered: 3, luts: [], onAlbum: jest.fn(), onLut: async () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
@@ -64,12 +65,8 @@ const volume = () => act(() => {
   if (!handler) throw new Error('volume shutter listener missing');
   handler();
 });
-const press = (tree: renderer.ReactTestRenderer, label: string) => act(() => {
-  const nodes = tree.root.findAllByProps({accessibilityLabel: label});
-  const target = nodes.find(node => typeof node.props.style === 'function') || nodes[0];
-  target.props.onPress();
-});
-const switched = (tree: renderer.ReactTestRenderer, label: string) => tree.root.findByProps({accessibilityLabel: label, accessibilityRole: 'switch'});
+const press = (tree: renderer.ReactTestRenderer, label: string) => pressLabel(tree, label);
+const switched = (tree: renderer.ReactTestRenderer, label: string) => tree.root.findAllByProps({accessibilityLabel: label, accessibilityRole: 'switch'}).find(node => node.props.className !== undefined) ?? tree.root.findAllByProps({accessibilityLabel: label, accessibilityRole: 'switch'})[0];
 let mounted: renderer.ReactTestRenderer | undefined;
 afterEach(() => {
   if (mounted) act(() => mounted!.unmount());
@@ -173,8 +170,8 @@ it('swaps near and far drives without renaming the buttons', async () => {
   mounted = tree!;
   await settle();
   press(tree!, '对焦');
-  expect(tree!.root.findByProps({accessibilityLabel: '近对焦'}).findAll(node => node.props.children === '近').length).toBeGreaterThan(0);
-  expect(tree!.root.findByProps({accessibilityLabel: '远对焦'}).findAll(node => node.props.children === '远').length).toBeGreaterThan(0);
+  expect(tree!.root.findByProps({accessibilityLabel: '近对焦'}).findAll(node => typeof node.props.children === 'string' && node.props.children.includes('近')).length).toBeGreaterThan(0);
+  expect(tree!.root.findByProps({accessibilityLabel: '远对焦'}).findAll(node => typeof node.props.children === 'string' && node.props.children.includes('远')).length).toBeGreaterThan(0);
   press(tree!, '近对焦');
   press(tree!, '远对焦');
   press(tree!, '中央自动对焦');
@@ -286,8 +283,7 @@ it('does not paint a shadow on the new settings rows', async () => {
   await act(async () => { tree = renderer.create(<SettingsHarness/>); });
   await act(async () => { await Promise.resolve(); });
   const row = switched(tree!, '快门震动');
-  const style = StyleSheet.flatten(row.props.style({pressed: false}));
-  expect(style.minHeight).toBeGreaterThanOrEqual(48);
-  expect(style.elevation).toBeUndefined();
+  expect(row.props.className).toContain('min-h-[52px]');
+  expect(row.props.className).not.toContain('shadow');
   act(() => tree!.unmount());
 });

@@ -27,6 +27,7 @@ jest.mock('../src/native', () => {
 import App from '../App';
 import {cameraEvents} from '../src/native';
 import {changeScopePanel} from '../src/scopes/useScopes';
+import {pressLabel} from './support/press';
 
 const backHandlers: Array<() => boolean | null | undefined> = [];
 let mounted: renderer.ReactTestRenderer | undefined;
@@ -36,11 +37,7 @@ const pressBack = () => act(() => {
   for (const handler of chain) if (handler()) { handled = true; break; }
   if (!handled) BackHandler.exitApp();
 });
-const press = (tree: renderer.ReactTestRenderer, label: string) => act(() => {
-  const nodes = tree.root.findAllByProps({accessibilityLabel: label});
-  const target = nodes.find(node => typeof node.props.style === 'function') || nodes[0];
-  target.props.onPress();
-});
+const press = (tree: renderer.ReactTestRenderer, label: string) => pressLabel(tree, label);
 
 afterEach(() => {
   if (mounted) act(() => mounted!.unmount());
@@ -78,7 +75,7 @@ it('keeps motion, timer, guide, grid, scopes and the live view when leaving the 
   press(tree, '构图网格');
   press(tree, '示波器');
   press(tree, '亮度波形');
-  press(tree, '完成示波器');
+  press(tree, '收起示波器');
   const viewfinder = tree.root.findByProps({accessibilityLabel: '相机实时取景'});
   expect(tree.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
   expect(api.setScopesEnabled).toHaveBeenLastCalledWith(true, true, 1.5);
@@ -94,11 +91,11 @@ it('keeps motion, timer, guide, grid, scopes and the live view when leaving the 
   press(tree, '返回拍照页面');
   expect(layer().props.accessibilityElementsHidden).toBe(false);
   expect(layer().props.pointerEvents).toBe('auto');
-  expect(tree.root.findByProps({accessibilityLabel: '动态照片'}).props.accessibilityState.checked).toBe(true);
-  expect(tree.root.findByProps({accessibilityLabel: '定时 5 秒'})).toBeTruthy();
+  // The drawer is still open where it was left; its controls keep their values.
+  expect(tree.root.findAllByProps({accessibilityLabel: '定时 5 秒'}).length).toBeGreaterThan(0);
   expect(tree.root.findByProps({testID: 'reference-frame'}).props.accessibilityLabel).toBe('构图参考 16:9');
   expect(tree.root.findAllByProps({accessibilityLabel: '构图参考 16:9'}).some(node => typeof node.props.onPress === 'function')).toBe(true);
-  const grid = tree.root.findAllByProps({accessibilityLabel: '构图网格'}).find(node => typeof node.props.style === 'function')!;
+  const grid = tree.root.findAllByProps({accessibilityLabel: '构图网格'}).find(node => node.props.accessibilityState)!;
   expect(grid.props.accessibilityState.checked).toBe(false);
   expect(tree.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
   expect(tree.root.findByProps({accessibilityLabel: '相机实时取景'})).toBe(viewfinder);
@@ -106,7 +103,8 @@ it('keeps motion, timer, guide, grid, scopes and the live view when leaving the 
 
   press(tree, '设置');
   press(tree, '返回拍摄');
-  expect(tree.root.findByProps({accessibilityLabel: '动态照片'}).props.accessibilityState.checked).toBe(true);
+  press(tree, '拍摄控制');
+  expect(tree.root.findAllByProps({accessibilityLabel: '动态照片'}).find(node => typeof node.props.onPress === 'function')!.props.accessibilityState.checked).toBe(true);
   expect(tree.root.findByProps({testID: 'reference-frame'}).props.accessibilityLabel).toBe('构图参考 16:9');
   expect(tree.root.findByProps({testID: 'scope-panel-waveform'})).toBeTruthy();
   expect(api.setScopesEnabled.mock.calls).toHaveLength(subscriptions);

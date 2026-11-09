@@ -1,13 +1,11 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {expect, it, jest, beforeEach, afterEach} from '@jest/globals';
-import {PermissionsAndroid, Platform, StyleSheet} from 'react-native';
-import {Switch, Text, TextInput} from 'react-native-paper';
+import {PermissionsAndroid, Platform, Text, TextInput} from 'react-native';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
 jest.mock('../src/native', () => ({camera: {capture: jest.fn(), remoteShutter: jest.fn(), focus: jest.fn(), setAudio: jest.fn()}}));
 import ConnectionSheet from '../src/connection/ConnectionSheet';
-import ExperimentalWifiBadge from '../src/connection/ExperimentalWifiBadge';
 import {connectionOptions, initialConnectionForm} from '../src/connection/model';
 import CameraWorkspace from '../src/CameraWorkspace';
 
@@ -22,7 +20,7 @@ const button = (label: string) => {
   if (!node) throw new Error(`missing control ${label}`);
   return node;
 };
-const toggle = (label: string) => tree.root.findAllByType(Switch).find(node => node.props.accessibilityLabel === label)!;
+const toggle = (label: string) => tree.root.findAll(node => node.props?.accessibilityLabel === label && node.props.accessibilityRole === 'switch' && typeof node.props.onPress === 'function')[0];
 const wifi = () => act(() => button('Wi-Fi（实验）').props.onPress());
 const visibleText = () => {
   const lines = tree.root.findAll(node => node.props && 'children' in node.props).flatMap(node => {
@@ -33,18 +31,12 @@ const visibleText = () => {
 };
 
 it('defaults to USB and keeps the experimental mark on the Wi-Fi label only', async () => {
-  const close = tree.root.findByProps({accessibilityLabel: '关闭'});
-  const closeStyle = StyleSheet.flatten(close.props.style({pressed: false}));
-  expect(closeStyle.width).toBeGreaterThanOrEqual(48);
-  expect(closeStyle.height).toBeGreaterThanOrEqual(48);
-  expect(close.props.children?.props?.children ?? JSON.stringify(close.props.children)).toContain('✕');
-  const modes = StyleSheet.flatten(tree.root.findByProps({testID: 'connection-modes'}).props.style);
-  expect(modes.flexDirection).toBe('row');
-  expect(modes.flexWrap).toBe('nowrap');
+  // Round close button: 30 dp circle, hitSlop brings the target to 44.
+  const close = tree.root.findAll(node => node.props?.accessibilityLabel === '关闭' && node.props.hitSlop !== undefined)[0];
+  expect(30 + close.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
+  expect(tree.root.findByProps({testID: 'connection-modes'}).props.className).toContain('flex-row');
   for (const id of ['connection-mode-usb', 'connection-mode-wifi', 'connection-mode-demo']) {
-    const segment = StyleSheet.flatten(tree.root.findByProps({testID: id}).props.style({pressed: false}));
-    expect(segment.flex).toBe(1);
-    expect(segment.minHeight).toBeGreaterThanOrEqual(48);
+    expect(tree.root.findByProps({testID: id}).props.className).toContain('flex-1');
   }
   const usb = visibleText();
   expect(usb).toContain('相机：设置 → USB → PC(Tether)');
@@ -73,7 +65,7 @@ it('keeps every segment on one line and puts a small experimental badge beside W
     expect(label(text).props.numberOfLines).toBe(1);
     expect(label(text).props.maxFontSizeMultiplier).toBe(1.3);
   }
-  expect(label('实验').props.style).toBeTruthy();
+  expect(label('实验').props.className).toContain('text-[10px]');
 });
 
 it('reopens on the remembered way and IP instead of always starting on USB', () => {
@@ -89,7 +81,7 @@ it('reopens on the remembered way and IP instead of always starting on USB', () 
 it('validates known SSID and requests permission only for automatic joining', async () => {
   const permission = jest.spyOn(PermissionsAndroid, 'check').mockResolvedValue(false);
   const request = jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
-  wifi(); act(() => toggle('我已在系统设置里连上相机 Wi-Fi').props.onValueChange(false));
+  wifi(); act(() => toggle('我已在系统设置里连上相机 Wi-Fi').props.onPress());
   await act(async () => button('连接 Wi-Fi 相机').props.onPress());
   expect(props.onWifi).not.toHaveBeenCalled(); expect(permission).not.toHaveBeenCalled();
   const input = tree.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === '相机 Wi-Fi 名称')!;
@@ -116,7 +108,7 @@ it('reopens on the active Wi-Fi connection and retains the connection state in t
   expect(visibleText()).not.toContain('Wi-Fi（实验）已连接');
   act(() => tree.update(<CameraWorkspace state={connected} buffered={0} luts={[]} onAlbum={() => {}} onLut={async () => {}} onImportLut={async () => {}} onRefresh={async () => {}} onConnect={async () => {}}/>));
   expect(tree.root.findByProps({accessibilityLabel: '相机连接'}).props.accessibilityHint).toContain('Wi-Fi已连接');
-  expect(tree.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
+  expect(tree.root.findAll(node => node.props?.children === 'Wi-Fi 实验').length).toBeGreaterThan(0);
 });
 it('keeps failures readable and suppresses duplicate submits while awaiting native dispatch', async () => {
   let release: () => void = () => {};
@@ -131,7 +123,7 @@ it('keeps failures readable and suppresses duplicate submits while awaiting nati
 });
 it('hides debug settings in release and rejects forged debug options', () => {
   act(() => tree.update(<ConnectionSheet {...props} debugAllowed={false}/>)); wifi();
-  expect(tree.root.findAllByType(Switch).some(node => node.props.accessibilityLabel === '模拟相机调试')).toBe(false);
+  expect(tree.root.findAll(node => node.props?.accessibilityRole === 'switch' && String(node.props.accessibilityLabel).includes('模拟相机调试')).length).toBe(0);
   expect(() => connectionOptions({...initialConnectionForm, debug: true}, false)).toThrow('仅限 debug APK');
   expect(connectionOptions({...initialConnectionForm, debug: true}, true)).toEqual({manual: true, cameraIp: '192.168.54.1', debugEndpoint: '10.0.2.2:18080', udpPort: 49152});
 });
@@ -149,13 +141,9 @@ it('validates addresses and prevents credentials from entering the manual reques
   expect(() => connectionOptions({...initialConnectionForm, debug: true, debugEndpoint: 'host:80/cam.cgi'}, true)).toThrow('主机');
   expect(connectionOptions({...initialConnectionForm, ssid: 'private', password: 'private'}, false)).toEqual({manual: true, cameraIp: '192.168.54.1'});
 });
-it('shows the native status and the experimental badge only for Wi-Fi', () => {
+it('shows the native status in plain words', () => {
   act(() => tree.update(<ConnectionSheet {...props} status="Wi-Fi 未收到完整取景帧"/>));
   expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('收不到取景画面，请检查相机是否在拍摄模式，以及手机网络');
-  act(() => tree.update(<ExperimentalWifiBadge state={{...state, transport: 'usb'}}/>));
-  expect(tree.root.findAllByProps({testID: 'experimental-wifi-badge'})).toHaveLength(0);
-  act(() => tree.update(<ExperimentalWifiBadge state={{...state, transport: 'wifi', exposure: 'ISO 400'}}/>));
-  expect(tree.root.findByProps({testID: 'experimental-wifi-badge'})).toBeTruthy();
 });
 it('hides focus buttons off USB while respecting reticle capability', () => {
   const workspace = {buffered: 0, luts: [], onAlbum: jest.fn(), onLut: async () => {}, onImportLut: async () => {}, onRefresh: async () => {}, onConnect: async () => {}};
@@ -167,6 +155,7 @@ it('hides focus buttons off USB while respecting reticle capability', () => {
   act(() => tree.update(<CameraWorkspace {...workspace} state={{...state, transport: 'usb'}}/>));
   expect(tree.root.findAllByProps({testID: 'focus-button'})).toHaveLength(0);
   act(() => tree.update(<CameraWorkspace {...workspace} state={{...state, transport: 'usb', active: true}}/>));
+  act(() => tree.root.findAll(node => node.props?.accessibilityLabel === '拍摄控制' && typeof node.props.onPress === 'function')[0].props.onPress());
   expect(tree.root.findAllByProps({testID: 'focus-button'}).length).toBeGreaterThan(0);
   expect(tree.root.findAllByProps({accessibilityLabel: '远对焦'})).toHaveLength(0);
 });

@@ -33,6 +33,7 @@ jest.mock('../src/native', () => {
 
 import App from '../App';
 import {camera, cameraEvents} from '../src/native';
+import {pressLabel} from './support/press';
 
 const backHandlers: Array<() => boolean | null | undefined> = [];
 let mounted: renderer.ReactTestRenderer | undefined;
@@ -42,11 +43,7 @@ const pressBack = () => act(() => {
   for (const handler of chain) if (handler()) { handled = true; break; }
   if (!handled) BackHandler.exitApp();
 });
-const press = (tree: renderer.ReactTestRenderer, label: string) => act(() => {
-  const nodes = tree.root.findAllByProps({accessibilityLabel: label});
-  const target = nodes.find(node => typeof node.props.style === 'function') || nodes[0];
-  target.props.onPress();
-});
+const press = (tree: renderer.ReactTestRenderer, label: string) => pressLabel(tree, label);
 const shown = (tree: renderer.ReactTestRenderer, testID: string) => tree.root.findAllByProps({testID}).length > 0;
 const exitText = '再按一次退出，相机会断开';
 

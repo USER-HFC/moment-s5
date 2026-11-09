@@ -1,7 +1,7 @@
 import React from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {jest, expect, it} from '@jest/globals';
-import {Dimensions, StyleSheet} from 'react-native';
+import {Dimensions} from 'react-native';
 
 jest.mock('react-native-document-picker', () => ({types: {allFiles: '*/*'}, pickSingle: jest.fn(), isCancel: () => false}));
 jest.mock('react-native-safe-area-context', () => { const React = require('react'); const Context = React.createContext({top: 0, right: 0, bottom: 0, left: 0}); return {SafeAreaProvider: ({children}: any) => React.createElement(Context.Provider, {value: {top: 0, right: 0, bottom: 0, left: 0}}, children), SafeAreaView: ({children}: any) => children, SafeAreaInsetsContext: Context, useSafeAreaInsets: () => ({top: 0, right: 0, bottom: 0, left: 0})}; });
@@ -29,14 +29,15 @@ it('keeps the camera workspace usable at phone portrait and landscape sizes', as
     await act(async () => { tree = renderer.create(<App/>); });
     expect(tree!.root.findByProps({testID: 'camera-tools'})).toBeTruthy();
     expect(tree!.root.findByProps({accessibilityLabel: '动态照片'})).toBeTruthy();
-    expect(tree!.root.findByProps({accessibilityLabel: '定时 关'})).toBeTruthy();
+    expect(tree!.root.findByProps({testID: 'drawer-toggle'})).toBeTruthy();
     expect(tree!.root.findAllByProps({accessibilityLabel: '自动对焦'})).toHaveLength(0);
     expect(tree!.root.findByProps({testID: 'preview-frame'})).toBeTruthy();
     expect(tree!.root.findByProps({testID: 'camera-modes'})).toBeTruthy();
     expect(tree!.root.findByProps({testID: 'camera-dock'})).toBeTruthy();
-    const bodyStyle = StyleSheet.flatten(tree!.root.findByProps({testID: 'camera-body'}).props.style);
-    if (size.width > size.height) expect(bodyStyle.flexDirection).toBe('row');
-    else expect(bodyStyle.flexDirection).not.toBe('row');
+    // Landscape puts tools, picture, drawer and dock side by side; portrait stacks them.
+    const tools = tree!.root.findByProps({testID: 'camera-tools'}).props.className as string;
+    if (size.width > size.height) expect(tools).toContain('w-[72px]');
+    else expect(tools).toContain('h-14');
     act(() => tree!.unmount());
     jest.clearAllTimers();
   }
