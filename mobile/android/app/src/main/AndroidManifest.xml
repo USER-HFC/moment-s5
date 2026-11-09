@@ -14,8 +14,8 @@
     <application
       android:name=".MainApplication"
       android:label="瞬间 Lumix"
-      android:icon="@drawable/ic_moment"
-      android:roundIcon="@drawable/ic_moment"
+      android:icon="@mipmap/ic_launcher"
+      android:roundIcon="@mipmap/ic_launcher"
       android:allowBackup="false"
       android:usesCleartextTraffic="false"
       android:theme="@style/AppTheme"

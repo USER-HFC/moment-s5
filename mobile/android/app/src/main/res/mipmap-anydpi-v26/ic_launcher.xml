@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon: black fills whatever mask the launcher uses; the mark stays in the 66 dp safe zone. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_moment_foreground"/>
+    <monochrome android:drawable="@drawable/ic_moment_foreground"/>
+</adaptive-icon>
