@@ -1,13 +1,13 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AccessibilityInfo, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StyleSheet, View} from 'react-native';
-import {Button, Text} from 'react-native-paper';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {LutItem, MomentDetails, MomentItem} from './native';
 import {ui} from './theme';
-import CameraControl from './CameraControl';
-import CameraIcon, {CameraIconName} from './CameraIcon';
+import {Camera, Check, ChevronLeft, Download, Image as ImageIcon, Images, Info, Palette, Play, Share, Square, Trash2, Wifi, X} from 'lucide-react-native';
+import type {LucideIcon} from 'lucide-react-native';
+import {Button, cn, color, Icon, MotionGlyph, RoundButton, Text} from './ui';
 import AlbumSheet from './AlbumSheet';
 import ConfirmDialog from './ConfirmDialog';
 import LutFilmstrip from './LutFilmstrip';
@@ -42,11 +42,10 @@ type ConfirmRequest = {title: string; body: string; onConfirm: () => void};
 // The grid drops the photo at once. Native deletion waits so 撤销 can restore the same slot.
 const UNDO_MS = 5000;
 
-function emptyAlbumIcon(filter: AlbumFilter): CameraIconName {
-  if (filter === 'photo') return 'photo';
-  if (filter === 'motion') return 'motion';
-  if (filter === 'camera') return 'camera';
-  return 'album';
+function emptyAlbumIcon(filter: AlbumFilter): LucideIcon {
+  if (filter === 'photo') return ImageIcon;
+  if (filter === 'camera') return Camera;
+  return Images;
 }
 
 const hasMotion = (moment: MomentItem) => moment.captureMode !== 'photo' && !!moment.videoUri && moment.complete;
@@ -69,6 +68,15 @@ function Gradient({top}: {top: boolean}) {
     </LinearGradient></Defs>
     <Rect width="100%" height="100%" fill={`url(#${id})`}/>
   </Svg>;
+}
+
+/** Viewer toolbar action: one glyph size, a short label under it, delete in red. */
+function ViewerAction({glyph, label, accessibilityLabel, danger = false, onPress}: {glyph: LucideIcon; label: string; accessibilityLabel: string; danger?: boolean; onPress: () => void}) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress}
+    className="min-h-[52px] w-14 items-center justify-center gap-1 rounded-xl active:bg-white/10">
+    <Icon as={glyph} size={22} color={danger ? color.danger : color.ink}/>
+    <Text numberOfLines={1} className={cn('text-[11px] leading-[13px] font-medium', danger ? 'text-danger' : 'text-subtle')}>{label}</Text>
+  </Pressable>;
 }
 
 export default function MotionAlbum({moments, luts = noLuts, initialMomentId = null, onInitialMomentHandled, onBack, onExport, onDelete, onNotice, onRender, onPreview, onThumbnail, onDetails, onShare, onShareMany}: Props) {
@@ -607,34 +615,23 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     </>}
   </View>;
 
+  const cellSize = Math.floor(pageWidth / columns);
+  const motionCount = listed.filter(hasMotion).length;
+  const batchDisabled = selected.size === 0 || batching;
+  const batchButton = (label: string, accessibilityLabel: string, glyph: LucideIcon, onPress: () => void, danger = false) =>
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{disabled: batchDisabled}} disabled={batchDisabled} onPress={onPress}
+      className={cn('h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full px-3 active:bg-raised', batchDisabled && 'opacity-40')}>
+      <Icon as={glyph} size={20} color={danger ? color.danger : color.ink}/>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className={cn('text-[15px] leading-[20px] font-semibold', danger && 'text-danger')}>{label}</Text>
+    </Pressable>;
   const grid = <A11yHideView testID="album-grid-layer" collapsable={false} style={styles.fill} pointerEvents={current ? 'none' : 'auto'} accessibilityElementsHidden={!!current} importantForAccessibility={current ? 'no-hide-descendants' : 'auto'}>
-    {selecting ? <View testID="album-select-bar" style={styles.gridHeader}>
-      <Pressable accessibilityRole="button" accessibilityLabel="取消选择" onPress={exitSelection} style={styles.headerAction}>
-        <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerActionLabel}>取消</Text>
-      </Pressable>
-      <Text testID="album-selected-count" numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerCount}>{`已选 ${selected.size}`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={allVisibleSelected ? '取消全选' : '全选'} onPress={selectAllVisible} style={styles.headerAction}>
-        <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerActionLabel}>{allVisibleSelected ? '取消全选' : '全选'}</Text>
-      </Pressable>
-    </View> : <View style={styles.gridHeader}>
-      <CameraControl icon="back" accessibilityLabel="返回拍照页面" onPress={onBack}/>
-      <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.headerTitle}>相册</Text>
-      <View style={styles.headerSpacer}/>
-    </View>}
-    {!albumEmpty && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filters} testID="album-filters">
-      {ALBUM_FILTERS.map((filter) => {
-        const on = filter.id === albumFilter;
-        const count = counts[filter.id];
-        return <Pressable key={filter.id} testID={`album-filter-${filter.id}`} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${filter.label} ${count}`} onPress={() => setAlbumFilter(filter.id)} style={[styles.filterChip, on && styles.filterChipOn]}>
-          <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.filterLabel, on && styles.filterLabelOn]}>{`${filter.label} ${count}`}</Text>
-        </Pressable>;
-      })}
-    </ScrollView>}
-    {filtered.length === 0 ? <View style={styles.empty} testID="album-empty">
-      <View style={styles.emptyBadge}><CameraIcon name={emptyAlbumIcon(emptyFilter)} active size={36}/></View>
-      <Text variant="titleLarge" style={styles.emptyTitle}>{emptyCopy.title}</Text>
-      <Text style={styles.emptyCopy}>{emptyCopy.body}</Text>
-      {albumEmpty && <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} style={styles.emptyAction} contentStyle={styles.touch} testID="album-empty-shoot" accessibilityLabel="去拍第一张" onPress={onBack}>去拍第一张</Button>}
+    {filtered.length === 0 ? <View className="flex-1 items-center justify-center gap-3 px-8" style={{paddingTop: 104}} testID="album-empty">
+      <View className="mb-1 h-[72px] w-[72px] items-center justify-center rounded-full bg-grouped">
+        {emptyFilter === 'motion' ? <MotionGlyph size={32}/> : <Icon as={emptyAlbumIcon(emptyFilter)} size={32}/>}
+      </View>
+      <Text className="text-title text-center">{emptyCopy.title}</Text>
+      <Text className="text-[15px] leading-[21px] text-center text-muted">{emptyCopy.body}</Text>
+      {albumEmpty && <Button variant="primary" size="lg" className="mt-3 self-stretch" testID="album-empty-shoot" accessibilityLabel="去拍第一张" onPress={onBack}><Text>去拍第一张</Text></Button>}
     </View> : <SectionList
       testID="album-grid"
       style={styles.gridList}
@@ -643,47 +640,78 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       keyExtractor={(row) => row.map((moment) => moment.id).join('|')}
       initialNumToRender={8}
       stickySectionHeadersEnabled={false}
-      contentContainerStyle={styles.grid}
-      renderSectionHeader={({section}) => <Text style={styles.sectionHeader}>{section.title}</Text>}
+      contentContainerStyle={{paddingTop: landscape ? 72 : 112, paddingBottom: 112}}
+      renderSectionHeader={({section}) => <Text className="px-4 pb-2 pt-4 text-[15px] leading-[20px] font-semibold">{section.title}</Text>}
       renderItem={({item: row}) => <View style={styles.gridRow}>
         {row.map((item) => {
           const name = item.exported ? `${momentAccessibilityName(item)}，已导出` : momentAccessibilityName(item);
           const chosen = selected.has(item.id);
-          return <Pressable key={item.id} testID={`album-cell-${item.id}`} accessibilityRole="button" accessibilityLabel={selecting ? `选择${name}` : name} accessibilityState={selecting ? {selected: chosen} : undefined} onPress={() => { if (selecting) toggleSelected(item.id); else openViewer(item.id); }} onLongPress={() => { if (selecting) toggleSelected(item.id); else beginSelection(item.id); }} style={[styles.cell, {width: Math.floor(pageWidth / columns), height: Math.floor(pageWidth / columns)}]}>
+          return <Pressable key={item.id} testID={`album-cell-${item.id}`} accessibilityRole="button" accessibilityLabel={selecting ? `选择${name}` : name} accessibilityState={selecting ? {selected: chosen} : undefined} onPress={() => { if (selecting) toggleSelected(item.id); else openViewer(item.id); }} onLongPress={() => { if (selecting) toggleSelected(item.id); else beginSelection(item.id); }} style={[styles.cell, {width: cellSize, height: cellSize}]}>
             {item.imageUri ? <Image source={{uri: item.imageUri}} style={styles.thumb}/> : <View style={[styles.thumb, styles.thumbEmpty]}/>}
             {selecting && chosen && <View pointerEvents="none" style={styles.selectedFrame}/>}
             <View style={styles.cellTop}>
-              {item.exported && <Text testID={`album-exported-${item.id}`} maxFontSizeMultiplier={1.3} style={styles.exportedBadge}>已导出</Text>}
-              {selecting && <View style={[styles.selectMark, chosen && styles.selectMarkOn]}>{chosen && <Text style={styles.selectGlyph}>✓</Text>}</View>}
-              {!item.complete && <Text style={styles.statusMark}>{item.error ? '失败' : '未完成'}</Text>}
+              {hasMotion(item) && <View testID={`album-live-${item.id}`}><MotionGlyph size={16}/></View>}
+              {!item.complete && <Text className="overflow-hidden rounded-full bg-black/60 px-1.5 text-[10px] leading-[15px] font-semibold">{item.error ? '失败' : '未完成'}</Text>}
+              <View className="flex-1"/>
+              {item.experimentalWifi && <View testID="experimental-wifi-badge"><Icon as={Wifi} size={14}/></View>}
+              {selecting && <View className={cn('h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-ink', chosen ? 'bg-ink' : 'bg-black/30')}>
+                {chosen && <Icon as={Check} size={14} strokeWidth={2.6} color="#000000"/>}
+              </View>}
             </View>
-            <View style={styles.cellMarks}>
-              {item.cameraTriggered && !item.demo && <View style={styles.mark}><CameraIcon name="camera" size={13}/></View>}
-              {item.experimentalWifi && <View style={styles.mark} testID="experimental-wifi-badge"><CameraIcon name="wifi" size={13}/></View>}
+            <View style={styles.cellBottom}>
+              {item.exported && <Text testID={`album-exported-${item.id}`} className="overflow-hidden rounded-full bg-black/55 px-1.5 text-[10px] leading-[15px] font-semibold">已导出</Text>}
+              <View className="flex-1"/>
+              {!!item.lut && <View className="h-[5px] w-[5px] rounded-full bg-leica"/>}
+              {item.demo && <Text className="text-[10px] leading-[13px] font-semibold text-subtle" style={styles.ink}>演示</Text>}
+              {item.cameraTriggered && !item.demo && <Text className="text-[10px] leading-[13px] font-semibold" style={styles.ink}>机身</Text>}
             </View>
-            {hasMotion(item) && <Text maxFontSizeMultiplier={1.3} style={styles.live}>LIVE</Text>}
-            <View style={styles.cellBottomRight}>
-              {!!item.lut && <View style={styles.lutDot}/>}
-              {item.demo && <Text style={styles.demoMark}>演示</Text>}
-            </View>
-            {!!item.error && <Text numberOfLines={2} style={styles.cellError}>{item.error}</Text>}
+            {!!item.error && <Text numberOfLines={2} className="absolute bottom-1 left-1 right-1 text-caption text-danger" style={styles.ink}>{item.error}</Text>}
           </Pressable>;
         })}
       </View>}
     />}
-    {selecting && <View testID="album-batch-bar" style={styles.batchBar}>
-      {!!onShareMany && <Pressable accessibilityRole="button" accessibilityLabel="分享" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={() => { void shareSelected(); }} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
-        <CameraIcon name="share"/>
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabel}>分享</Text>
-      </Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel="批量导出" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={() => runBatch('导出', (id) => onExport(id, true))} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
-        <CameraIcon name="save"/>
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabel}>批量导出</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="批量删除" accessibilityState={{disabled: selected.size === 0 || batching}} disabled={selected.size === 0 || batching} onPress={confirmBatchDelete} style={[styles.batchButton, (selected.size === 0 || batching) && styles.batchDisabled]}>
-        <CameraIcon name="delete" destructive/>
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.batchLabelDestructive}>批量删除</Text>
-      </Pressable>
+    {/* Header floats over the grid like iOS Photos: large title, translucent fade underneath. */}
+    <View pointerEvents="box-none" style={[styles.header, {height: landscape ? 72 : 112}]}>
+      <Gradient top/>
+      <View pointerEvents="box-none" className="absolute bottom-2 left-4 right-4 flex-row items-end justify-between gap-3">
+        {selecting ? <View testID="album-select-bar" className="flex-1 flex-row items-end justify-between gap-3">
+          <Text testID="album-selected-count" numberOfLines={1} className="text-large shrink" style={{letterSpacing: -0.4}}>{`已选 ${selected.size}`}</Text>
+          <View className="flex-row gap-2 pb-0.5">
+            <Button variant="tinted" size="sm" accessibilityLabel={allVisibleSelected ? '取消全选' : '全选'} onPress={selectAllVisible}><Text>{allVisibleSelected ? '取消全选' : '全选'}</Text></Button>
+            <Button variant="tinted" size="sm" accessibilityLabel="取消选择" onPress={exitSelection}><Text>取消</Text></Button>
+          </View>
+        </View> : <>
+          <View className="shrink gap-0.5">
+            <Text accessibilityRole="header" className="text-large" style={{letterSpacing: -0.4}}>相册</Text>
+            {!albumEmpty && <Text testID="album-summary" className="text-footnote text-subtle">{motionCount > 0 ? `${listed.length} 张 · ${motionCount} 张动态` : `${listed.length} 张`}</Text>}
+          </View>
+          <View className="flex-row items-center gap-2 pb-0.5">
+            {!albumEmpty && <Button variant="tinted" size="sm" accessibilityLabel="选择照片" onPress={() => { setSelecting(true); setSelected(new Set()); }}><Text>选择</Text></Button>}
+            <RoundButton tone="filled" size={32} className="bg-raised" accessibilityLabel="返回拍照页面" onPress={onBack}><Icon as={X} size={16} strokeWidth={2.4}/></RoundButton>
+          </View>
+        </>}
+      </View>
+    </View>
+    {!albumEmpty && !selecting && <View pointerEvents="box-none" style={styles.bottomFloat}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="album-filters" style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
+        <View className="h-10 flex-row gap-0.5 rounded-full bg-raised/90 p-[3px]">
+          {ALBUM_FILTERS.map((filter) => {
+            const on = filter.id === albumFilter;
+            const count = counts[filter.id];
+            return <Pressable key={filter.id} testID={`album-filter-${filter.id}`} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${filter.label} ${count}`} onPress={() => setAlbumFilter(filter.id)}
+              className={cn('h-[34px] items-center justify-center rounded-full px-[18px] active:opacity-70', on && 'bg-faint')}>
+              <Text numberOfLines={1} className={cn('text-[14px] leading-[18px] font-semibold', on ? 'text-ink' : 'text-[#D1D1D6]')}>{filter.label}</Text>
+            </Pressable>;
+          })}
+        </View>
+      </ScrollView>
+    </View>}
+    {selecting && <View pointerEvents="box-none" style={styles.bottomFloat}>
+      <View testID="album-batch-bar" className="w-full max-w-[420px] flex-row gap-1 rounded-full bg-raised/95 p-1">
+        {!!onShareMany && batchButton('分享', '分享', Share, () => { void shareSelected(); })}
+        {batchButton('导出', '批量导出', Download, () => { void runBatch('导出', (id) => onExport(id, true)); })}
+        {batchButton('删除', '批量删除', Trash2, confirmBatchDelete, true)}
+      </View>
     </View>}
   </A11yHideView>;
 
@@ -699,49 +727,52 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
             {renderPage(moments[index + 1], false, 'next')}
           </Animated.View>
         </View>
-        {hasMotion(current) && <Pressable testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} style={[styles.liveButton, {left: mediaBox.left + ui.space.md, top: mediaTop}]}>
-          <Text maxFontSizeMultiplier={1.3} style={styles.liveBadge}>LIVE</Text>
+        {hasMotion(current) && <Pressable testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} hitSlop={8} style={[styles.liveButton, {left: mediaBox.left + 12, top: mediaTop}]}>
+          <View className={cn('h-[26px] flex-row items-center gap-1 rounded-full px-2', playing ? 'bg-ink' : 'bg-black/45')}>
+            <MotionGlyph size={14} color={playing ? '#000000' : color.ink}/>
+            <Text className={cn('text-[11px] leading-[14px] font-semibold', playing && 'text-black')} style={{letterSpacing: 1}}>LIVE</Text>
+          </View>
         </Pressable>}
-        {compareOriginal && <View pointerEvents="none" style={[styles.compareMark, {top: mediaTop}]}><Text style={styles.compareText}>原片</Text></View>}
+        {compareOriginal && <View pointerEvents="none" style={[styles.compareMark, {top: mediaTop}]}><Text className="text-[11px] leading-[14px] font-semibold">原片</Text></View>}
     <Animated.View testID="album-top-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.topBar, {height: topBarHeight, opacity: chromeOpacity}]}>
       <Gradient top/>
       <View style={styles.topRow}>
-        <CameraControl icon="back" accessibilityLabel="返回网格" onPress={closeViewer}/>
+        <RoundButton tone="filled" size={36} accessibilityLabel="返回网格" onPress={closeViewer}><Icon as={ChevronLeft} size={22}/></RoundButton>
         <View style={styles.topCopy}>
           <View ref={viewerTitleRef} accessible accessibilityRole="header" accessibilityLabel={formatCaptureTitle(current.createdAt)}>
-            <Text testID="album-title" numberOfLines={1} style={styles.viewerTitle}>{formatCaptureTitle(current.createdAt)}</Text>
+            <Text testID="album-title" numberOfLines={1} className="text-center text-headline">{formatCaptureTitle(current.createdAt)}</Text>
           </View>
-          <Text testID="album-subtitle" numberOfLines={1} style={[styles.viewerSubtitle, !!current.error && styles.viewerError]}>{current.error || momentSummary(current)}</Text>
+          <Text testID="album-subtitle" numberOfLines={1} className={cn('text-center text-caption', current.error ? 'text-danger' : 'text-subtle')}>{current.error || momentSummary(current)}</Text>
         </View>
-        <Text testID="album-index" style={styles.viewerIndex}>{`${index + 1} / ${listed.length}`}</Text>
+        <Text testID="album-index" className="min-w-[36px] text-right text-caption font-semibold text-subtle" style={{fontVariant: ['tabular-nums']}}>{`${index + 1}/${listed.length}`}</Text>
       </View>
     </Animated.View>
 
     <Animated.View testID="album-bottom-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.bottomBar, {height: bottomBarHeight, opacity: chromeOpacity}]}>
       <Gradient top={false}/>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-        <CameraControl icon="info" label="信息" accessibilityLabel="照片信息" onPress={openInfo}/>
-        {hasMotion(current) && <CameraControl icon="play" label={playing ? '停止' : '播放'} accessibilityLabel={playing ? '停止播放' : '播放动态照片'} onPress={togglePlay}/>}
-        <CameraControl icon="lut" label="LUT" accessibilityLabel="更换 LUT" onPress={openLut}/>
-        {!!onShare && <CameraControl icon="share" label="分享" accessibilityLabel={shareDialogTitle(current)} onPress={share}/>}
-        {canExport(current) && <CameraControl icon="save" label="导出" accessibilityLabel={current.complete ? '导出到系统相册' : '导出原片到系统相册'} onPress={() => { void onExport(current.id); }}/>}
-        <CameraControl icon="delete" label="删除" destructive accessibilityLabel="删除照片" onPress={() => askDelete(current.id)}/>
+        <ViewerAction glyph={Info} label="信息" accessibilityLabel="照片信息" onPress={openInfo}/>
+        {hasMotion(current) && <ViewerAction glyph={playing ? Square : Play} label={playing ? '停止' : '播放'} accessibilityLabel={playing ? '停止播放' : '播放动态照片'} onPress={togglePlay}/>}
+        <ViewerAction glyph={Palette} label="LUT" accessibilityLabel="更换 LUT" onPress={openLut}/>
+        {!!onShare && <ViewerAction glyph={Share} label="分享" accessibilityLabel={shareDialogTitle(current)} onPress={share}/>}
+        {canExport(current) && <ViewerAction glyph={Download} label="导出" accessibilityLabel={current.complete ? '导出到系统相册' : '导出原片到系统相册'} onPress={() => { void onExport(current.id); }}/>}
+        <ViewerAction glyph={Trash2} label="删除" danger accessibilityLabel="删除照片" onPress={() => askDelete(current.id)}/>
       </ScrollView>
     </Animated.View>
       </Animated.View>
     </A11yHideView></GestureDetector>
 
     {infoOpen && <AlbumSheet testID="album-info-sheet" title="照片信息" height={pageHeight} initial={landscape ? 0.72 : 0.58} expanded={0.92} onClose={() => setInfoOpen(false)}>
-      {details === undefined && <Text style={styles.sheetNote}>正在读取照片信息</Text>}
-      {details === null && <Text style={styles.sheetError}>无法读取照片信息</Text>}
+      {details === undefined && <Text className="text-caption text-muted">正在读取照片信息</Text>}
+      {details === null && <Text className="text-caption text-danger">无法读取照片信息</Text>}
       {details && <PhotoInfo details={details} moment={current}/>}
     </AlbumSheet>}
     {lutOpen && <AlbumSheet testID="album-lut-sheet" title="更换 LUT" height={pageHeight} initial={landscape ? 0.6 : 0.4} expanded={0.92} showClose={false} onClose={closeLut} footer={
       <View style={styles.lutFooter}>
-        <Text style={styles.sheetNote}>{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片可对比原片。保存只改 App 内副本' : '按住照片可对比原片。动态照片的封面也会换成新风格'}</Text>
+        <Text className="text-caption text-muted">{previewing ? '正在生成预览…' : current.captureMode === 'photo' ? '按住照片可对比原片。保存只改 App 内副本' : '按住照片可对比原片。动态照片的封面也会换成新风格'}</Text>
         <View style={styles.lutButtons}>
-          <Button mode="outlined" textColor={ui.color.text} contentStyle={styles.touch} accessibilityLabel="取消更换 LUT" onPress={closeLut} style={styles.lutButton}>取消</Button>
-          <Button testID="album-lut-save" mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} contentStyle={styles.touch} accessibilityLabel="保存 LUT" disabled={saveDisabled} onPress={() => { void saveLut(); }} style={styles.lutButton}>{saving ? '正在保存' : '保存'}</Button>
+          <Button variant="tinted" className="flex-1" accessibilityLabel="取消更换 LUT" onPress={closeLut}><Text>取消</Text></Button>
+          <Button testID="album-lut-save" variant="primary" className="flex-1" accessibilityLabel="保存 LUT" disabled={saveDisabled} onPress={() => { void saveLut(); }}><Text>{saving ? '正在保存' : '保存'}</Text></Button>
         </View>
       </View>
     }>
@@ -752,15 +783,15 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       <View testID="album-share-sheet" accessibilityViewIsModal style={[styles.shareSheet, {height: Math.min(Math.round(pageHeight * (landscape ? 0.88 : 0.78)), 36 + ui.icon.touch + (shareKinds(current).length + 1) * 72)}]}>
         <View style={styles.shareHandle}/>
         <View ref={shareTitleRef} accessible accessibilityRole="header" accessibilityLabel={shareDialogTitle(current)}>
-          <Text style={styles.shareTitle}>{shareDialogTitle(current)}</Text>
+          <Text className="py-2 text-title">{shareDialogTitle(current)}</Text>
         </View>
         <ScrollView bounces={false} style={styles.shareScroll}>
           {shareKinds(current).map((kind) => <Pressable key={kind} testID={`album-share-${kind}`} accessibilityRole="button" accessibilityLabel={shareKindLabel[kind]} onPress={() => { setShareOpen(false); void onShare(current.id, kind); }} style={styles.shareOption}>
-            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareOptionLabel}>{shareOptionLabel[kind]}</Text>
-            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareOptionHint}>{shareOptionHint(kind, current)}</Text>
+            <Text numberOfLines={1} className="text-body font-medium">{shareOptionLabel[kind]}</Text>
+            <Text numberOfLines={1} className="text-footnote text-muted">{shareOptionHint(kind, current)}</Text>
           </Pressable>)}
           <Pressable accessibilityRole="button" accessibilityLabel="取消" onPress={() => setShareOpen(false)} style={styles.shareOption}>
-            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareCancel}>取消</Text>
+            <Text numberOfLines={1} className="text-center text-body font-semibold">取消</Text>
           </Pressable>
         </ScrollView>
       </View>
@@ -779,74 +810,33 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
 
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: ui.color.background}, fill: {flex: 1},
-  gridHeader: {minHeight: 64, paddingHorizontal: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm},
-  headerTitle: {...ui.type.title, color: ui.color.text, flex: 1, textAlign: 'center'}, headerSpacer: {width: ui.icon.touch},
-  headerAction: {minWidth: ui.icon.touch, minHeight: ui.icon.touch, paddingHorizontal: ui.space.sm, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
-  headerActionLabel: {...ui.type.body, color: ui.color.accent, fontWeight: '600'},
-  headerCount: {...ui.type.title, color: ui.color.text, flex: 1, textAlign: 'center'},
-  filterScroll: {flexGrow: 0, minHeight: ui.icon.touch},
-  filters: {alignItems: 'center', paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.sm, gap: ui.space.sm},
-  filterChip: {minHeight: ui.icon.touch, paddingHorizontal: ui.space.md, borderRadius: ui.radius.pill, borderWidth: 1, borderColor: ui.color.outline, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
-  filterChipOn: {backgroundColor: ui.color.selected, borderColor: ui.color.accent},
-  filterLabel: {...ui.type.body, color: ui.color.muted},
-  filterLabelOn: {color: ui.color.accent, fontWeight: '600'},
+  ink: {textShadowColor: '#000000B3', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 2},
+  header: {position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20},
+  bottomFloat: {position: 'absolute', left: 16, right: 16, bottom: 24, zIndex: 20, alignItems: 'center'},
+  filterScroll: {flexGrow: 0, maxWidth: '100%'}, filterContent: {flexGrow: 1, justifyContent: 'center'},
   gridList: {flex: 1},
-  grid: {paddingBottom: ui.space.lg},
-  sectionHeader: {...ui.type.body, color: ui.color.text, fontWeight: '600', paddingHorizontal: ui.space.gutter, paddingTop: ui.space.gutter, paddingBottom: ui.space.sm},
-  gridRow: {flexDirection: 'row'},
-  empty: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: ui.space.md, padding: ui.space.lg},
-  emptyAction: {marginTop: ui.space.md},
-  emptyBadge: {width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.raised},
-  emptyTitle: {color: ui.color.text, textAlign: 'center'}, emptyCopy: {...ui.type.body, color: ui.color.muted, textAlign: 'center'}, touch: {minHeight: ui.icon.touch},
-  cell: {padding: 1}, thumb: {flex: 1, backgroundColor: ui.color.surface}, thumbEmpty: {borderWidth: 1, borderColor: ui.color.outline},
-  selectedFrame: {position: 'absolute', top: 1, left: 1, right: 1, bottom: 1, borderWidth: 2, borderColor: ui.color.accent},
-  selectMark: {width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: ui.color.text, backgroundColor: ui.color.badge, alignItems: 'center', justifyContent: 'center'},
-  selectMarkOn: {backgroundColor: ui.color.accent, borderColor: ui.color.accent},
-  selectGlyph: {color: ui.color.background, fontSize: 14, lineHeight: 18, fontWeight: '700'},
-  cellTop: {position: 'absolute', top: ui.space.xs, left: ui.space.xs, right: ui.space.xs, flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.xs},
-  exportedBadge: {...ui.type.label, color: ui.color.background, backgroundColor: ui.color.accent, paddingHorizontal: ui.space.xs, borderRadius: ui.space.xs, overflow: 'hidden'},
-  undoHost: {position: 'absolute', left: ui.space.gutter, right: ui.space.gutter, bottom: ui.space.lg, zIndex: 60},
-  statusMark: {...ui.type.label, color: ui.color.text, backgroundColor: ui.color.badge, paddingHorizontal: ui.space.xs, borderRadius: ui.space.xs, overflow: 'hidden'},
-  cellMarks: {position: 'absolute', top: ui.space.xs, right: ui.space.xs, flexDirection: 'row', gap: ui.space.xs},
-  mark: {width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: ui.color.badge},
-  live: {position: 'absolute', left: ui.space.sm, bottom: ui.space.sm, ...ui.type.label, color: ui.color.text, backgroundColor: ui.color.badge, paddingHorizontal: ui.space.xs, borderRadius: ui.space.xs, overflow: 'hidden'},
-  cellBottomRight: {position: 'absolute', right: ui.space.sm, bottom: ui.space.sm, flexDirection: 'row', alignItems: 'center', gap: ui.space.xs},
-  lutDot: {width: 5, height: 5, borderRadius: 3, backgroundColor: ui.color.accent},
-  demoMark: {fontSize: 9, lineHeight: 12, color: ui.color.muted, backgroundColor: ui.color.badge, paddingHorizontal: 3, borderRadius: 3, overflow: 'hidden'},
-  cellError: {position: 'absolute', left: ui.space.xs, right: ui.space.xs, bottom: ui.space.xs, ...ui.type.caption, color: ui.color.destructive},
-  batchBar: {flexDirection: 'row', alignItems: 'stretch', gap: ui.space.sm, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline, backgroundColor: ui.color.background},
-  batchButton: {flex: 1, minHeight: ui.icon.touch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ui.space.sm, paddingHorizontal: ui.space.sm, borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline},
-  batchDisabled: {opacity: 0.45},
-  batchLabel: {...ui.type.body, color: ui.color.text, flexShrink: 1, textAlign: 'center'},
-  batchLabelDestructive: {...ui.type.body, color: ui.color.destructive, flexShrink: 1, textAlign: 'center'},
-  viewer: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0},
+  gridRow: {flexDirection: 'row', gap: 0},
+  cell: {padding: 0.75}, thumb: {flex: 1, backgroundColor: ui.color.surface}, thumbEmpty: {borderWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline},
+  selectedFrame: {position: 'absolute', top: 0.75, left: 0.75, right: 0.75, bottom: 0.75, backgroundColor: '#FFFFFF26'},
+  cellTop: {position: 'absolute', top: 6, left: 6, right: 6, flexDirection: 'row', alignItems: 'center', gap: 4},
+  cellBottom: {position: 'absolute', bottom: 5, left: 6, right: 6, flexDirection: 'row', alignItems: 'center', gap: 5},
+  undoHost: {position: 'absolute', left: 16, right: 16, bottom: 88, zIndex: 60},
+  viewer: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000'},
   viewport: {flex: 1, overflow: 'hidden', backgroundColor: '#000'},
   row: {flexDirection: 'row', height: '100%'},
   media: {width: '100%', height: '100%'}, videoLayer: {...StyleSheet.absoluteFillObject},
-  liveButton: {position: 'absolute', left: 6, width: ui.icon.touch, height: ui.icon.touch, alignItems: 'flex-start', justifyContent: 'center'},
-  liveBadge: {...ui.type.label, color: ui.color.text, backgroundColor: ui.color.badge, paddingHorizontal: ui.space.xs, paddingVertical: 2, borderRadius: ui.space.xs, overflow: 'hidden'},
-  compareMark: {position: 'absolute', right: ui.space.gutter, backgroundColor: ui.color.badge, paddingHorizontal: ui.space.sm, paddingVertical: 2, borderRadius: ui.space.xs},
-  compareText: {...ui.type.label, color: ui.color.accent},
+  liveButton: {position: 'absolute'},
+  compareMark: {position: 'absolute', right: 16, backgroundColor: '#00000073', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999},
   topBar: {position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10},
-  topRow: {flexDirection: 'row', alignItems: 'center', gap: ui.space.xs, paddingHorizontal: ui.space.sm, paddingTop: 2},
+  topRow: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 8},
   topCopy: {flex: 1, minWidth: 0, alignItems: 'center', gap: 1},
-  viewerTitle: {...ui.type.title, color: ui.color.text, textAlign: 'center'},
-  viewerSubtitle: {...ui.type.caption, color: ui.color.muted, textAlign: 'center'},
-  viewerError: {color: ui.color.destructive},
-  viewerIndex: {...ui.type.label, color: ui.color.text, minWidth: 48, textAlign: 'right'},
   bottomBar: {position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 10, justifyContent: 'flex-end'},
-  actions: {flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: ui.space.sm, paddingBottom: 4},
-  sheetNote: {...ui.type.caption, color: ui.color.muted}, sheetError: {...ui.type.caption, color: ui.color.destructive},
-  lutFooter: {gap: ui.space.sm}, lutButtons: {flexDirection: 'row', gap: ui.space.sm},
-  lutButton: {flex: 1},
-  shareWrap: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, justifyContent: 'flex-end'},
-  shareBackdrop: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0},
-  shareSheet: {borderTopLeftRadius: ui.radius.sheet, borderTopRightRadius: ui.radius.sheet, backgroundColor: ui.color.background, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline, paddingHorizontal: ui.space.gutter, paddingBottom: ui.space.md, width: '100%', maxWidth: 680, alignSelf: 'center', elevation: 0},
-  shareHandle: {width: 36, height: 4, borderRadius: 2, backgroundColor: ui.color.outline, alignSelf: 'center', marginTop: ui.space.sm, marginBottom: ui.space.xs},
-  shareTitle: {...ui.type.title, color: ui.color.text, minHeight: ui.icon.touch, textAlignVertical: 'center', paddingTop: ui.space.sm},
+  actions: {flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', gap: 4, paddingHorizontal: 12, paddingBottom: 6},
+  lutFooter: {gap: 10}, lutButtons: {flexDirection: 'row', gap: 10},
+  shareWrap: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, justifyContent: 'flex-end', padding: 8},
+  shareBackdrop: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#00000073'},
+  shareSheet: {borderRadius: 32, backgroundColor: ui.color.surface, paddingHorizontal: 16, paddingBottom: 12, width: '100%', maxWidth: 680, alignSelf: 'center', elevation: 0},
+  shareHandle: {width: 36, height: 5, borderRadius: 3, backgroundColor: '#48484A', alignSelf: 'center', marginTop: 6, marginBottom: 4},
   shareScroll: {flex: 1},
-  shareOption: {minHeight: ui.icon.touch, justifyContent: 'center', paddingVertical: ui.space.sm, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline},
-  shareOptionLabel: {...ui.type.body, color: ui.color.text},
-  shareOptionHint: {...ui.type.caption, color: ui.color.muted},
-  shareCancel: {...ui.type.body, color: ui.color.muted, textAlign: 'center'},
+  shareOption: {minHeight: 56, justifyContent: 'center', gap: 2, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline},
 });

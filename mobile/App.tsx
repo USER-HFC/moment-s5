@@ -1,3 +1,4 @@
+import './global.css';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState, BackHandler, StatusBar, StyleSheet, View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';

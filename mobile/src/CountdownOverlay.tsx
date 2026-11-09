@@ -26,7 +26,7 @@ export default function CountdownOverlay({seconds, total}: Props) {
     <View style={styles.frame}>
       <Svg width={ring.size} height={ring.size} accessible={false} style={StyleSheet.absoluteFill}>
         <Circle cx={center} cy={center} r={ring.radius} stroke="#FFFFFF44" strokeWidth={ring.stroke} fill="none"/>
-        <Circle testID="countdown-ring" cx={center} cy={center} r={ring.radius} stroke={ui.color.accent} strokeWidth={ring.stroke} fill="none"
+        <Circle testID="countdown-ring" cx={center} cy={center} r={ring.radius} stroke="#FFFFFF" strokeWidth={ring.stroke} fill="none"
           strokeLinecap="round" strokeDasharray={`${ring.circumference} ${ring.circumference}`} strokeDashoffset={ring.dashOffset}
           transform={`rotate(-90 ${center} ${center})`}/>
       </Svg>

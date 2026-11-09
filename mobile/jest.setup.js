@@ -47,3 +47,5 @@ jest.mock('react-native-gesture-handler', () => {
 
 // Jest has no native animated module; keep native-driver animations testable.
 jest.mock('react-native/src/private/animated/NativeAnimatedHelper');
+
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));

@@ -1,35 +1,31 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AccessibilityInfo, Animated, BackHandler, Easing, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, Vibration, View} from 'react-native';
-import {Button, Text} from 'react-native-paper';
+import {Images, Play, Settings, Unplug, Usb, Wifi} from 'lucide-react-native';
+import {Button, cn, color, Icon, RoundButton, Text} from './ui';
 import {focusDirection} from './focusDirection';
 import {camera, cameraEvents, CameraState, LutItem} from './native';
 import useShootingPreferences from './useShootingPreferences';
 import {VOLUME_SHUTTER_EVENT} from './volumeShutter';
-import {ui} from './theme';
-import CameraIcon from './CameraIcon';
-import CameraControl from './CameraControl';
 import useCaptureCountdown from './useCaptureCountdown';
 import {openMicrophoneSettings, requestMicrophonePermission} from './microphonePermission';
 import ConfirmDialog from './ConfirmDialog';
-import ScopeToolbar from './scopes/ScopeToolbar';
 import ScopesOverlay from './scopes/ScopesOverlay';
-import {resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
+import {changeScopePanel, resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
-import FocusFlyout from './FocusFlyout';
-import TimerFlyout from './TimerFlyout';
-import ReferenceFlyout from './ReferenceFlyout';
+import CaptureDrawer, {DrawerOption, DrawerToggle} from './CaptureDrawer';
 import CountdownOverlay from './CountdownOverlay';
 import CameraHud from './hud/CameraHud';
 import NoticeBar, {Notice} from './NoticeBar';
 import {Guide, guideRect, shadeOutside} from './referenceFrame';
 import useRememberedCapture from './useRememberedCapture';
 import {LOW_STORAGE_REASON, shutterBlockedReason} from './shutterReason';
-import {connectionControlLabel} from './cameraLabel';
+import {connectionControlLabel, connectionPill} from './cameraLabel';
 
 const SHUTTER_FLASH_MS = 140;
 const EXIT_CONFIRM_MS = 2000;
 
-type Panel = 'lut' | 'delay' | 'focus' | 'scopes' | 'guide' | null;
+/** The LUT panel floats over the picture; everything else lives in the drawer under it. */
+type Panel = 'lut' | null;
 type Props = {
   onAlbum: () => void; onSettings?: () => void; onStorage?: () => void; latestPhoto?: string;
   state: CameraState; preview?: string; buffered: number; luts: LutItem[];
@@ -45,15 +41,15 @@ type Props = {
 };
 type PreviewSlots = [string | undefined, string | undefined];
 
-const CONNECT_STEPS = ['相机选 PC(Tether)', '接上数据线', '手机打开 OTG'];
+const CONNECT_STEPS = ['相机 USB 模式选 PC(Tether)', '用支持数据的 USB-C 线连接', '手机打开 OTG'];
 
 export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, storageLow = false, latestPhoto, notice = null, onDismissNotice, focused = true, suspendBack = false}: Props) {
   const {width, height} = useWindowDimensions();
   const landscape = width > height;
   const scopePanels = useScopePanels();
   const [panel, setPanel] = useState<Panel>(null);
-  const [rail, setRail] = useState({width: 0, height: 0});
-  const [dock, setDock] = useState({width: 0, height: 0});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [option, setOption] = useState<DrawerOption>(null);
   const {grid, setGrid, motionEnabled, setMotionEnabled, timerEnabled, setTimerEnabled, guide, setGuide, delay, setDelay} = useRememberedCapture();
   const {reverseFocus, shutterVibration} = useShootingPreferences();
   const fireRef = useRef<() => void>(() => {});
@@ -62,7 +58,6 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
   const audioPending = useRef(false);
   const [working, setWorking] = useState(false);
   const [finderSize, setFinderSize] = useState({width: 0, height: 0});
-  const [workspaceSize, setWorkspaceSize] = useState({width: 0, height: 0});
   const [previewSlots, setPreviewSlots] = useState<PreviewSlots>([undefined, undefined]);
   const [activeSlot, setActiveSlot] = useState(0);
   const [shutterHint, setShutterHint] = useState<Notice | null>(null);
@@ -106,14 +101,18 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
   }, [exitNotice, shutterHint, onDismissNotice]);
   const onHardwareBack = useCallback(() => {
     if (backSuspended.current) return false;
-    if (panel) { setPanel(null); exitArmed.current = false; setExitNotice(null); return true; }
+    // Innermost first: an option row, then the LUT panel, then the drawer itself.
+    if (option || panel || drawerOpen) {
+      if (option) setOption(null); else if (panel) setPanel(null); else setDrawerOpen(false);
+      exitArmed.current = false; setExitNotice(null); return true;
+    }
     // Not connected and not in demo: one back leaves, and the activity teardown still disconnects.
     if (!state.active) return false;
     if (exitArmed.current) { exitArmed.current = false; setExitNotice(null); return false; }
     exitArmed.current = true;
     setExitNotice({message: '再按一次退出，相机会断开'});
     return true;
-  }, [panel, state.active]);
+  }, [option, panel, drawerOpen, state.active]);
 
   useEffect(() => { if (state.audio !== undefined) setAudio(state.audio); }, [state.audio]);
   useEffect(() => {
@@ -184,18 +183,13 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
   };
   fireRef.current = fire;
   const chooseLut = async (id: string) => { setWorking(true); try { await onLut(id); } finally { setWorking(false); } };
-  const toggleTimer = () => {
-    if (waiting) {cancelCountdown(); setTimerEnabled(false); return;}
-    setPanel(value => value === 'delay' ? null : 'delay');
-  };
   const selectDelay = (value: number | null) => {
     cancelCountdown();
     if (value == null) setTimerEnabled(false);
     else { setDelay(value); setTimerEnabled(true); }
-    setPanel(null);
+    setOption(null);
   };
-  const toggleGuide = () => setPanel(value => value === 'guide' ? null : 'guide');
-  const selectGuide = (value: Guide) => { setGuide(value); setPanel(null); };
+  const selectGuide = (value: Guide) => { setGuide(value); setOption(null); };
   const toggleAudio = async () => {
     if (!camera || audioPending.current) return;
     audioPending.current = true;
@@ -216,148 +210,180 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
   // USB ManualFocusDrive only; Wi-Fi focus values are still unverified on the S5.
   const canManualFocus = state.active && !state.demo && state.transport === 'usb';
   const connectionLabel = connectionControlLabel(state);
-  const timerLabel = waiting ? '取消' : timerEnabled ? `${delay} 秒` : '定时 关';
-  const timerA11y = waiting ? '取消定时' : timerEnabled ? `定时 ${delay} 秒` : '定时 关';
-  const audioLabel = audio ? '收音 开' : '收音 关';
-  // Off reads「参考 关」like「定时 关」; on shows the ratio the way the timer shows「5 秒」.
-  const guideLabel = guide === 'off' ? '参考 关' : guide;
+  const pill = connectionPill(state);
   const commitPreview = (slot: 0 | 1, uri: string) => {
     if (pendingSlotRef.current !== slot || slotUrisRef.current[slot] !== uri) return;
     activeSlotRef.current = slot; pendingSlotRef.current = null; setActiveSlot(slot);
   };
 
-  return <View style={styles.screen} onLayout={event => setWorkspaceSize(event.nativeEvent.layout)}>
-    <View style={[styles.root, landscape && styles.rootLandscape, landscape && workspaceSize.width > 0 && {width: Math.min(workspaceSize.width, workspaceSize.height * sourceRatio + 184), alignSelf: 'center'}]} testID="camera-workspace">
-    <View style={[styles.toolsRail, landscape && styles.toolsRailLandscape]} testID="camera-tools" onLayout={event => setRail(event.nativeEvent.layout)}>
-      <View style={[styles.viewTools, landscape && styles.viewToolsLandscape]}>
-        <CameraControl label="网格" accessibilityLabel="构图网格" icon="grid" active={grid} checked={grid} onPress={() => setGrid(value => !value)}/>
-        <CameraControl label="LUT" accessibilityLabel="LUT 风格" accessibilityHint={panel === 'lut' ? '收起 LUT 面板' : '在侧边展开 LUT 面板，切换时实时预览'} icon="lut" active={!!state.lut || panel === 'lut'} onPress={() => setPanel(value => value === 'lut' ? null : 'lut')}/>
-        <ScopeToolbar panels={scopePanels} landscape={landscape} pickerOpen={panel === 'scopes'} onPickerOpenChange={open => setPanel(current => open ? 'scopes' : current === 'scopes' ? null : current)}/>
-        {/* Same wiring as v0.7.0: far is -1 and near is +1. With UsbS5's 0x9416 values this sends
-            0x03 for far and 0x02 for near; libgphoto2 and tethr disagree on which is far, so do
-            not flip either side without checking on a real S5. */}
-        {canManualFocus && <CameraControl testID="focus-button" label="对焦" accessibilityLabel="对焦"
-          accessibilityHint={panel === 'focus' ? '收起近/远对焦面板' : '展开近/远对焦面板'}
-          icon="focus" active={panel === 'focus'} disabled={state.busy || waiting}
-          onPress={() => setPanel(value => value === 'focus' ? null : 'focus')}/>}
-      </View>
-      <View style={[styles.railEnd, landscape && styles.railEndLandscape]}>
-        <CameraControl testID="settings-button" label="设置" icon="settings" accessibilityLabel="设置" accessibilityHint="打开设置" onPress={() => {cancelCountdown(); setPanel(null); onSettings?.();}}/>
-        <CameraControl label={connectionLabel} accessibilityLabel="相机连接"
-          accessibilityHint={`${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`}
-          icon={state.active ? state.demo ? 'demo' : state.transport === 'wifi' ? 'wifi' : 'usb' : 'disconnected'} active={state.active} onPress={() => {void onConnect();}}/>
+  const closeDrawer = () => { setDrawerOpen(false); setOption(null); };
+  const chooseOption = (next: DrawerOption) => { setPanel(null); setOption(next); };
+  const toggleDrawer = () => { if (drawerOpen) closeDrawer(); else { setPanel(null); setDrawerOpen(true); } };
+  const toggleLut = () => { setOption(null); setPanel(value => value === 'lut' ? null : 'lut'); };
+  const leave = (go?: () => void) => { cancelCountdown(); setPanel(null); setOption(null); go?.(); };
+  const connectionIcon = !state.active ? Unplug : state.demo ? Play : state.transport === 'wifi' ? Wifi : Usb;
+  const connectionHint = `${state.active ? connectionLabel + '已连接' : '相机未连接'}，点按选择 USB、Wi-Fi（实验）或演示`;
+
+  const settingsButton = <RoundButton testID="settings-button" accessibilityLabel="设置" accessibilityHint="打开设置" size={landscape ? 44 : 36}
+    onPress={() => leave(onSettings)}><Icon as={Settings} size={20}/></RoundButton>;
+  const connection = landscape
+    ? <RoundButton accessibilityLabel="相机连接" accessibilityHint={connectionHint} onPress={() => {void onConnect();}}>
+      <Icon as={connectionIcon} size={20} color={state.active ? color.ink : color.muted}/>
+    </RoundButton>
+    : <Pressable accessibilityRole="button" accessibilityLabel="相机连接" accessibilityHint={connectionHint} onPress={() => {void onConnect();}}
+      className="h-9 max-w-[70%] flex-row items-center gap-[7px] rounded-full bg-grouped px-3 active:opacity-70">
+      <View className={cn('h-1.5 w-1.5 rounded-full', state.active ? 'bg-ink' : 'bg-faint')}/>
+      <Text numberOfLines={1} className="shrink text-footnote font-semibold">{pill.title}</Text>
+      {!!pill.detail && <Text numberOfLines={1} className="text-footnote font-medium text-muted">{pill.detail}</Text>}
+    </Pressable>;
+
+  const modes = <View testID="camera-modes" accessibilityRole="radiogroup" accessibilityLabel="拍摄模式"
+    className={landscape ? 'flex-1 items-center justify-center gap-5' : 'flex-row items-start justify-center gap-7'}>
+    {([['照片', '普通照片', '下载本次原片并将所选 LUT 保存到 App 相册', false], ['动态', '动态照片', '保存快门前约三秒动态与原片', true]] as const).map(([name, label, hint, value]) => {
+      const on = motionEnabled === value;
+      return <Pressable key={label} accessibilityRole="radio" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{checked: on}}
+        onPress={() => setMotionEnabled(value)} hitSlop={8} className="items-center gap-[5px] px-1 py-1 active:opacity-70">
+        <Text className={cn('text-[14px] leading-[18px] font-semibold', on ? 'text-ink' : 'text-muted')} style={{letterSpacing: 1.6, paddingLeft: 1.6}}>{name}</Text>
+        <View className={cn('h-1 w-1 rounded-full', on ? 'bg-leica' : 'bg-transparent')}/>
+      </Pressable>;
+    })}
+  </View>;
+
+  const drawer = <CaptureDrawer vertical={landscape} option={option} onOption={chooseOption}
+    grid={grid} onGrid={() => setGrid(value => !value)}
+    guide={guide} onGuide={selectGuide}
+    timerEnabled={timerEnabled} delay={delay} waiting={waiting} onDelay={selectDelay} onCancelCountdown={() => {cancelCountdown(); setTimerEnabled(false);}}
+    audio={audio} onAudio={() => {void toggleAudio();}}
+    scopes={scopePanels} onScope={kind => changeScopePanel({type: 'toggle', kind})}
+    canFocus={canManualFocus} focusDisabled={state.busy || waiting} onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))}/>;
+
+  const shutter = <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire}
+    className={cn('h-[78px] w-[78px] items-center justify-center rounded-full border-4 border-ink', disabled && 'opacity-45')}>
+    {({pressed}) => <View className={cn(waiting ? 'h-7 w-7 rounded-md bg-leica' : 'h-16 w-16 rounded-full bg-ink', pressed && !waiting && 'h-[58px] w-[58px] opacity-80')}/>}
+  </Pressable>;
+  const album = <Pressable accessibilityRole="button" accessibilityLabel="打开相册" onPress={() => leave(onAlbum)}
+    className="h-12 w-12 items-center justify-center overflow-hidden rounded-[10px] border border-white/15 bg-grouped active:opacity-70">
+    {latestPhoto ? <AlbumThumbnail uri={latestPhoto}/> : <Icon as={Images} size={22} color={color.muted}/>}
+  </Pressable>;
+
+  const finder = <View testID="camera-body" className="min-h-0 min-w-0 flex-1">
+    <View testID="viewfinder" className="min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden" onLayout={event => setFinderSize(event.nativeEvent.layout)}>
+      <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback, !previewFrame && styles.previewPending, {backgroundColor: state.active ? '#0E0E0F' : color.canvas}]}>
+        {hasFeed && previewSlots.map((uri, slot) => uri && <Image key={slot} accessibilityLabel="相机实时取景" source={{uri}} style={[previewImageStyle, {opacity: activeSlot === slot ? 1 : 0}]} resizeMode="cover" fadeDuration={0} onLoad={() => commitPreview(slot as 0 | 1, uri)}/>)}
+        {shade.map(band => <View key={`${band.left}-${band.top}-${band.width}-${band.height}`} pointerEvents="none" testID="reference-shade" accessible={false} style={[styles.referenceShade, band]}/>)}
+        {grid && hasFeed && <View pointerEvents="none" testID="composition-grid" accessible={false} style={reference ? [styles.gridBox, reference] : StyleSheet.absoluteFill}>
+          <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
+          <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
+        </View>}
+        {reference && <View pointerEvents="none" testID="reference-frame" accessibilityLabel={`构图参考 ${guide}`} style={[styles.reference, reference]}>
+          <Text numberOfLines={1} className="absolute left-2 top-1 text-[11px] leading-[14px] font-semibold" style={styles.ink}>{`${guide} 参考`}</Text>
+        </View>}
+        {hasFeed && !waiting && canAutofocus && <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" onPress={() => camera?.focus(0)} style={styles.focusTarget}>
+          <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/>
+          <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/>
+        </Pressable>}
+        {!hasFeed && <ScrollView style={[StyleSheet.absoluteFill, {top: state.active ? hudTopHeight + 16 : 0, bottom: state.active ? hudBottomHeight + 16 : 0}]}
+          contentContainerClassName="grow items-center justify-center px-6 py-4">
+          {!state.active ? <View className={cn('w-full gap-3', landscape ? 'max-w-[620px] flex-row items-center gap-8' : 'max-w-[340px]')}>
+            <View className={cn('gap-3', landscape && 'flex-1')}>
+              <View className="items-center gap-1.5 pb-2">
+                <Text accessibilityRole="header" className="text-title text-center">未连接相机</Text>
+                <Text className="text-footnote text-center text-muted">用数据线连接 Lumix，或先体验演示</Text>
+              </View>
+              <Button variant="primary" size="lg" accessibilityLabel="连接相机" onPress={() => {void onConnect();}}><Text>连接相机</Text></Button>
+              <Button variant="secondary" accessibilityLabel="体验演示" onPress={() => camera?.demo()}><Text>体验演示</Text></Button>
+            </View>
+            <View accessibilityLabel="连接步骤" className={cn('overflow-hidden rounded-card bg-grouped', landscape ? 'flex-1' : 'mt-3')}>
+              {CONNECT_STEPS.map((step, index) => <View key={step} className="flex-row items-center gap-3 pl-3.5">
+                <View className="h-[22px] w-[22px] items-center justify-center rounded-full bg-control">
+                  <Text className="text-caption font-bold" style={{fontVariant: ['tabular-nums']}}>{index + 1}</Text>
+                </View>
+                <View className={cn('min-h-[46px] flex-1 justify-center pr-3.5', index < CONNECT_STEPS.length - 1 && 'border-b border-separator')}>
+                  <Text className="text-[15px] leading-[20px]">{step}</Text>
+                </View>
+              </View>)}
+            </View>
+          </View> : <Text className="text-headline text-muted">等待相机取景…</Text>}
+        </ScrollView>}
+        {hasFeed && <ScopesOverlay panels={scopePanels} bounds={{...(previewFrame || finderSize), insets: {top: 0, bottom: 0, left: 0, right: 0}}} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
+        <CameraHud state={state} buffered={buffered} motion={motionEnabled} waiting={waiting} onLut={toggleLut} lutOpen={panel === 'lut'}
+          onTopLayout={event => setHudTopHeight(event.nativeEvent.layout.height)} onBottomLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}/>
+        <Animated.View pointerEvents="none" testID="shutter-flash" style={[StyleSheet.absoluteFill, styles.shutterFlash, {opacity: flash}]}/>
+        <View pointerEvents="box-none" style={[styles.noticeSlot, {bottom: hudBottomHeight + 20}]}>
+          <NoticeBar notice={shownNotice} onDismiss={dismissShown}/>
+        </View>
+        {waiting && <CountdownOverlay seconds={seconds} total={total}/>}
+        {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} bottomInset={hudBottomHeight + 20}
+          onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
       </View>
     </View>
-    <View testID="camera-body" style={[styles.body, landscape && styles.bodyLandscape]}>
-      <View testID="viewfinder" style={styles.finder} onLayout={event => setFinderSize(event.nativeEvent.layout)}>
-        <View testID="preview-frame" style={[styles.previewFrame, previewFrame || styles.previewFallback, !previewFrame && styles.previewPending]}>
-          {hasFeed && previewSlots.map((uri, slot) => uri && <Image key={slot} accessibilityLabel="相机实时取景" source={{uri}} style={[previewImageStyle, {opacity: activeSlot === slot ? 1 : 0}]} resizeMode="cover" fadeDuration={0} onLoad={() => commitPreview(slot as 0 | 1, uri)}/>)}
-          {shade.map(band => <View key={`${band.left}-${band.top}-${band.width}-${band.height}`} pointerEvents="none" testID="reference-shade" accessible={false} style={[styles.referenceShade, band]}/>)}
-          {grid && hasFeed && <View pointerEvents="none" testID="composition-grid" accessible={false} style={reference ? [styles.gridBox, reference] : StyleSheet.absoluteFill}>
-            <View style={[styles.gridV, {left: '33.33%'}]}/><View style={[styles.gridV, {left: '66.67%'}]}/>
-            <View style={[styles.gridH, {top: '33.33%'}]}/><View style={[styles.gridH, {top: '66.67%'}]}/>
-          </View>}
-          {reference && <View pointerEvents="none" testID="reference-frame" accessibilityLabel={`构图参考 ${guide}`} style={[styles.reference, reference]}>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.referenceLabel}>{`${guide} 参考`}</Text>
-          </View>}
-          {hasFeed && !waiting && canAutofocus && <Pressable accessibilityRole="button" accessibilityLabel="中央自动对焦" onPress={() => camera?.focus(0)} style={styles.focusTarget}>
-            <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerTR]}/>
-            <View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBL]}/><View pointerEvents="none" style={[styles.focusCorner, styles.focusCornerBR]}/><View pointerEvents="none" style={styles.focusDot}/>
-          </Pressable>}
-          {!hasFeed && <ScrollView style={[styles.emptyViewport, {top: hudTopHeight + ui.space.lg, bottom: hudBottomHeight + ui.space.lg + (shownNotice ? 104 : 0)}]} contentContainerStyle={[styles.empty, landscape && styles.emptyStart, state.active && landscape && styles.emptyLandscape]}>
-            {!state.active ? <View style={[styles.emptyCard, landscape && styles.emptyCardLandscape]}>
-              <View style={[styles.emptyLead, landscape && styles.emptyLeadLandscape]}>
-                <Text style={[styles.emptyTitle, landscape && styles.emptyTitleSide]}>未连接相机</Text>
-                <Button mode="contained" buttonColor={ui.color.accent} textColor={ui.color.background} style={styles.flatButton} contentStyle={styles.touch} accessibilityLabel="连接相机" onPress={() => {void onConnect();}}>连接相机</Button>
-                <Button textColor={ui.color.text} mode="outlined" style={styles.flatButton} accessibilityLabel="体验演示" contentStyle={styles.touch} onPress={() => camera?.demo()}>体验演示</Button>
-              </View>
-              <View accessibilityLabel="连接步骤" style={[styles.steps, landscape && styles.stepsLandscape]}>
-                {CONNECT_STEPS.map((step, index) => <Text key={step} style={styles.step}>{index + 1}  {step}</Text>)}
-              </View>
-            </View> : <View style={[styles.emptyCopy, landscape && styles.emptyCopyLandscape]}><Text style={styles.emptyTitle}>等待相机取景</Text></View>}
-          </ScrollView>}
-          {/* HUD bands stay in the preview. Charts may cover them; the text is drawn underneath. */}
-          {hasFeed && <ScopesOverlay panels={scopePanels} bounds={{...(previewFrame || finderSize), insets: {top: 0, bottom: 0, left: 0, right: 0}}} active={state.active} rotateClockwise={!landscape} sourceAspectRatio={sourceRatio}/>}
-          <CameraHud state={state} buffered={buffered} motion={motionEnabled} waiting={waiting} onTopLayout={event => setHudTopHeight(event.nativeEvent.layout.height)} onBottomLayout={event => setHudBottomHeight(event.nativeEvent.layout.height)}/>
-          <Animated.View pointerEvents="none" testID="shutter-flash" style={[StyleSheet.absoluteFill, styles.shutterFlash, {opacity: flash}]}/>
-          {/* Bottom HUD is already inset by the gutter; keep the notice above that inset. */}
-          <View pointerEvents="box-none" style={[styles.noticeSlot, {bottom: hudBottomHeight + ui.space.gutter + ui.space.sm}]}>
-            <NoticeBar notice={shownNotice} onDismiss={dismissShown}/>
-          </View>
-          {waiting && <CountdownOverlay seconds={seconds} total={total}/>}
-        </View>
-      </View>
-      <View testID="camera-dock" style={[styles.dock, landscape && styles.dockLandscape]} onLayout={event => setDock({width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height})}>
-        <View style={[styles.captureRow, landscape && styles.captureRowLandscape]}>
-          <View testID="capture-side" style={[styles.captureSide, landscape && styles.captureSideLandscape]}>
-            <CameraControl label={timerLabel} labelLines={2} icon="timer" active={timerEnabled || panel === 'delay'} accessibilityLabel={timerA11y}
-              accessibilityHint={waiting ? '取消倒计时并关闭定时' : panel === 'delay' ? '收起定时面板' : '打开定时面板'} onPress={toggleTimer}/>
-            <CameraControl label={audioLabel} labelLines={2} icon={audio ? 'mic' : 'muted'} active={audio} checked={audio} accessibilityLabel={audioLabel} onPress={() => {void toggleAudio();}}/>
-          </View>
-          <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire} style={[styles.shutter, disabled && styles.shutterDisabled]}><View style={[styles.shutterCore, waiting && styles.shutterCounting]}/></Pressable>
-          <View testID="capture-side" style={[styles.captureSide, landscape && styles.captureSideLandscape]}>
-            <CameraControl label={guideLabel} icon="ratio" active={guide !== 'off' || panel === 'guide'} accessibilityLabel={guide === 'off' ? '构图参考 关' : `构图参考 ${guide}`}
-              accessibilityHint={panel === 'guide' ? '收起构图参考' : '打开构图参考，只叠加参考线，不改变预览和照片'} onPress={toggleGuide}/>
-            <CameraControl label="相册" icon="album" thumbnail={latestPhoto} accessibilityLabel="打开相册" onPress={() => {cancelCountdown(); setPanel(null); onAlbum();}}/>
-          </View>
-        </View>
-        <View testID="camera-modes" accessibilityRole="radiogroup" style={[styles.modes, landscape && styles.modesLandscape]}>
-          <Pressable accessibilityRole="radio" accessibilityLabel="普通照片" accessibilityHint="下载本次原片并将所选 LUT 保存到 App 相册" accessibilityState={{checked: !motionEnabled}} onPress={() => setMotionEnabled(false)} style={[styles.mode, !motionEnabled && styles.modeSelected]}><CameraIcon name="photo" active={!motionEnabled}/><Text style={[styles.modeLabel, !motionEnabled && styles.activeLabel]}>照片</Text></Pressable>
-          <Pressable accessibilityRole="radio" accessibilityLabel="动态照片" accessibilityHint="保存快门前约三秒动态与原片" accessibilityState={{checked: motionEnabled}} onPress={() => setMotionEnabled(true)} style={[styles.mode, motionEnabled && styles.modeSelected]}><CameraIcon name="motion" active={motionEnabled}/><Text style={[styles.modeLabel, motionEnabled && styles.activeLabel]}>动态</Text></Pressable>
-        </View>
-      </View>
-    </View>
-    {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} rail={rail}
-      onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
-    {panel === 'focus' && canManualFocus && <FocusFlyout landscape={landscape} rail={rail} disabled={state.busy || waiting}
-      onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))} onClose={() => setPanel(null)}/>}
-    {panel === 'delay' && <TimerFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={timerEnabled ? delay : null} onSelect={selectDelay} onClose={() => setPanel(null)}/>}
-    {panel === 'guide' && <ReferenceFlyout landscape={landscape} dock={dock} railWidth={rail.width} selected={guide} onSelect={selectGuide} onClose={() => setPanel(null)}/>}
+  </View>;
+
+  // Reanimated layout animations left an invisible exiting copy that swallowed taps, so the zone swaps without them.
+  const zone = <View className={landscape ? 'flex-1 items-center justify-center' : 'w-full items-center justify-center'}>
+    {drawerOpen ? drawer : modes}
+  </View>;
+
+  return <View testID="camera-workspace" className="flex-1 bg-canvas">
+    {landscape ? <View className="flex-1 flex-row">
+      <View testID="camera-tools" className="w-[72px] items-center justify-between py-4">{connection}{settingsButton}</View>
+      {finder}
+      <View testID="camera-drawer-zone" className="w-[92px] items-center py-3">{zone}</View>
+      <View testID="camera-dock" className="w-[96px] items-center justify-between py-4"><DrawerToggle open={drawerOpen} onPress={toggleDrawer}/>{shutter}{album}</View>
+    </View> : <>
+      <View testID="camera-tools" className="h-14 flex-row items-center justify-between px-4">{connection}{settingsButton}</View>
+      {finder}
+      <View testID="camera-drawer-zone" className="h-[92px] w-full items-center justify-center">{zone}</View>
+      <View testID="camera-dock" className="h-[104px] flex-row items-center justify-between px-10">{album}{shutter}<DrawerToggle open={drawerOpen} onPress={toggleDrawer}/></View>
+    </>}
     {micPrompt && <ConfirmDialog visible testID="microphone-confirm" confirmTestID="microphone-confirm-settings"
       title="开启收音" body="没有麦克风权限。请在系统设置里允许录音，再回来打开收音。" confirmLabel="去设置" cancelLabel="暂不"
       onCancel={() => setMicPrompt(false)} onConfirm={() => {void goMicrophoneSettings();}}/>}
-    </View>
   </View>;
 }
 
+function AlbumThumbnail({uri}: {uri: string}) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const seen = useRef(uri);
+  useEffect(() => {
+    if (seen.current === uri) return undefined;
+    seen.current = uri;
+    let cancel = false;
+    const read = AccessibilityInfo.isReduceMotionEnabled?.();
+    if (!read) return undefined;
+    read.then(reduce => {
+      if (cancel) return;
+      if (reduce) { opacity.setValue(1); scale.setValue(1); return; }
+      opacity.setValue(0); scale.setValue(0.82);
+      Animated.parallel([
+        Animated.timing(opacity, {toValue: 1, duration: 180, useNativeDriver: true}),
+        Animated.timing(scale, {toValue: 1, duration: 180, useNativeDriver: true}),
+      ]).start();
+    }).catch(() => { opacity.setValue(1); scale.setValue(1); });
+    return () => { cancel = true; };
+  }, [opacity, scale, uri]);
+  return <Animated.View testID="album-thumbnail" style={[StyleSheet.absoluteFill, {opacity, transform: [{scale}]}]}>
+    <Image accessible={false} source={{uri}} style={StyleSheet.absoluteFill}/>
+  </Animated.View>;
+}
+
+const hairline = StyleSheet.hairlineWidth;
 const styles = StyleSheet.create({
-  screen: {flex: 1, minHeight: 0, backgroundColor: ui.color.background},
-  root: {flex: 1, minHeight: 0, backgroundColor: ui.color.background}, rootLandscape: {flexDirection: 'row'},
-  toolsRail: {minHeight: 64, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  toolsRailLandscape: {width: 64, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.gutter, flexDirection: 'column'},
-  viewTools: {flexDirection: 'row', gap: ui.space.sm}, viewToolsLandscape: {flexDirection: 'column'},
-  railEnd: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm}, railEndLandscape: {flexDirection: 'column'},
-  body: {flex: 1, minHeight: 0, minWidth: 0}, bodyLandscape: {flexDirection: 'row'},
-  finder: {flex: 1, minHeight: 0, minWidth: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
-  previewFrame: {position: 'relative', overflow: 'hidden', backgroundColor: ui.color.surface}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
-  emptyViewport: {...StyleSheet.absoluteFillObject},
-  empty: {flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: ui.space.sm, paddingHorizontal: ui.space.gutter},
-  emptyStart: {justifyContent: 'flex-start', paddingVertical: ui.space.md},
-  emptyLandscape: {flexDirection: 'row', gap: ui.space.lg}, emptyCopy: {alignItems: 'center', gap: ui.space.sm}, emptyCopyLandscape: {flexShrink: 1, alignItems: 'flex-start'},
-  emptyCard: {width: '100%', maxWidth: 360, alignItems: 'stretch', gap: ui.space.sm},
-  emptyCardLandscape: {maxWidth: 680, flexDirection: 'row', alignItems: 'flex-start', gap: ui.space.lg},
-  emptyLead: {width: '100%', gap: ui.space.sm},
-  emptyLeadLandscape: {flex: 1, width: undefined, minWidth: 0},
-  emptyTitle: {...ui.type.title, color: ui.color.text, textAlign: 'center'},
-  emptyTitleSide: {textAlign: 'left'},
-  flatButton: {elevation: 0},
-  steps: {gap: ui.space.xs, marginTop: ui.space.xs},
-  stepsLandscape: {flex: 1, minWidth: 0, marginTop: 0},
-  step: {...ui.type.body, flexShrink: 1, color: ui.color.muted},
-  touch: {minHeight: ui.icon.touch},
+  previewFrame: {position: 'relative', overflow: 'hidden'}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
   gridBox: {position: 'absolute'},
-  gridV: {position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'}, gridH: {position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: '#D8DEC880'},
+  gridV: {position: 'absolute', top: 0, bottom: 0, width: hairline, backgroundColor: 'rgba(255,255,255,0.32)'},
+  gridH: {position: 'absolute', left: 0, right: 0, height: hairline, backgroundColor: 'rgba(255,255,255,0.32)'},
   // Outside the guide only, light enough that the picture is still visible.
   referenceShade: {position: 'absolute', backgroundColor: '#00000073'},
-  reference: {position: 'absolute', borderWidth: 1, borderColor: ui.color.accent, backgroundColor: 'transparent'},
-  referenceLabel: {...ui.type.label, position: 'absolute', left: ui.space.sm, right: ui.space.sm, top: ui.space.xs, color: ui.color.accent, textShadowColor: '#000000CC', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 3},
+  reference: {position: 'absolute', borderWidth: 1, borderColor: color.ink, backgroundColor: 'transparent'},
+  ink: {textShadowColor: '#000000CC', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 3},
   shutterFlash: {zIndex: 2, backgroundColor: '#FFFFFF'},
-  focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32}, focusCorner: {position: 'absolute', width: 16, height: 16, borderColor: ui.color.accent},
-  focusCornerTL: {left: 0, top: 0, borderLeftWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerTR: {right: 0, top: 0, borderRightWidth: ui.icon.stroke, borderTopWidth: ui.icon.stroke}, focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusCornerBR: {right: 0, bottom: 0, borderRightWidth: ui.icon.stroke, borderBottomWidth: ui.icon.stroke}, focusDot: {position: 'absolute', left: 30, top: 30, width: 4, height: 4, borderRadius: 2, backgroundColor: ui.color.accent},
-  noticeSlot: {position: 'absolute', zIndex: 1080, left: ui.space.gutter, right: ui.space.gutter},
-  dock: {padding: ui.space.gutter, gap: ui.space.sm}, dockLandscape: {width: 120, paddingHorizontal: ui.space.sm, paddingVertical: ui.space.sm},
-  captureRow: {minHeight: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, captureRowLandscape: {flex: 1, flexDirection: 'column', gap: ui.space.sm}, captureSide: {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', gap: ui.space.sm}, captureSideLandscape: {flex: 0, justifyContent: 'center', gap: ui.space.sm},
-  shutter: {width: 76, height: 76, flexShrink: 0, borderRadius: 38, borderWidth: 2, borderColor: ui.color.text, alignItems: 'center', justifyContent: 'center'}, shutterCore: {width: 64, height: 64, borderRadius: 32, backgroundColor: ui.color.text}, shutterDisabled: {opacity: .45}, shutterCounting: {width: 24, height: 24, borderRadius: ui.radius.small, backgroundColor: ui.color.accent},
-  modes: {width: 208, alignSelf: 'center', flexDirection: 'row', padding: ui.space.xs, backgroundColor: ui.color.surface, borderRadius: ui.radius.control}, modesLandscape: {width: '100%'},
-  mode: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.small, gap: ui.space.xs}, modeSelected: {backgroundColor: ui.color.selected}, modeLabel: {...ui.type.label, color: ui.color.muted}, activeLabel: {color: ui.color.accent},
+  focusTarget: {position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, marginLeft: -32, marginTop: -32},
+  focusCorner: {position: 'absolute', width: 14, height: 14, borderColor: color.ink},
+  focusCornerTL: {left: 0, top: 0, borderLeftWidth: 1.5, borderTopWidth: 1.5, borderTopLeftRadius: 3},
+  focusCornerTR: {right: 0, top: 0, borderRightWidth: 1.5, borderTopWidth: 1.5, borderTopRightRadius: 3},
+  focusCornerBL: {left: 0, bottom: 0, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderBottomLeftRadius: 3},
+  focusCornerBR: {right: 0, bottom: 0, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderBottomRightRadius: 3},
+  noticeSlot: {position: 'absolute', zIndex: 1080, left: 12, right: 12},
 });

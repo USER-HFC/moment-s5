@@ -53,17 +53,18 @@ export default function ConfirmDialog({visible, title, body, confirmLabel, cance
   </Modal>;
 }
 
+// iOS-style alert card: grouped grey, white primary, destructive in red text on grey.
 const styles = StyleSheet.create({
-  scrim: {flex: 1, justifyContent: 'center', padding: ui.space.gutter, backgroundColor: ui.color.scrim},
-  dialog: {width: '100%', maxWidth: 420, alignSelf: 'center', gap: ui.space.md, padding: ui.space.lg, borderRadius: ui.radius.sheet, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.background, elevation: 0},
-  title: {...ui.type.title, color: ui.color.text},
-  body: {...ui.type.body, color: ui.color.text},
-  actions: {flexDirection: 'row', gap: ui.space.sm},
-  button: {flex: 1, minHeight: ui.icon.touch, alignItems: 'center', justifyContent: 'center', borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, paddingHorizontal: ui.space.sm},
-  pressed: {opacity: 0.8},
-  danger: {backgroundColor: ui.color.destructive, borderColor: ui.color.destructive},
-  dangerLabel: {...ui.type.body, color: ui.color.background, fontWeight: '600', textAlign: 'center'},
-  safe: {backgroundColor: ui.color.accent, borderColor: ui.color.accent},
-  safeLabel: {...ui.type.body, color: ui.color.background, fontWeight: '600', textAlign: 'center'},
-  cancelLabel: {...ui.type.body, color: ui.color.text, textAlign: 'center'},
+  scrim: {flex: 1, justifyContent: 'center', padding: 32, backgroundColor: ui.color.scrim},
+  dialog: {width: '100%', maxWidth: 360, alignSelf: 'center', gap: 10, paddingTop: 22, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 22, backgroundColor: ui.color.surface, elevation: 0},
+  title: {fontSize: 17, lineHeight: 22, fontWeight: '600', color: ui.color.text, textAlign: 'center'},
+  body: {fontSize: 14, lineHeight: 20, color: '#D1D1D6', textAlign: 'center'},
+  actions: {flexDirection: 'row', gap: 10, marginTop: 8},
+  button: {flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 999, paddingHorizontal: 12, backgroundColor: ui.color.raised},
+  pressed: {opacity: 0.7},
+  danger: {backgroundColor: ui.color.raised},
+  dangerLabel: {fontSize: 16, lineHeight: 21, color: ui.color.destructive, fontWeight: '600', textAlign: 'center'},
+  safe: {backgroundColor: ui.color.text},
+  safeLabel: {fontSize: 16, lineHeight: 21, color: '#000000', fontWeight: '600', textAlign: 'center'},
+  cancelLabel: {fontSize: 16, lineHeight: 21, color: ui.color.text, textAlign: 'center'},
 });

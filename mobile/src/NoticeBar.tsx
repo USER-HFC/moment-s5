@@ -1,7 +1,6 @@
 import React, {useEffect} from 'react';
-import {Pressable, StyleSheet, View} from 'react-native';
-import {Text} from 'react-native-paper';
-import {ui} from './theme';
+import {Pressable, View} from 'react-native';
+import {Text} from './ui';
 import {Notice} from './notice';
 
 /** One optional action keeps the contract small: save uses 查看, errors can use 查看诊断. */
@@ -16,19 +15,14 @@ export default function NoticeBar({notice, onDismiss}: {notice: Notice | null; o
     return () => clearTimeout(timer);
   }, [notice, onDismiss]);
   if (!notice) return null;
-  return <View testID="notice-bar" accessibilityLiveRegion="polite" style={styles.bar}>
-    <Text numberOfLines={3} style={styles.message}>{notice.message}</Text>
-    {notice.action && <Pressable accessibilityRole="button" accessibilityLabel={notice.action.label} onPress={() => {notice.action?.onPress(); onDismiss?.();}} android_ripple={{color: ui.color.pressed}} style={styles.action}>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3} style={styles.actionLabel}>{notice.action.label}</Text>
+  // A dark capsule like the iOS camera's toasts: no outline, no shadow.
+  return <View testID="notice-bar" accessibilityLiveRegion="polite"
+    className="min-h-[44px] flex-row items-center gap-2 self-center rounded-[22px] bg-grouped/95 py-1.5 pl-4 pr-1.5" style={{elevation: 0, maxWidth: 520}}>
+    <Text numberOfLines={3} className="shrink text-[15px] leading-[20px]">{notice.message}</Text>
+    {notice.action && <Pressable accessibilityRole="button" accessibilityLabel={notice.action.label} onPress={() => {notice.action?.onPress(); onDismiss?.();}}
+      className="h-8 shrink-0 items-center justify-center rounded-full bg-ink px-3.5 active:opacity-70" style={{maxWidth: '46%'}}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-footnote font-semibold text-black">{notice.action.label}</Text>
     </Pressable>}
+    {!notice.action && <View className="w-2.5"/>}
   </View>;
 }
-
-const styles = StyleSheet.create({
-  // Flat dark bar: the Material snackbar was light and sat on the mode switch.
-  bar: {flexDirection: 'row', alignItems: 'center', gap: ui.space.sm, minHeight: ui.icon.touch, paddingLeft: ui.space.md, paddingRight: ui.space.xs,
-    borderRadius: ui.radius.control, borderWidth: 1, borderColor: ui.color.outline, backgroundColor: ui.color.surface, elevation: 0},
-  message: {...ui.type.body, flex: 1, minWidth: 0, color: ui.color.text},
-  action: {flexShrink: 0, maxWidth: '46%', minWidth: ui.icon.touch, minHeight: ui.icon.touch, paddingHorizontal: ui.space.md, alignItems: 'center', justifyContent: 'center'},
-  actionLabel: {...ui.type.body, color: ui.color.accent, fontWeight: '600'},
-});

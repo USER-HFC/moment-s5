@@ -20,3 +20,12 @@ export function connectionControlLabel(state: Pick<CameraState, 'active' | 'demo
   if (state.demo) return '演示';
   return linkName(state.transport);
 }
+
+/** Top-bar pill: body name first, link after it, e.g.「DC-S5」「USB」. Wi-Fi keeps its experimental note. */
+export function connectionPill(state: Pick<CameraState, 'active' | 'demo' | 'transport' | 'cameraModel'>) {
+  if (!state.active) return {title: '未连接', detail: ''};
+  if (state.demo) return {title: '演示', detail: ''};
+  const model = state.cameraModel?.trim();
+  const link = state.transport === 'wifi' ? 'Wi-Fi 实验' : 'USB';
+  return model ? {title: model, detail: link} : {title: link, detail: '已连接'};
+}
