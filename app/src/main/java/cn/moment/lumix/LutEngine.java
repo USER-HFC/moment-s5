@@ -110,15 +110,7 @@ public final class LutEngine {
         try {
             bitmap = source.getConfig() == Bitmap.Config.ARGB_8888 && source.isMutable() ? source : source.copy(Bitmap.Config.ARGB_8888, true);
             if (bitmap == null) throw new IOException("无法建立 LUT 图像缓冲");
-            int w = bitmap.getWidth(), h = bitmap.getHeight(); int[] px = new int[w]; float[] rgb = new float[3];
-            for (int row = 0; row < h; row++) {
-                bitmap.getPixels(px, 0, w, 0, row, w, 1);
-                for (int i = 0; i < px.length; i++) {
-                    int c = px[i]; sample((c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f, rgb);
-                    px[i] = (c & 0xff000000) | (toByte(rgb[0]) << 16) | (toByte(rgb[1]) << 8) | toByte(rgb[2]);
-                }
-                bitmap.setPixels(px, 0, w, 0, row, w, 1);
-            }
+            apply(bitmap);
             ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(jpeg.length, 1024));
             if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)) throw new IOException("LUT JPEG 编码失败");
             return out.toByteArray();
@@ -127,6 +119,63 @@ public final class LutEngine {
         } finally {
             if (bitmap != null && bitmap != source) bitmap.recycle();
             source.recycle();
+        }
+    }
+
+    /** Rows per work unit. Big enough to amortise getPixels, small enough to spread over the cores. */
+    private static final int STRIP_ROWS = 64;
+    /** Below this many pixels (a preview frame) threads cost more than they save. */
+    private static final long PARALLEL_PIXELS = 1_500_000L;
+
+    /**
+     * Same per-pixel math as before, but the per-channel grid position of every 8-bit input is
+     * computed once, and a full-size photo is split into row strips across the cores. Output is
+     * bit-identical to the single-threaded loop: strips never overlap and each pixel's arithmetic
+     * is unchanged.
+     */
+    private void apply(Bitmap bitmap) {
+        final int w = bitmap.getWidth(), h = bitmap.getHeight();
+        final Axis[] axes = axes();
+        int strips = (h + STRIP_ROWS - 1) / STRIP_ROWS;
+        java.util.stream.IntStream range = java.util.stream.IntStream.range(0, strips);
+        if ((long) w * h >= PARALLEL_PIXELS) range = range.parallel();
+        range.forEach(strip -> {
+            int y = strip * STRIP_ROWS, rows = Math.min(STRIP_ROWS, h - y);
+            int[] px = new int[w * rows]; float[] rgb = new float[3];
+            bitmap.getPixels(px, 0, w, 0, y, w, rows);
+            for (int i = 0; i < px.length; i++) {
+                int c = px[i]; sample8(axes, c >>> 16 & 255, c >>> 8 & 255, c & 255, rgb);
+                px[i] = (c & 0xff000000) | (toByte(rgb[0]) << 16) | (toByte(rgb[1]) << 8) | toByte(rgb[2]);
+            }
+            bitmap.setPixels(px, 0, w, 0, y, w, rows);
+        });
+    }
+
+    /** Grid cell and weight for each 8-bit value on one channel, exactly as sample() derives them. */
+    private static final class Axis { final int[] lo = new int[256], hi = new int[256]; final float[] t = new float[256]; }
+    private volatile Axis[] axes;
+    private Axis[] axes() {
+        Axis[] ready = axes;
+        if (ready != null) return ready;
+        Axis[] built = new Axis[3];
+        for (int c = 0; c < 3; c++) {
+            Axis axis = built[c] = new Axis();
+            for (int v = 0; v < 256; v++) {
+                float x = norm(v / 255f, c) * (size - 1);
+                int x0 = (int) Math.floor(x);
+                axis.lo[v] = x0; axis.hi[v] = Math.min(x0 + 1, size - 1); axis.t[v] = x - x0;
+            }
+        }
+        return axes = built;
+    }
+    private void sample8(Axis[] axes, int r, int g, int b, float[] out) {
+        Axis ax = axes[0], ay = axes[1], az = axes[2];
+        int x0 = ax.lo[r], x1 = ax.hi[r], y0 = ay.lo[g], y1 = ay.hi[g], z0 = az.lo[b], z1 = az.hi[b];
+        float tx = ax.t[r], ty = ay.t[g], tz = az.t[b];
+        for (int c = 0; c < 3; c++) {
+            float a = lerp(v(x0,y0,z0,c), v(x1,y0,z0,c), tx), b0 = lerp(v(x0,y1,z0,c), v(x1,y1,z0,c), tx);
+            float c0 = lerp(v(x0,y0,z1,c), v(x1,y0,z1,c), tx), d = lerp(v(x0,y1,z1,c), v(x1,y1,z1,c), tx);
+            out[c] = lerp(lerp(a, b0, ty), lerp(c0, d, ty), tz);
         }
     }
 

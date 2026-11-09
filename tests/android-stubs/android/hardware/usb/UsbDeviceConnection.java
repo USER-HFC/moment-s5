@@ -21,8 +21,16 @@ public final class UsbDeviceConnection {
     public boolean claimInterface(UsbInterface iface,boolean force){return true;}
     public boolean releaseInterface(UsbInterface iface){released++;return true;}
     public void close(){closed=true;}
+    /** Largest single IN read seen, so checks can tell packet reads from direct payload reads. */
+    public int largestRead;
     public int bulkTransfer(UsbEndpoint endpoint,byte[] bytes,int offset,int length,int timeout){
         if(closed)return -1;
+        if(endpoint!=null && endpoint.getDirection()==128){
+            largestRead=Math.max(largestRead,length);
+            byte[] chunk=new byte[length];int n=bulkTransfer(endpoint,chunk,length,timeout);
+            if(n>0)System.arraycopy(chunk,0,bytes,offset,n);
+            return n;
+        }
         byte[] command=Arrays.copyOfRange(bytes,offset,offset+length);commands.add(command);
         byte[] response=respond.apply(command);for(byte b:response)pending.add(b);
         return length;
@@ -32,7 +40,7 @@ public final class UsbDeviceConnection {
         if(slowReads>0){slowReads--;try{Thread.sleep(Math.min(timeout,250));}catch(InterruptedException e){Thread.currentThread().interrupt();}return -1;}
         if(failAfterBytes>=0 && delivered>=failAfterBytes){failAfterBytes=-1;return -1;}
         if(pending.isEmpty())return -1;
-        int n=Math.min(7,Math.min(length,pending.size()));for(int i=0;i<n;i++)bytes[i]=pending.remove();delivered+=n;return n;
+        int n=Math.min(length>16384?65536:7,Math.min(length,pending.size()));for(int i=0;i<n;i++)bytes[i]=pending.remove();delivered+=n;return n;
     }
     public UsbRequest requestWait(long timeout) throws java.util.concurrent.TimeoutException {throw new java.util.concurrent.TimeoutException();}
 }

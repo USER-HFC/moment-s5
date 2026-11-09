@@ -32,6 +32,41 @@ public final class LutBitmapChecks {
                   Arrays.equals(actual.parade, expected.parade) && Arrays.equals(actual.vectorscope, expected.vectorscope), "all scopes analyze the effective LUT JPEG");
         }
     }
+    /**
+     * The table lookup and the row-strip threads must not change a single pixel: compare a
+     * multi-megapixel apply() against the original per-pixel sample() for every built-in LUT.
+     */
+    private static void parallelMatchesSerial(File assets) throws Exception {
+        int w = 1800, h = 1000;
+        BufferedImage noise = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        java.util.Random random = new java.util.Random(7);
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) noise.setRGB(x, y, random.nextInt(0x1000000));
+        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+        check(ImageIO.write(noise, "png", encoded), "host PNG encoder available");
+        Method sampler = LutEngine.class.getDeclaredMethod("sample", float.class, float.class, float.class);
+        Method apply = LutEngine.class.getDeclaredMethod("apply", Bitmap.class);
+        sampler.setAccessible(true); apply.setAccessible(true);
+        for (BuiltInLutCatalog.Entry entry : BuiltInLutCatalog.ENTRIES) {
+            LutEngine lut = LutEngine.load(new File(assets, entry.assetName));
+            BitmapFactory.Options options = new BitmapFactory.Options(); options.inMutable = true;
+            byte[] bytes = encoded.toByteArray();
+            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+            if (!bitmap.isMutable()) bitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+            int[] before = new int[w * h]; bitmap.getPixels(before, 0, w, 0, 0, w, h);
+            apply.invoke(lut, bitmap);
+            int[] after = new int[w * h]; bitmap.getPixels(after, 0, w, 0, 0, w, h);
+            boolean same = true;
+            for (int i = 0; i < before.length && same; i += 97) {
+                int c = before[i];
+                float[] e = (float[]) sampler.invoke(lut, (c >>> 16 & 255) / 255f, (c >>> 8 & 255) / 255f, (c & 255) / 255f);
+                int expected = (c & 0xff000000) | (byteOf(e[0]) << 16) | (byteOf(e[1]) << 8) | byteOf(e[2]);
+                same = after[i] == expected;
+            }
+            check(same, "parallel table LUT matches the per-pixel sampler exactly: " + entry.name);
+        }
+    }
+    private static int byteOf(float v) { return Math.round(Math.max(0f, Math.min(1f, v)) * 255f); }
+
     public static void main(String[] args) throws Exception {
         File assets = new File(args[0]);
         BufferedImage image = new BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB);
@@ -59,6 +94,7 @@ public final class LutBitmapChecks {
                 check(Math.abs(actual - Math.round(expected[channel] * 255)) <= 4, "pixel loop applies LUT before host JPEG encoding");
             }
         }
+        parallelMatchesSerial(assets);
         System.out.println(checks + " bitmap / host JPEG / post-LUT scope checks passed (Android codecs not exercised).");
     }
 }

@@ -10,11 +10,24 @@ public final class Iteration5SystemChecks {
     private static int checks;
     private static void check(boolean value, String message) { checks++; if (!value) throw new AssertionError(message); }
 
+    /** Sync timing line: each stage measured from the one before it, size and speed when known. */
+    private static void syncTiming() {
+        SyncTiming t = new SyncTiming(0, 50_000, 470_000);
+        t.found = 780_000; t.downloaded = 2_610_000; t.bytes = 13_002_342; t.lut = 640_000;
+        String line = t.line("拍照", 3_400_000);
+        check(line.equals("同步耗时 · 拍照 · 快门 420 ms · 等新照片 310 ms · 传输 1830 ms（12.4 MB，6.8 MB/s） · LUT 640 ms · 合计 3.4 s"), "sync timing line: " + line);
+        SyncTiming body = new SyncTiming(100, 100, 100);
+        body.found = 100; body.downloaded = 900_100; body.bytes = 9_437_184;
+        String bodyLine = body.line("机身照片", 1_000_100);
+        check(bodyLine.equals("同步耗时 · 机身照片 · 传输 900 ms（9.0 MB，10.0 MB/s） · 合计 1.0 s"), "body photo line skips shutter, wait and LUT: " + bodyLine);
+    }
+
     public static void main(String[] args) throws Exception {
         storageChecks();
         immersiveChecks();
         batterySignalChecks();
         appDetailsChecks();
+        syncTiming();
         System.out.println("PASS " + checks + " iteration 5 system checks");
     }
 

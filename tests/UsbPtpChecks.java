@@ -57,6 +57,15 @@ public final class UsbPtpChecks {
         check(camera.closed() && (System.nanoTime()-started)/1_000_000<2000,"immediate -1 results still abort quickly");
 
         manager=manager();camera=open(manager);
+        // A multi-megabyte original arrives intact through the direct 1 MB reads.
+        byte[] large=new byte[3*1024*1024+12345];for(int i=0;i<large.length;i++)large[i]=(byte)(i*31+7);
+        manager.connection.respond=command->{int tx=Ptp.le(command).getInt(8);return join(container(2,0x1009,tx,large),container(3,0x2001,tx,new byte[0]));};
+        check(Arrays.equals(camera.object(9),large),"a large original keeps every byte");
+        check(manager.connection.largestRead>16384,"large payloads are read in direct transfers, not 16 KB packets");
+        check(!camera.closed(),"the session stays open after a large transfer");
+        camera.close();
+
+        manager=manager();camera=open(manager);
         byte[] object=new byte[64];
         manager.connection.respond=command->{int tx=Ptp.le(command).getInt(8);return join(container(2,0x1009,tx,object),container(3,0x2001,tx,new byte[0]));};
         manager.connection.failAfter(21);UsbS5 broken=camera;

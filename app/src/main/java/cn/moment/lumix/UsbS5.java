@@ -25,6 +25,8 @@ public final class UsbS5 implements AutoCloseable {
     private volatile boolean closed;
     private int transaction;
     private byte[] packet=new byte[16384];
+    /** Large payload reads go straight into the result in transfers of this size. */
+    static final int DIRECT_CHUNK=1<<20;
     private int offset,available;
     private Thread eventThread;
     private boolean session,vendorSession,live;
@@ -200,6 +202,17 @@ public final class UsbS5 implements AutoCloseable {
     private byte[] read(int length,long deadline,boolean awaitStart) throws IOException {
         byte[] result=new byte[length];int p=0,empty=0,fast=0;
         while(p<length) {
+            // A full-size original is thousands of 16 KB packets. Once the buffered bytes are used,
+            // read the rest of a large payload straight into the result in 1 MB transfers.
+            // Packet reads end on packet boundaries, so these reads stay aligned; they never ask
+            // for more than the container has left, so they cannot swallow the response.
+            if(offset==available && !awaitStart && length-p>=packet.length) {
+                int timeout=remaining(deadline);
+                int n=connection.bulkTransfer(in,result,p,Math.min(length-p,DIRECT_CHUNK),timeout);
+                if(n<0) throw new IOException("USB 读取失败或超时");
+                if(n==0) {if(++empty>4) throw new IOException("USB 连续空包");continue;}
+                p+=n;continue;
+            }
             if(offset==available) {
                 int timeout=remaining(deadline);long started=SystemClock.elapsedRealtime();
                 available=connection.bulkTransfer(in,packet,packet.length,timeout);offset=0;

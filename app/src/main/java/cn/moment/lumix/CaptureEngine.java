@@ -211,6 +211,7 @@ public final class CaptureEngine {
         preparedHandles=null;log("遥控快门的照片尚未出现在机身索引中；下一次拍摄只接受快门后的照片事件");
     }
     private void importCameraPhoto(CameraTransport session,CameraTransport.Original photo) {
+        long foundUs=now();
         File dir=null;JSONObject meta=new JSONObject();LutEngine filter=lut;
         try {
             listener.status("正在同步机身拍摄的照片",false);
@@ -221,13 +222,17 @@ public final class CaptureEngine {
             meta.put("frames",0);meta.put("durationUs",0);meta.put("audio",false);meta.put("hasPostFrames",false);meta.put("complete",false);
             MomentStore.metadata(dir,meta);
             File original=new File(dir,"original.jpg"),part=new File(dir,"original.jpg.part");
-            try {session.downloadOriginal(photo,part);Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);}
+            SyncTiming timing=new SyncTiming(foundUs,foundUs,foundUs);timing.found=foundUs;
+            try {session.downloadOriginal(photo,part);timing.bytes=part.length();timing.downloaded=now();Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);}
             finally {Files.deleteIfExists(part.toPath());}
             savedOriginals.add(photo.key());session.noteSaved(photo);
             CameraTransport.Baseline before=preparedHandles;if(before!=null)preparedHandles=session.withPhoto(before,photo);
+            long lutStartUs=now();
             boolean lutApplied=renderLut(dir,original,filter,false);
+            timing.lut=lutApplied?now()-lutStartUs:-1;
             meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);meta.put("complete",true);
             MomentStore.metadata(dir,meta);
+            log(timing.line("机身照片",now()));
             listener.saved(dir);listener.status("已同步机身照片 "+photo.filename(),false);log("已同步机身拍摄的照片 "+photo.filename());
         } catch(Exception e) {if(dir!=null){saveFailure(dir,meta,e);listener.failed(dir,e.getMessage());}fail(e);}
     }
@@ -289,7 +294,10 @@ public final class CaptureEngine {
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap))throw new IOException("相机已断开，尚未触发快门");
                 if(!demoAtTap) cameraAtTap.clearCaptureEvents();
                 listener.status(motion?"正在拍摄 · 已保留快门前 3 秒":"正在拍摄照片",false);
+                long shutterSentUs=now();
                 if(!demoAtTap) cameraAtTap.shutter();
+                long shutterDoneUs=now();
+                SyncTiming timing=new SyncTiming(shutterUs,shutterSentUs,shutterDoneUs);
                 if(!sameSession(captureEpoch,cameraAtTap,demoAtTap)) throw new IOException("拍摄期间连接中断；请检查机身 SD 卡中的原片");
                 dir=store.create();meta.put("schema",1);meta.put("demo",demoAtTap);
                 meta.put("createdAt",System.currentTimeMillis());meta.put("captureMode",motion?"pre-only":"photo");
@@ -304,10 +312,12 @@ public final class CaptureEngine {
                 else {
                     listener.status(motion?"动态已缓存 · 正在接收原尺寸照片":"正在接收原尺寸照片",false);
                     CameraTransport.Original source=cameraAtTap.awaitNewJpeg(captureBaseline,()->sameSession(captureEpoch,cameraAtTap,false));filename=source.filename();
+                    timing.found=now();
                     meta.put("source",filename);MomentStore.metadata(dir,meta);
                     File part=new File(dir,"original.jpg.part");
                     try {
                         cameraAtTap.downloadOriginal(source,part);
+                        timing.bytes=part.length();timing.downloaded=now();
                         Files.move(part.toPath(),original.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE);
                     } finally {Files.deleteIfExists(part.toPath());}
                     savedOriginals.add(source.key());cameraAtTap.noteSaved(source);
@@ -319,14 +329,17 @@ public final class CaptureEngine {
                 }
                 meta.put("source",filename);MomentStore.metadata(dir,meta);
                 // Keep the camera bytes immutable; rendered.jpg is an explicit derivative.
+                long lutStartUs=now();
                 boolean lutApplied=renderLut(dir,original,filter,motion);
+                timing.lut=lutApplied?now()-lutStartUs:-1;
                 meta.put("schema",1);meta.put("demo",demoAtTap);meta.put("source",filename);
                 meta.put("frames",fs.size());meta.put("maxGapMs",motion?Math.max(FrameRing.maxGap(fs),to-fs.get(fs.size()-1).us)/1000:0);
                 meta.put("hasPostFrames",false);meta.put("audio",audioSamples!=null);meta.put("shutterTimeBasis",motion?"button-tap pre-shutter buffer snapshot; exposure time is approximate":"button-tap request; camera exposure time is approximate");
                 meta.put("lut",lutApplied?filter.title:JSONObject.NULL);meta.put("lutApplied",lutApplied);
                 if(!motion) {
                     meta.put("durationUs",0);meta.put("complete",true);meta.remove("error");MomentStore.metadata(dir,meta);
-                    ring.clear();busy=false;refreshExposure();listener.saved(dir);listener.status(savedStatus(false,lutApplied,filter==null?null:filter.title),false);return;
+                    ring.clear();busy=false;refreshExposure();listener.saved(dir);listener.status(savedStatus(false,lutApplied,filter==null?null:filter.title),false);
+                    if(!demoAtTap)log(timing.line("拍照",now()));return;
                 }
                 // The still marker uses the last encoded sample, never an out-of-range end timestamp.
                 long stillUs=((long)Math.ceil((to-from)*VideoEncoder.FPS/1_000_000.0)-1)*1_000_000L/VideoEncoder.FPS;
@@ -336,6 +349,7 @@ public final class CaptureEngine {
                 meta.put("motionQuality",demoAtTap?"synthetic demo":cameraAtTap.kind().equals("wifi")?"experimental unverified Wi-Fi preview, not camera-recorded video":"USB preview, not camera-recorded video");
                 meta.put("complete",false);meta.put("error","动态照片还在生成，已接收的原片可以分享");
                 MomentStore.metadata(dir,meta);
+                if(!demoAtTap)log(timing.line("动态照片原片",now()));
                 File finalDir=dir; final boolean rendered=lutApplied;
                 listener.status("原片已接收 · 正在生成动态照片",false);
                 exporter.execute(()-> {
@@ -402,7 +416,7 @@ public final class CaptureEngine {
         p.setColor(0xffe3d9b7);c.drawCircle(width*.7f,height*.25f,height*.11f,p);
         p.setColor(0xff2b4942);c.drawOval(-width*.2f,height*.4f,width*.8f,height*1.4f,p);
         p.setColor(0xff112c29);c.drawOval(width*.3f,height*.55f,width*1.3f,height*1.4f,p);
-        p.setColor(0xffd6f58b);c.drawCircle(x,height*.55f+(float)Math.sin(t*Math.PI*2)*height*.08f,height*.026f,p);
+        p.setColor(0xfff2f2f2);c.drawCircle(x,height*.55f+(float)Math.sin(t*Math.PI*2)*height*.08f,height*.026f,p);
         // A top-left line rotates onto the battery corner in portrait. Keep the mark low, small, and faint.
         p.setColor(0x80EFF3E9);p.setTextSize(height*.022f);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));
         c.drawText("SYNTHETIC DEMO",width*.5f,height*.70f,p);

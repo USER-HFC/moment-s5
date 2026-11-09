@@ -138,7 +138,7 @@ const ScopeChart = React.memo(function ScopeChart({kind, panel, bounds, data, st
     </View>
     {pressFeedback && <View testID={`scope-press-feedback-${kind}`} pointerEvents="none" style={styles.pressFeedback}>
       <Svg width={32} height={32} viewBox="0 0 32 32">
-        <Circle cx={16} cy={16} r={15} fill="#101210D9"/>
+        <Circle cx={16} cy={16} r={15} fill="#000000D9"/>
         <Circle cx={16} cy={16} r={RING_RADIUS} fill="none" stroke="#FFFFFF66" strokeWidth={2.5}/>
         <AnimatedCircle cx={16} cy={16} r={RING_RADIUS} fill="none" stroke={ui.color.accent} strokeWidth={2.5} strokeLinecap="round"
           strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
