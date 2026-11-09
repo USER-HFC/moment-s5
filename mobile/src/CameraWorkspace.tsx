@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AccessibilityInfo, Animated, BackHandler, Easing, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, Vibration, View} from 'react-native';
 import {Images, Play, Settings, Unplug, Usb, Wifi} from 'lucide-react-native';
-import {Button, cn, color, Icon, RoundButton, Text} from './ui';
+import {Button, cn, color, Icon, Presence, PressableMotion, RoundButton, Text} from './ui';
 import {focusDirection} from './focusDirection';
 import {camera, cameraEvents, CameraState, LutItem} from './native';
 import useShootingPreferences from './useShootingPreferences';
@@ -14,6 +14,7 @@ import {changeScopePanel, resetScopeRevealHint, useScopePanels} from './scopes/u
 import LutFlyout from './LutFlyout';
 import CaptureDrawer, {DrawerOption, DrawerToggle} from './CaptureDrawer';
 import CountdownOverlay from './CountdownOverlay';
+import ShutterButton from './ShutterButton';
 import CameraHud from './hud/CameraHud';
 import NoticeBar, {Notice} from './NoticeBar';
 import {Guide, guideRect, shadeOutside} from './referenceFrame';
@@ -230,12 +231,12 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
     ? <RoundButton accessibilityLabel="相机连接" accessibilityHint={connectionHint} onPress={() => {void onConnect();}}>
       <Icon as={connectionIcon} size={20} color={state.active ? color.ink : color.muted}/>
     </RoundButton>
-    : <Pressable accessibilityRole="button" accessibilityLabel="相机连接" accessibilityHint={connectionHint} onPress={() => {void onConnect();}}
-      className="h-9 max-w-[70%] flex-row items-center gap-[7px] rounded-full bg-grouped px-3 active:opacity-70">
+    : <PressableMotion accessibilityRole="button" accessibilityLabel="相机连接" accessibilityHint={connectionHint} onPress={() => {void onConnect();}}
+      className="h-9 max-w-[70%] flex-row items-center gap-[7px] rounded-full bg-grouped px-3">
       <View className={cn('h-1.5 w-1.5 rounded-full', state.active ? 'bg-ink' : 'bg-faint')}/>
       <Text numberOfLines={1} className="shrink text-footnote font-semibold">{pill.title}</Text>
       {!!pill.detail && <Text numberOfLines={1} className="text-footnote font-medium text-muted">{pill.detail}</Text>}
-    </Pressable>;
+    </PressableMotion>;
 
   const modes = <View testID="camera-modes" accessibilityRole="radiogroup" accessibilityLabel="拍摄模式"
     className={landscape ? 'flex-1 items-center justify-center gap-5' : 'flex-row items-start justify-center gap-7'}>
@@ -244,7 +245,7 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
       return <Pressable key={label} accessibilityRole="radio" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{checked: on}}
         onPress={() => setMotionEnabled(value)} hitSlop={8} className="items-center gap-[5px] px-1 py-1 active:opacity-70">
         <Text className={cn('text-[14px] leading-[18px] font-semibold', on ? 'text-ink' : 'text-muted')} style={{letterSpacing: 1.6, paddingLeft: 1.6}}>{name}</Text>
-        <View className={cn('h-1 w-1 rounded-full', on ? 'bg-leica' : 'bg-transparent')}/>
+        <View className="h-1 w-1"><Presence visible={on} kind="pop" spring="bouncy" appear={false} style={styles.modeDot}><View/></Presence></View>
       </Pressable>;
     })}
   </View>;
@@ -257,14 +258,11 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
     scopes={scopePanels} onScope={kind => changeScopePanel({type: 'toggle', kind})}
     canFocus={canManualFocus} focusDisabled={state.busy || waiting} onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))}/>;
 
-  const shutter = <Pressable testID="shutter" accessibilityRole="button" accessibilityLabel={captureLabel} accessibilityState={{disabled}} onPress={fire}
-    className={cn('h-[78px] w-[78px] items-center justify-center rounded-full border-4 border-ink', disabled && 'opacity-45')}>
-    {({pressed}) => <View className={cn(waiting ? 'h-7 w-7 rounded-md bg-leica' : 'h-16 w-16 rounded-full bg-ink', pressed && !waiting && 'h-[58px] w-[58px] opacity-80')}/>}
-  </Pressable>;
-  const album = <Pressable accessibilityRole="button" accessibilityLabel="打开相册" onPress={() => leave(onAlbum)}
-    className="h-12 w-12 items-center justify-center overflow-hidden rounded-[10px] border border-white/15 bg-grouped active:opacity-70">
+  const shutter = <ShutterButton accessibilityLabel={captureLabel} disabled={disabled} waiting={waiting} onPress={fire}/>;
+  const album = <PressableMotion feel={{scale: 0.9, dim: 0.85}} accessibilityRole="button" accessibilityLabel="打开相册" onPress={() => leave(onAlbum)}
+    className="h-12 w-12 items-center justify-center overflow-hidden rounded-[10px] border border-white/15 bg-grouped">
     {latestPhoto ? <AlbumThumbnail uri={latestPhoto}/> : <Icon as={Images} size={22} color={color.muted}/>}
-  </Pressable>;
+  </PressableMotion>;
 
   const finder = <View testID="camera-body" className="min-h-0 min-w-0 flex-1">
     <View testID="viewfinder" className="min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden" onLayout={event => setFinderSize(event.nativeEvent.layout)}>
@@ -313,22 +311,25 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
           <NoticeBar notice={shownNotice} onDismiss={dismissShown}/>
         </View>
         {waiting && <CountdownOverlay seconds={seconds} total={total}/>}
-        {panel === 'lut' && <LutFlyout luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} bottomInset={hudBottomHeight + 20}
+        {<LutFlyout visible={panel === 'lut'} luts={luts} activeName={state.lut} disabled={working || state.busy} landscape={landscape} bottomInset={hudBottomHeight + 20}
           onSelect={chooseLut} onImport={async () => {setWorking(true); try {await onImportLut();} finally {setWorking(false);}}} onRefresh={() => {void onRefresh();}} onClose={() => setPanel(null)}/>}
       </View>
     </View>
   </View>;
 
-  // Reanimated layout animations left an invisible exiting copy that swallowed taps, so the zone swaps without them.
-  const zone = <View className={landscape ? 'flex-1 items-center justify-center' : 'w-full items-center justify-center'}>
-    {drawerOpen ? drawer : modes}
+  // Modes and the drawer cross-fade in the same slot. Each is a Presence: the one leaving stops
+  // taking touches at once (beta.7 lost taps to an invisible exiting copy of Reanimated layout animations).
+  const zoneFill = landscape ? styles.zoneFillSide : styles.zoneFill;
+  const zone = <View className={landscape ? 'flex-1 self-stretch' : 'h-full w-full'}>
+    <Presence visible={!drawerOpen} kind="fade" appear={false} pointerEvents="box-none" style={zoneFill}>{modes}</Presence>
+    <Presence visible={drawerOpen} kind={landscape ? 'push' : 'rise'} distance={landscape ? 18 : 14} spring="smooth" pointerEvents="box-none" style={zoneFill}>{drawer}</Presence>
   </View>;
 
   return <View testID="camera-workspace" className="flex-1 bg-canvas">
     {landscape ? <View className="flex-1 flex-row">
       <View testID="camera-tools" className="w-[72px] items-center justify-between py-4">{connection}{settingsButton}</View>
       {finder}
-      <View testID="camera-drawer-zone" className="w-[92px] items-center py-3">{zone}</View>
+      <View testID="camera-drawer-zone" className="w-[92px] items-center self-stretch py-3">{zone}</View>
       <View testID="camera-dock" className="w-[96px] items-center justify-between py-4"><DrawerToggle open={drawerOpen} onPress={toggleDrawer}/>{shutter}{album}</View>
     </View> : <>
       <View testID="camera-tools" className="h-14 flex-row items-center justify-between px-4">{connection}{settingsButton}</View>
@@ -370,6 +371,9 @@ function AlbumThumbnail({uri}: {uri: string}) {
 
 const hairline = StyleSheet.hairlineWidth;
 const styles = StyleSheet.create({
+  modeDot: {width: 4, height: 4, borderRadius: 2, backgroundColor: color.leica},
+  zoneFill: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center'},
+  zoneFillSide: {...StyleSheet.absoluteFillObject, alignItems: 'center'},
   previewFrame: {position: 'relative', overflow: 'hidden'}, previewFallback: {width: '100%', height: '100%'}, previewPending: {opacity: 0},
   gridBox: {position: 'absolute'},
   gridV: {position: 'absolute', top: 0, bottom: 0, width: hairline, backgroundColor: 'rgba(255,255,255,0.32)'},

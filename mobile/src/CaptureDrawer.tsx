@@ -1,8 +1,8 @@
 import React from 'react';
-import {Pressable, ScrollView, View} from 'react-native';
+import {ScrollView, View} from 'react-native';
 import {Activity, Grid3x3, Mic, MicOff, Scan, ScanEye, SlidersHorizontal, Timer} from 'lucide-react-native';
 import type {LucideIcon} from 'lucide-react-native';
-import {cn, color, Icon, Segmented, Text} from './ui';
+import {cn, color, feel, Icon, Presence, PressableMotion, Segmented, Text} from './ui';
 import type {Segment} from './ui';
 import {GUIDE_ORDER, Guide} from './referenceFrame';
 import {ScopeKind, ScopePanelState, SCOPE_KINDS, SCOPE_TITLES} from './scopes/panelState';
@@ -32,28 +32,30 @@ type ItemProps = {
 
 /** One drawer control: a 44 circle, white when on, grey when off, with its name underneath. */
 function Item({icon, name, on, accessibilityLabel, accessibilityHint, checked, disabled, testID, onPress}: ItemProps) {
-  return <Pressable testID={testID} accessibilityRole={checked === undefined ? 'button' : 'switch'} accessibilityLabel={accessibilityLabel}
+  return <PressableMotion feel={feel.item} testID={testID} accessibilityRole={checked === undefined ? 'button' : 'switch'} accessibilityLabel={accessibilityLabel}
     accessibilityHint={accessibilityHint} accessibilityState={checked === undefined ? {selected: on, disabled: !!disabled} : {checked, disabled: !!disabled}}
-    disabled={disabled} onPress={onPress} className={cn('w-16 items-center gap-1.5 active:opacity-70', disabled && 'opacity-40')}>
+    disabled={disabled} onPress={onPress} className="w-16 items-center gap-1.5">
     <View className={cn('h-11 w-11 items-center justify-center rounded-full', on ? 'bg-ink' : 'bg-grouped')}>
       <Icon as={icon} size={20} color={on ? '#000000' : color.ink}/>
     </View>
     <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
       className={cn('text-[11px] leading-[13px] font-medium', on ? 'text-ink' : 'text-muted')}>{name}</Text>
-  </Pressable>;
+  </PressableMotion>;
 }
 
 /** Collapse button at the head of an option row; it reads as the control that was opened. */
 function Head({icon, accessibilityLabel, onPress}: {icon: LucideIcon; accessibilityLabel: string; onPress: () => void}) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} hitSlop={4}
-    className="h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink active:opacity-70">
+  return <PressableMotion feel={feel.round} accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} hitSlop={4}
+    className="h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink">
     <Icon as={icon} size={20} color="#000000"/>
-  </Pressable>;
+  </PressableMotion>;
 }
 
 export default function CaptureDrawer(props: Props) {
   const {vertical, option, onOption} = props;
+  // An option row grows out of its control: a short rise (or slide, in landscape) on a snappy spring.
   const row = (testID: string, accessibilityLabel: string, head: React.ReactNode, body: React.ReactNode, caption?: string) =>
+    <Presence key={testID} visible kind={vertical ? 'push' : 'rise'} distance={10} spring="snappy" style={vertical ? {width: '100%', flex: 1} : {width: '100%'}}>
     <View testID={testID} accessibilityLabel={accessibilityLabel}
       className={cn(vertical ? 'w-full flex-1 items-center gap-3 py-2' : 'w-full gap-2 px-4')}>
       <View className={cn(vertical ? 'flex-1 items-center gap-3' : 'flex-row items-center gap-3')}>
@@ -61,7 +63,8 @@ export default function CaptureDrawer(props: Props) {
         <View className={vertical ? 'w-[64px] flex-1' : 'flex-1'}>{body}</View>
       </View>
       {!!caption && !vertical && <Text className="text-center text-caption text-muted">{caption}</Text>}
-    </View>;
+    </View>
+    </Presence>;
   const close = () => onOption(null);
 
   if (option === 'delay') {
@@ -94,11 +97,11 @@ export default function CaptureDrawer(props: Props) {
   }
   if (option === 'focus' && props.canFocus) {
     const focusButton = (direction: -1 | 1, label: string, accessibilityLabel: string, hint: string) =>
-      <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityHint={`${hint}，可连续点按`}
+      <PressableMotion accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityHint={`${hint}，可连续点按`}
         disabled={props.focusDisabled} onPress={() => props.onFocus(direction)}
-        className={cn('min-h-[38px] items-center justify-center rounded-full bg-raised px-3 active:bg-control', vertical ? 'w-full' : 'flex-1', props.focusDisabled && 'opacity-40')}>
+        className={cn('min-h-[38px] items-center justify-center rounded-full bg-raised px-3', vertical ? 'w-full' : 'flex-1')}>
         <Text className="text-[14px] leading-[18px] font-semibold">{label}</Text>
-      </Pressable>;
+      </PressableMotion>;
     return row('focus-flyout', '手动对焦选项', <Head icon={ScanEye} accessibilityLabel="收起对焦面板" onPress={close}/>,
       <View className={cn('rounded-full bg-grouped p-[3px] gap-[3px]', vertical ? 'flex-col' : 'flex-row')}>
         {focusButton(1, vertical ? '近' : '向近处', '近对焦', '向近处')}
@@ -109,29 +112,35 @@ export default function CaptureDrawer(props: Props) {
 
   const scopesOpen = SCOPE_KINDS.some(kind => props.scopes[kind].open);
   const timerName = props.waiting ? '取消' : props.timerEnabled ? `${props.delay} 秒` : '定时';
-  const items = <>
-    <Item icon={Grid3x3} name="网格" on={props.grid} checked={props.grid} accessibilityLabel="构图网格" onPress={props.onGrid}/>
-    <Item icon={Scan} name={props.guide === 'off' ? '参考' : props.guide} on={props.guide !== 'off'}
-      accessibilityLabel={props.guide === 'off' ? '构图参考 关' : `构图参考 ${props.guide}`} accessibilityHint="打开构图参考选项" onPress={() => onOption('guide')}/>
-    <Item icon={Timer} name={timerName} on={props.timerEnabled || props.waiting}
+  const items = stagger([
+    <Item key="grid" icon={Grid3x3} name="网格" on={props.grid} checked={props.grid} accessibilityLabel="构图网格" onPress={props.onGrid}/>,
+    <Item key="guide" icon={Scan} name={props.guide === 'off' ? '参考' : props.guide} on={props.guide !== 'off'}
+      accessibilityLabel={props.guide === 'off' ? '构图参考 关' : `构图参考 ${props.guide}`} accessibilityHint="打开构图参考选项" onPress={() => onOption('guide')}/>,
+    <Item key="timer" icon={Timer} name={timerName} on={props.timerEnabled || props.waiting}
       accessibilityLabel={props.waiting ? '取消定时' : props.timerEnabled ? `定时 ${props.delay} 秒` : '定时 关'}
       accessibilityHint={props.waiting ? '取消倒计时并关闭定时' : '打开定时选项'}
-      onPress={() => { if (props.waiting) props.onCancelCountdown(); else onOption('delay'); }}/>
-    <Item icon={props.audio ? Mic : MicOff} name="收音" on={props.audio} checked={props.audio} accessibilityLabel={props.audio ? '收音 开' : '收音 关'} onPress={props.onAudio}/>
-    <Item icon={Activity} name="示波器" on={scopesOpen} accessibilityLabel="示波器" accessibilityHint="打开示波器选项" onPress={() => onOption('scopes')}/>
-    {props.canFocus && <Item testID="focus-button" icon={ScanEye} name="对焦" on={false} disabled={props.focusDisabled}
-      accessibilityLabel="对焦" accessibilityHint="打开近/远对焦" onPress={() => onOption('focus')}/>}
-  </>;
+      onPress={() => { if (props.waiting) props.onCancelCountdown(); else onOption('delay'); }}/>,
+    <Item key="audio" icon={props.audio ? Mic : MicOff} name="收音" on={props.audio} checked={props.audio} accessibilityLabel={props.audio ? '收音 开' : '收音 关'} onPress={props.onAudio}/>,
+    <Item key="scopes" icon={Activity} name="示波器" on={scopesOpen} accessibilityLabel="示波器" accessibilityHint="打开示波器选项" onPress={() => onOption('scopes')}/>,
+    props.canFocus && <Item key="focus" testID="focus-button" icon={ScanEye} name="对焦" on={false} disabled={props.focusDisabled}
+      accessibilityLabel="对焦" accessibilityHint="打开近/远对焦" onPress={() => onOption('focus')}/>,
+  ], vertical);
   return vertical
     ? <ScrollView testID="capture-drawer" accessibilityLabel="拍摄控制" contentContainerClassName="items-center gap-3 py-2">{items}</ScrollView>
     : <View testID="capture-drawer" accessibilityLabel="拍摄控制" className="w-full flex-row justify-evenly px-2">{items}</View>;
 }
 
+/** Drawer items rise in one after another, 22 ms apart, the way the iOS camera's controls fan out. */
+function stagger(items: React.ReactNode[], vertical: boolean) {
+  return items.filter(Boolean).map((item, index) => <Presence key={(item as React.ReactElement).key ?? index} visible
+    kind={vertical ? 'push' : 'rise'} distance={vertical ? 12 : 10} spring="snappy" delay={index * 22}>{item}</Presence>);
+}
+
 /** Drawer toggle beside the shutter: grey when closed, white when open. */
 export function DrawerToggle({open, onPress}: {open: boolean; onPress: () => void}) {
-  return <Pressable testID="drawer-toggle" accessibilityRole="button" accessibilityLabel="拍摄控制" accessibilityState={{expanded: open}}
+  return <PressableMotion feel={feel.round} testID="drawer-toggle" accessibilityRole="button" accessibilityLabel="拍摄控制" accessibilityState={{expanded: open}}
     accessibilityHint={open ? '收起拍摄控制' : '展开网格、参考、定时、收音和示波器'} onPress={onPress}
-    className={cn('h-12 w-12 items-center justify-center rounded-full active:opacity-70', open ? 'bg-ink' : 'bg-grouped')}>
+    className={cn('h-12 w-12 items-center justify-center rounded-full', open ? 'bg-ink' : 'bg-grouped')}>
     <Icon as={SlidersHorizontal} size={22} color={open ? '#000000' : color.ink}/>
-  </Pressable>;
+  </PressableMotion>;
 }

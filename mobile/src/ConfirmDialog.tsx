@@ -1,6 +1,6 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {AccessibilityInfo, findNodeHandle, Modal, StyleSheet, View} from 'react-native';
-import {Tappable as Pressable} from './ui';
+import {Presence, PressableMotion as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
 
@@ -33,24 +33,29 @@ export default function ConfirmDialog({visible, title, body, confirmLabel, cance
     return () => clearTimeout(timer);
   }, [visible, title]);
   const cancel = () => { if (!busy) onCancel(); };
-  if (!visible) return null;
+  // Kept mounted through the exit so the card can shrink away instead of vanishing.
+  const [mounted, setMounted] = useState(visible);
+  useEffect(() => { if (visible) setMounted(true); }, [visible]);
+  if (!visible && !mounted) return null;
   return <Modal visible transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={cancel}>
-    <View style={styles.scrim}>
-      <View testID={testID} accessibilityViewIsModal style={styles.dialog}>
+    <Presence visible={visible} kind="fade" style={styles.scrim}>
+      <Presence visible={visible} kind="pop" spring="snappy" onExited={() => setMounted(false)} style={styles.dialog}>
+        <View testID={testID} accessibilityViewIsModal style={styles.body10}>
         <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title}>
           <Text style={styles.title}>{title}</Text>
         </View>
         <Text style={styles.body}>{body}</Text>
         <View style={styles.actions}>
-          <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel} disabled={busy} onPress={cancel} style={({pressed}) => [styles.button, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel} disabled={busy} onPress={cancel} style={styles.button}>
             <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.cancelLabel}>{cancelLabel}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={confirmLabel} disabled={busy} testID={confirmTestID} onPress={onConfirm} style={({pressed}) => [styles.button, destructive ? styles.danger : styles.safe, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={confirmLabel} disabled={busy} testID={confirmTestID} onPress={onConfirm} style={[styles.button, destructive ? styles.danger : styles.safe]}>
             <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={destructive ? styles.dangerLabel : styles.safeLabel}>{confirmLabel}</Text>
           </Pressable>
         </View>
-      </View>
-    </View>
+        </View>
+      </Presence>
+    </Presence>
   </Modal>;
 }
 
@@ -58,6 +63,7 @@ export default function ConfirmDialog({visible, title, body, confirmLabel, cance
 const styles = StyleSheet.create({
   scrim: {flex: 1, justifyContent: 'center', padding: 32, backgroundColor: ui.color.scrim},
   dialog: {width: '100%', maxWidth: 360, alignSelf: 'center', gap: 10, paddingTop: 22, paddingHorizontal: 18, paddingBottom: 18, borderRadius: 22, backgroundColor: ui.color.surface, elevation: 0},
+  body10: {gap: 10},
   title: {fontSize: 17, lineHeight: 22, fontWeight: '600', color: ui.color.text, textAlign: 'center'},
   body: {fontSize: 14, lineHeight: 20, color: '#D1D1D6', textAlign: 'center'},
   actions: {flexDirection: 'row', gap: 10, marginTop: 8},

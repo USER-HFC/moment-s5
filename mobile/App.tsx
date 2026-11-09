@@ -22,6 +22,7 @@ import {ConnectionMemory, DEFAULT_CONNECTION, loadPreferences, saveConnectionMem
 import {captureFailureNotice, userFacingError} from './src/captureError';
 import {savedNoticeMessage} from './src/savedNotice';
 import {A11yHideView} from './src/A11yHideView';
+import {Presence} from './src/ui';
 import {DISCONNECT_BANNER, RECONNECT_ACTION, USB_ATTACH_ACTION, USB_ATTACH_BANNER, classifySessionLoss, connectionToRemember, reconnectPlan, sessionLossAction} from './src/connection/sessionNotice';
 import {USB_CAMERA_ATTACHED_EVENT} from './src/volumeShutter';
 import {BatteryNoticeSession, LOW_CAMERA_BATTERY_MESSAGE, noteLowCameraBattery} from './src/lowBattery';
@@ -30,6 +31,10 @@ const emptyState: CameraState = {active: false, busy: false, ready: false, demo:
 
 export default function App() {
   const [page, setPage] = useState<'camera' | 'album' | 'settings'>('camera');
+  // The page that is sliding away keeps rendering until its exit has finished.
+  const [leavingPage, setLeavingPage] = useState<'album' | 'settings' | null>(null);
+  useEffect(() => { if (page !== 'camera') setLeavingPage(page); }, [page]);
+  const coverPage = page !== 'camera' ? page : leavingPage;
   const pageRef = useRef(page);
   pageRef.current = page;
   const [settingsPage, setSettingsPage] = useState<SettingsPage>('list');
@@ -302,10 +307,11 @@ export default function App() {
       <View testID="camera-layer" pointerEvents={cameraFocused ? 'auto' : 'none'} accessibilityElementsHidden={!cameraFocused} importantForAccessibility={cameraFocused ? 'auto' : 'no-hide-descendants'} style={styles.stage}>
         <CameraWorkspace focused={captureForeground} suspendBack={connectionOpen} storageLow={storageLow} latestPhoto={moments[0]?.imageUri} notice={captureForeground ? notice : null} onDismissNotice={dismissNotice} onAlbum={() => {void refresh(); setPage('album');}} onSettings={() => {setSettingsPage('list'); setPage('settings');}} onStorage={() => {setSettingsPage('storage'); setPage('settings');}} state={state} preview={preview} buffered={buffered} luts={luts} onLut={setLut} onImportLut={importLut} onRefresh={refresh} onConnect={async () => setConnectionOpen(true)}/>
       </View>
-      {page !== 'camera' && <View style={styles.cover}>
-        {page === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment} onShareMany={shareMoments}/>}
-        {page === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
-      </View>}
+      {/* Album rises over the camera; settings pushes in from the right, as a pushed page. */}
+      {coverPage && <Presence visible={page !== 'camera'} kind={coverPage === 'album' ? 'rise' : 'push'} distance={coverPage === 'album' ? 56 : 72} spring="smooth" onExited={() => setLeavingPage(null)} style={styles.cover}>
+        {coverPage === 'album' && <MotionAlbum moments={moments} luts={luts} initialMomentId={openedMomentId} onInitialMomentHandled={() => setOpenedMomentId(null)} onBack={() => setPage('camera')} onExport={exportMoment} onDelete={deleteMoment} onNotice={showNotice} onRender={renderMoment} onPreview={previewMomentLut} onThumbnail={previewMomentThumbnail} onDetails={describeMoment} onShare={shareMoment} onShareMany={shareMoments}/>}
+        {coverPage === 'settings' && <SettingsScreen build={buildInfoFromModule(camera)} page={settingsPage} onPageChange={setSettingsPage} onBack={closeSettings} onNotice={setNotice} onShowIntro={() => setIntroOpen(true)}/>}
+      </Presence>}
     </View>
     <ConnectionSheet visible={connectionOpen} state={state} status={connectionStatus} debugAllowed={!!camera?.wifiDebugEnabled} remembered={connectionMemory} onClose={() => setConnectionOpen(false)} onUsb={connect} onWifi={connectWifi} onDemo={async () => {if (!camera) throw new Error('当前平台没有相机桥'); camera.demo();}} onDisconnect={() => camera?.disconnect()}/>
     {page !== 'camera' && <View pointerEvents="box-none" style={styles.noticeHost}><NoticeBar notice={notice} onDismiss={dismissNotice}/></View>}

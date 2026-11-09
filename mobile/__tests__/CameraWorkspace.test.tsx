@@ -8,7 +8,6 @@ jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: je
 jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true), openMicrophoneSettings: jest.fn(async () => {})}));
 
 import CameraWorkspace from '../src/CameraWorkspace';
-import LutFlyout from '../src/LutFlyout';
 import {camera, CameraState} from '../src/native';
 import {openMicrophoneSettings, requestMicrophonePermission} from '../src/microphonePermission';
 
@@ -45,6 +44,9 @@ const pressBack = () => act(() => {
   if (!handled) BackHandler.exitApp();
 });
 
+/** The LUT component stays mounted for its exit animation; count the panel itself. */
+const lutPanels = () => tree.root.findAllByProps({testID: 'lut-flyout'}).filter(node => typeof node.type === 'string');
+
 it('opens LUTs as a flat side flyout that stays open for live switching', async () => {
   const onLut = jest.fn(async (_id: string) => {});
   const luts = [{id: 'builtin:acros', name: 'Fuji 风格 · Acros', size: 1, builtIn: true, readOnly: true}, {id: 'mine.cube', name: '我的 LUT', size: 1}];
@@ -57,13 +59,13 @@ it('opens LUTs as a flat side flyout that stays open for live switching', async 
   expect(style.shadowOpacity).toBeUndefined();
   for (const label of ['选择 LUT Acros', '选择 LUT 我的 LUT', '选择 LUT 原色']) {
     await act(async () => {await tree.root.findByProps({accessibilityLabel: label}).props.onPress();});
-    expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+    expect(lutPanels()).toHaveLength(1);
   }
   expect(onLut.mock.calls.map(call => call[0])).toEqual(['builtin:acros', 'mine.cube', 'off']);
   tap('LUT 风格');
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(lutPanels()).toHaveLength(0);
   tap('LUT 风格'); tap('收起 LUT 面板');
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(lutPanels()).toHaveLength(0);
 });
 
 
@@ -241,7 +243,7 @@ it('forgets the exit prompt after two seconds and when a panel takes the next pr
   expect(BackHandler.exitApp).not.toHaveBeenCalled();
   tap('LUT 风格');
   pressBack();
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(lutPanels()).toHaveLength(0);
   expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
   expect(BackHandler.exitApp).not.toHaveBeenCalled();
 });
@@ -258,7 +260,7 @@ it('lets the connection sheet own back and ignores back while another page cover
   tap('LUT 风格');
   act(() => tree.update(<CameraWorkspace {...props} suspendBack/>));
   pressBack();
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+  expect(lutPanels()).toHaveLength(1);
   expect(BackHandler.exitApp).toHaveBeenCalledTimes(1);
   act(() => tree.update(<CameraWorkspace {...props} focused={false}/>));
   pressBack();
@@ -307,9 +309,9 @@ it('opens the drawer beside the shutter and swaps the mode switch for the contro
 
 it('opens timer options in place of the controls and closes the LUT panel', () => {
   tap('LUT 风格');
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(1);
+  expect(lutPanels()).toHaveLength(1);
   tap('定时 关');
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(lutPanels()).toHaveLength(0);
   expect(tree.root.findByProps({testID: 'timer-flyout'})).toBeTruthy();
   expect(tree.root.findAllByType(Modal).some(node => node.props.visible)).toBe(false);
   expect(pressable('构图网格')).toBeUndefined();
@@ -366,7 +368,7 @@ it('lays the drawer out as a column in landscape and keeps a long notice to thre
 it('closes the innermost layer on back, then asks before leaving a connected or demo camera', () => {
   tap('LUT 风格');
   pressBack();
-  expect(tree.root.findAllByType(LutFlyout)).toHaveLength(0);
+  expect(lutPanels()).toHaveLength(0);
   expect(JSON.stringify(tree.toJSON())).not.toContain('再按一次退出，相机会断开');
   tap('定时 关');
   pressBack();

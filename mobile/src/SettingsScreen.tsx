@@ -1,6 +1,6 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {BackHandler, ScrollView, View} from 'react-native';
-import {ListGroup as SettingsGroup, ListRow, ListSwitch as SettingsSwitch, PageHeader} from './ui';
+import {ListGroup as SettingsGroup, ListRow, ListSwitch as SettingsSwitch, PageHeader, Presence} from './ui';
 import {BuildInfo} from './buildInfo';
 import AboutScreen from './AboutScreen';
 import DiagnosticsScreen from './DiagnosticsScreen';
@@ -45,12 +45,23 @@ export default function SettingsScreen({build, page, onPageChange, onBack, onNot
     return () => sub.remove();
   }, [page, onBack, onPageChange]);
 
-  if (page === 'about') { return <AboutScreen build={build} onBack={() => onPageChange('list')}/>; }
-  if (page === 'diagnostics') { return <DiagnosticsScreen onBack={() => onPageChange('list')} onNotice={onNotice}/>; }
-  if (page === 'guide') { return <GuideScreen onBack={() => onPageChange('list')} onShowIntro={() => onShowIntro?.()}/>; }
-  if (page === 'storage') { return <StorageScreen onBack={() => onPageChange('list')} onNotice={onNotice}/>; }
+  // A sub-page pushes in from the right; going back, the list slides in from the left.
+  // The first page shown arrives with the settings cover itself, so it does not move on its own.
+  // Direction is fixed when the page changes, so a re-render mid-slide cannot flip it.
+  const transition = useRef<{page: SettingsPage | null; kind: 'push' | 'pushBack'; first: boolean}>({page: null, kind: 'push', first: true});
+  if (transition.current.page !== page) {
+    const from = transition.current.page;
+    transition.current = {page, kind: page === 'list' && from !== null ? 'pushBack' : 'push', first: from === null};
+  }
+  const {kind: pageKind, first: firstShown} = transition.current;
+  const screen = (content: React.ReactNode) => <Presence key={page} visible appear={!firstShown} kind={pageKind} distance={56} spring="smooth" style={{flex: 1}}>{content}</Presence>;
 
-  return <View className="flex-1 bg-canvas" testID="settings-screen">
+  if (page === 'about') { return screen(<AboutScreen build={build} onBack={() => onPageChange('list')}/>); }
+  if (page === 'diagnostics') { return screen(<DiagnosticsScreen onBack={() => onPageChange('list')} onNotice={onNotice}/>); }
+  if (page === 'guide') { return screen(<GuideScreen onBack={() => onPageChange('list')} onShowIntro={() => onShowIntro?.()}/>); }
+  if (page === 'storage') { return screen(<StorageScreen onBack={() => onPageChange('list')} onNotice={onNotice}/>); }
+
+  return screen(<View className="flex-1 bg-canvas" testID="settings-screen">
     <PageHeader title="设置" backLabel="返回拍摄" onBack={onBack}/>
     <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator>
       <View className="w-full max-w-[640px] gap-7 self-center px-4 pt-3">
@@ -86,5 +97,5 @@ export default function SettingsScreen({build, page, onPageChange, onBack, onNot
         </SettingsGroup>
       </View>
     </ScrollView>
-  </View>;
+  </View>);
 }

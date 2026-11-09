@@ -3,9 +3,10 @@ import {ScrollView, View} from 'react-native';
 import {FolderInput, RotateCw, X} from 'lucide-react-native';
 import LutPresetList from './LutPresetList';
 import {LutItem} from './native';
-import {cn, Icon, RoundButton, Text} from './ui';
+import {Icon, Presence, RoundButton, Text} from './ui';
 
 type Props = {
+  visible: boolean;
   luts: LutItem[]; activeName: string | null; disabled: boolean; landscape: boolean;
   /** Space kept clear under the panel for the HUD capsules, so the LUT pill stays tappable. */
   bottomInset: number;
@@ -13,9 +14,11 @@ type Props = {
 };
 
 // Floats over the picture rather than a modal: no scrim, so every LUT tap can be compared live. It stays open after a pick.
-export default function LutFlyout({luts, activeName, disabled, landscape, bottomInset, onSelect, onImport, onRefresh, onClose}: Props) {
-  return <View testID="lut-flyout" accessibilityLabel="LUT 风格面板" style={{bottom: bottomInset, elevation: 0}}
-    className={cn('absolute z-[1090] gap-1 rounded-[22px] bg-grouped/95 p-2', landscape ? 'right-3 top-3 w-[260px]' : 'left-3 right-3 max-h-[62%]')}>
+export default function LutFlyout({visible, luts, activeName, disabled, landscape, bottomInset, onSelect, onImport, onRefresh, onClose}: Props) {
+  // Rises out of the LUT pill below it (portrait) or slides in from the right edge (landscape).
+  return <Presence visible={visible} kind={landscape ? 'push' : 'rise'} distance={landscape ? 40 : 24} spring="smooth"
+    style={[{position: 'absolute', zIndex: 1090, bottom: bottomInset, elevation: 0}, landscape ? {right: 12, top: 12, width: 260} : {left: 12, right: 12, maxHeight: '62%'}]}>
+  <View testID="lut-flyout" accessibilityLabel="LUT 风格面板" className="shrink gap-1 rounded-[22px] bg-grouped/95 p-2" style={{elevation: 0}}>
     <View className="flex-row items-center justify-between pl-2.5">
       <Text accessibilityRole="header" className="text-headline">LUT</Text>
       <View className="flex-row items-center gap-1">
@@ -28,5 +31,6 @@ export default function LutFlyout({luts, activeName, disabled, landscape, bottom
       <LutPresetList compact luts={luts} activeName={activeName} disabled={disabled} onSelect={onSelect}/>
       {!luts.length && <Text className="mt-2 px-2.5 text-caption text-muted">导入 .cube 或 .zip 文件</Text>}
     </ScrollView>
-  </View>;
+  </View>
+  </Presence>;
 }

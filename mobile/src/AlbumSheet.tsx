@@ -1,8 +1,8 @@
 import React, {useEffect, useRef} from 'react';
-import {AccessibilityInfo, Animated, findNodeHandle, PanResponder, ScrollView, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Animated, Easing, findNodeHandle, PanResponder, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import {X} from 'lucide-react-native';
-import {color, Icon, RoundButton} from './ui';
+import {color, duration, Icon, RoundButton, spring} from './ui';
 import {ui} from './theme';
 
 type Props = {
@@ -42,14 +42,14 @@ export default function AlbumSheet({title, height, onClose, children, footer, in
 
   const settle = (to: number) => {
     currentHeight.current = to;
-    Animated.spring(sheetHeight, {toValue: to, useNativeDriver: false, damping: 26, stiffness: 240, mass: 0.8}).start();
+    Animated.spring(sheetHeight, {toValue: to, useNativeDriver: false, ...spring.smooth}).start();
   };
   const dismiss = () => {
-    Animated.timing(sheetHeight, {toValue: 0, duration: 170, useNativeDriver: false}).start(() => onCloseRef.current());
+    Animated.timing(sheetHeight, {toValue: 0, duration: duration.fast, easing: Easing.bezier(0.4, 0, 1, 1), useNativeDriver: false}).start(() => onCloseRef.current());
   };
 
   useEffect(() => {
-    Animated.spring(sheetHeight, {toValue: collapsedHeight, useNativeDriver: false, damping: 24, stiffness: 220, mass: 0.8}).start();
+    Animated.spring(sheetHeight, {toValue: collapsedHeight, useNativeDriver: false, ...spring.smooth}).start();
     // The sheet is mounted when it opens; this is the rise animation.
     return () => sheetHeight.stopAnimation();
   }, [collapsedHeight, sheetHeight]);

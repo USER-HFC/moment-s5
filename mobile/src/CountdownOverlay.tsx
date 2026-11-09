@@ -3,6 +3,7 @@ import {StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
 import Svg, {Circle} from 'react-native-svg';
 import {ui} from './theme';
+import {Presence} from './ui';
 
 const SIZE = 168;
 const STROKE = 10;
@@ -30,7 +31,10 @@ export default function CountdownOverlay({seconds, total}: Props) {
           strokeLinecap="round" strokeDasharray={`${ring.circumference} ${ring.circumference}`} strokeDashoffset={ring.dashOffset}
           transform={`rotate(-90 ${center} ${center})`}/>
       </Svg>
-      <Text accessibilityLiveRegion="polite" accessibilityLabel={`倒计时 ${seconds}`} maxFontSizeMultiplier={1.3} style={styles.digit}>{seconds}</Text>
+      {/* Each new number pops in on a soft spring. */}
+      <Presence key={seconds} visible kind="pop" spring="bouncy">
+        <Text accessibilityLiveRegion="polite" accessibilityLabel={`倒计时 ${seconds}`} maxFontSizeMultiplier={1.3} style={styles.digit}>{seconds}</Text>
+      </Presence>
     </View>
   </View>;
 }
