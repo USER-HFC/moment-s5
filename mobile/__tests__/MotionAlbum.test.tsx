@@ -685,3 +685,19 @@ it('tells a still photo that saving only replaces the in-app copy', () => {
   expect(JSON.stringify(tree.toJSON())).not.toContain('动态照片的封面也会换成新风格');
   act(() => tree.unmount());
 });
+
+it('keeps the viewer toolbars when a toolbar button is tapped, and still toggles them on the photo', () => {
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={moments} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock}/>); });
+  open(tree!);
+  const chromeShown = () => tree!.root.findByProps({testID: 'album-bottom-bar'}).props.pointerEvents === 'auto';
+  expect(chromeShown()).toBe(true);
+  // The same touch reaches the bar and the photo's tap recognizer.
+  act(() => { tree!.root.findByProps({testID: 'album-bottom-bar'}).props.onTouchStart(); singleTap().onEnd?.({}, true); });
+  expect(chromeShown()).toBe(true);
+  const now = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 1000);
+  act(() => { singleTap().onEnd?.({}, true); });
+  expect(chromeShown()).toBe(false);
+  now.mockRestore();
+  act(() => tree!.unmount());
+});

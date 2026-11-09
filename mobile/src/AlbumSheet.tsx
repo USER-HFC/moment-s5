@@ -1,7 +1,8 @@
 import React, {useEffect, useRef} from 'react';
 import {AccessibilityInfo, Animated, findNodeHandle, PanResponder, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from 'react-native-paper';
-import CameraControl from './CameraControl';
+import {X} from 'lucide-react-native';
+import {color, Icon, RoundButton} from './ui';
 import {ui} from './theme';
 
 type Props = {
@@ -79,7 +80,7 @@ export default function AlbumSheet({title, height, onClose, children, footer, in
           <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title} style={styles.titleWrap}>
             <Text style={styles.title}>{title}</Text>
           </View>
-          {showClose && <CameraControl icon="close" accessibilityLabel={`关闭${title}`} onPress={() => onCloseRef.current()}/>}
+          {showClose && <RoundButton size={30} className="bg-raised" accessibilityLabel={`关闭${title}`} onPress={() => onCloseRef.current()}><Icon as={X} size={15} strokeWidth={2.6} color={color.subtle}/></RoundButton>}
         </View>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>{children}</ScrollView>
@@ -89,13 +90,13 @@ export default function AlbumSheet({title, height, onClose, children, footer, in
 }
 
 const styles = StyleSheet.create({
-  sheet: {position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 30, borderTopLeftRadius: ui.radius.sheet, borderTopRightRadius: ui.radius.sheet, backgroundColor: ui.color.background, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline, overflow: 'hidden'},
+  sheet: {position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 30, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: ui.color.surface, overflow: 'hidden'},
   inset: {flex: 1, width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: ui.space.gutter},
   handleArea: {paddingTop: ui.space.sm},
-  handle: {width: 36, height: 4, borderRadius: 2, backgroundColor: ui.color.outline, alignSelf: 'center', marginBottom: ui.space.xs},
+  handle: {width: 36, height: 5, borderRadius: 3, backgroundColor: '#48484A', alignSelf: 'center', marginBottom: ui.space.xs},
   header: {minHeight: ui.icon.touch, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.sm},
   titleWrap: {flexShrink: 1},
-  title: {...ui.type.title, color: ui.color.text},
+  title: {fontSize: 20, lineHeight: 25, fontWeight: '700', letterSpacing: -0.3, color: ui.color.text},
   scroll: {flexGrow: 1, flexShrink: 1}, content: {paddingBottom: ui.space.sm},
   footer: {paddingTop: ui.space.sm, paddingBottom: ui.space.sm, gap: ui.space.sm},
 });

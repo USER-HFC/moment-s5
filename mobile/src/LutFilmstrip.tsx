@@ -54,12 +54,12 @@ export default function LutFilmstrip({luts, selectedId, savedId, thumbnails, ori
 const styles = StyleSheet.create({
   strip: {gap: ui.space.sm, paddingVertical: ui.space.xs, paddingRight: ui.space.sm},
   item: {width: 92, gap: 2, padding: 2, borderRadius: ui.radius.small},
-  selected: {backgroundColor: ui.color.selected}, pressed: {opacity: 0.75}, disabled: {opacity: 0.45},
-  frame: {width: 88, height: 58, borderRadius: ui.radius.small, overflow: 'hidden', backgroundColor: ui.color.surface, borderWidth: 2, borderColor: 'transparent'},
+  selected: {}, pressed: {opacity: 0.75}, disabled: {opacity: 0.45},
+  frame: {width: 88, height: 58, borderRadius: 10, overflow: 'hidden', backgroundColor: ui.color.raised, borderWidth: 2, borderColor: 'transparent'},
   frameSelected: {borderColor: ui.color.accent},
   thumb: {width: '100%', height: '100%'},
   swatch: {flex: 1, flexDirection: 'row'}, swatchColor: {flex: 1},
-  current: {position: 'absolute', left: 2, top: 2, ...ui.type.label, fontSize: 9, lineHeight: 12, color: ui.color.background, backgroundColor: ui.color.accent, paddingHorizontal: 3, borderRadius: 3, overflow: 'hidden'},
+  current: {position: 'absolute', left: 3, top: 3, ...ui.type.label, fontSize: 9, lineHeight: 12, color: '#000000', backgroundColor: ui.color.text, paddingHorizontal: 4, borderRadius: 6, overflow: 'hidden'},
   saved: {position: 'absolute', left: 2, bottom: 2, ...ui.type.label, fontSize: 9, lineHeight: 12, color: ui.color.text, backgroundColor: ui.color.overlay, paddingHorizontal: 3, borderRadius: 3, overflow: 'hidden'},
-  name: {...ui.type.label, lineHeight: 14, minHeight: 28, color: ui.color.muted, textAlign: 'center'}, nameSelected: {color: ui.color.accent},
+  name: {...ui.type.label, lineHeight: 14, minHeight: 28, color: ui.color.muted, textAlign: 'center'}, nameSelected: {color: ui.color.text, fontWeight: '600'},
 });

@@ -133,6 +133,8 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const viewerTitleRef = useRef<View>(null);
   const shareTitleRef = useRef<View>(null);
   const viewerWasOpen = useRef(false);
+  const controlTouchAt = useRef(0);
+  const markControlTouch = () => { controlTouchAt.current = Date.now(); };
   const imageOpacity = useRef(new Animated.Value(1)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
   const chromeOpacity = useRef(new Animated.Value(1)).current;
@@ -389,8 +391,9 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const doubleTap = Gesture.Tap().runOnJS(true).numberOfTaps(2).maxDistance(24).onEnd((_event, success) => {
     if (success) toggleZoom();
   });
+  // Taps on the toolbars and the LIVE badge also reach this recognizer; a button press must not hide the chrome.
   const singleTap = Gesture.Tap().runOnJS(true).maxDistance(24).maxDuration(280).onEnd((_event, success) => {
-    if (success) fadeChrome(!chromeRef.current);
+    if (success && Date.now() - controlTouchAt.current > 400) fadeChrome(!chromeRef.current);
   });
   const longPress = Gesture.LongPress().runOnJS(true).minDuration(380).onStart(() => {
     if (lutOpen) setCompareOriginal(true);
@@ -727,14 +730,14 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
             {renderPage(moments[index + 1], false, 'next')}
           </Animated.View>
         </View>
-        {hasMotion(current) && <Pressable testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} hitSlop={8} style={[styles.liveButton, {left: mediaBox.left + 12, top: mediaTop}]}>
+        {hasMotion(current) && <Pressable onTouchStart={markControlTouch} testID="album-live-badge" accessibilityRole="button" accessibilityLabel="播放 LIVE" accessibilityHint="也可以长按照片播放" accessibilityState={{selected: playing}} onPress={playMotion} hitSlop={8} style={[styles.liveButton, {left: mediaBox.left + 12, top: mediaTop}]}>
           <View className={cn('h-[26px] flex-row items-center gap-1 rounded-full px-2', playing ? 'bg-ink' : 'bg-black/45')}>
             <MotionGlyph size={14} color={playing ? '#000000' : color.ink}/>
             <Text className={cn('text-[11px] leading-[14px] font-semibold', playing && 'text-black')} style={{letterSpacing: 1}}>LIVE</Text>
           </View>
         </Pressable>}
         {compareOriginal && <View pointerEvents="none" style={[styles.compareMark, {top: mediaTop}]}><Text className="text-[11px] leading-[14px] font-semibold">原片</Text></View>}
-    <Animated.View testID="album-top-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.topBar, {height: topBarHeight, opacity: chromeOpacity}]}>
+    <Animated.View onTouchStart={markControlTouch} testID="album-top-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.topBar, {height: topBarHeight, opacity: chromeOpacity}]}>
       <Gradient top/>
       <View style={styles.topRow}>
         <RoundButton tone="filled" size={36} accessibilityLabel="返回网格" onPress={closeViewer}><Icon as={ChevronLeft} size={22}/></RoundButton>
@@ -748,7 +751,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
       </View>
     </Animated.View>
 
-    <Animated.View testID="album-bottom-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.bottomBar, {height: bottomBarHeight, opacity: chromeOpacity}]}>
+    <Animated.View onTouchStart={markControlTouch} testID="album-bottom-bar" pointerEvents={chrome ? 'auto' : 'none'} accessibilityElementsHidden={!chrome} importantForAccessibility={chrome ? 'auto' : 'no-hide-descendants'} style={[styles.bottomBar, {height: bottomBarHeight, opacity: chromeOpacity}]}>
       <Gradient top={false}/>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
         <ViewerAction glyph={Info} label="信息" accessibilityLabel="照片信息" onPress={openInfo}/>
