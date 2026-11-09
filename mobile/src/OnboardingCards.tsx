@@ -25,7 +25,7 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
   // Back moves to the previous card. On the first card it is the same as 跳过, so the activity does not finish.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (index > 0) { go(index - 1); return true; }
+      if (index > 0) { direction.current = 'pushBack'; setIndex(index - 1); return true; }
       onDone();
       return true;
     });
