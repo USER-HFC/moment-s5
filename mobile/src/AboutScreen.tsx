@@ -1,12 +1,14 @@
 import React, {useEffect, useState} from 'react';
-import {Clipboard, Image, Linking, Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Text} from 'react-native-paper';
+import {Clipboard, Image, Linking, ScrollView, StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
+import {Text} from 'react-native-paper';
 import {BuildInfo, buildInfoText, formatBuiltAt, minAndroidLabel} from './buildInfo';
 import CameraIcon from './CameraIcon';
 // Rasterized from app/src/main/res/drawable/ic_moment.xml: Image cannot load a native vector drawable by resource name.
 import appIcon from './assets/ic_moment.png';
 import {ui} from './theme';
-import {PageHeader} from './ui';
+import {Check, Copy} from 'lucide-react-native';
+import {Button as UIButton, Icon, PageHeader, Text as UIText} from './ui';
 
 const REPO = 'https://github.com/USER-HFC/moment-s5';
 const NOTICE = 'https://github.com/USER-HFC/moment-s5/blob/main/NOTICE.md';
@@ -18,9 +20,6 @@ type ActionRowProps = {
 };
 
 function open(url: string) { Linking.openURL(url).catch(() => undefined); }
-
-function CopyIcon() { return <CameraIcon name="copy"/>; }
-function CheckIcon() { return <CameraIcon name="check" active/>; }
 
 function InfoRow({label, value, testID}: {label: string; value: string; testID?: string}) {
   return <View style={styles.row}>
@@ -48,7 +47,7 @@ function Group({title, footer, children}: {title: string; footer?: React.ReactNo
   return <View style={styles.group}>
     <Text style={styles.groupTitle}>{title}</Text>
     <View style={styles.card}>
-      {React.Children.toArray(children).map((child, index) => <View key={index} style={index > 0 ? styles.divider : null}>{child}</View>)}
+      {React.Children.toArray(children).map((child, index) => <View key={index}>{index > 0 && <View style={styles.divider}/>}{child}</View>)}
     </View>
     {footer}
   </View>;
@@ -86,8 +85,9 @@ export default function AboutScreen({build, onBack}: {build: BuildInfo; onBack: 
           <ActionRow label="第三方声明" accessibilityLabel="查看第三方声明 NOTICE" detail="USB 协议参考 tethr（MIT），完整声明见 NOTICE" onPress={() => open(NOTICE)} testID="about-notice"/>
         </Group>
 
-        <Group title="打包信息" footer={<Button mode="outlined" icon={copied ? CheckIcon : CopyIcon} contentStyle={styles.button}
-          accessibilityLabel={copied ? '版本信息已复制' : '复制版本信息'} testID="copy-build-info" textColor={ui.color.accent} onPress={copy}>{copied ? '已复制' : '复制版本信息'}</Button>}>
+        <Group title="打包信息" footer={<UIButton variant="secondary" accessibilityLabel={copied ? '版本信息已复制' : '复制版本信息'} testID="copy-build-info" onPress={copy}>
+            <Icon as={copied ? Check : Copy} size={18}/><UIText>{copied ? '已复制' : '复制版本信息'}</UIText>
+          </UIButton>}>
           <InfoRow label="版本名" value={build.versionName} testID="about-version-name"/>
           <InfoRow label="版本号" value={build.versionCode} testID="about-version-code"/>
           <InfoRow label="构建时间" value={formatBuiltAt(build.builtAt)} testID="about-built-at"/>
@@ -113,13 +113,13 @@ const styles = StyleSheet.create({
   hero: {flexDirection: 'row', alignItems: 'center', gap: ui.space.gutter, paddingTop: ui.space.sm},
   appIcon: {width: 72, height: 72, borderRadius: ui.radius.sheet, backgroundColor: ui.color.surface},
   heroText: {flex: 1, minWidth: 0, gap: ui.space.xs},
-  appName: {...ui.type.title, color: ui.color.text},
-  version: {fontSize: 24, lineHeight: 30, fontWeight: '700', color: ui.color.accent},
+  appName: {fontSize: 22, lineHeight: 28, fontWeight: '700', color: ui.color.text},
+  version: {fontSize: 15, lineHeight: 20, color: ui.color.muted, fontVariant: ['tabular-nums']},
   tagline: {...ui.type.caption, color: ui.color.muted},
-  group: {gap: ui.space.sm},
-  groupTitle: {...ui.type.caption, color: ui.color.muted, fontWeight: '600'},
-  card: {backgroundColor: ui.color.surface, borderRadius: ui.radius.sheet, overflow: 'hidden'},
-  divider: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: ui.color.outline},
+  group: {gap: 6},
+  groupTitle: {fontSize: 13, lineHeight: 18, color: ui.color.muted, paddingHorizontal: 16},
+  card: {backgroundColor: ui.color.surface, borderRadius: 14, overflow: 'hidden'},
+  divider: {height: StyleSheet.hairlineWidth, backgroundColor: ui.color.outline, marginLeft: 16},
   row: {minHeight: 52, paddingHorizontal: ui.space.gutter, paddingVertical: ui.space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ui.space.md},
   actionRow: {minHeight: 56},
   actionText: {flex: 1, minWidth: 0, gap: ui.space.xs},

@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Clipboard, Pressable, StyleSheet, View} from 'react-native';
+import {Clipboard, StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {MomentDetails, MomentItem} from './native';
 import {formatBytes, formatDimensions, shortPath} from './albumFormat';

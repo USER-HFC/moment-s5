@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
-import {AccessibilityInfo, findNodeHandle, Modal, Pressable, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, findNodeHandle, Modal, StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
 

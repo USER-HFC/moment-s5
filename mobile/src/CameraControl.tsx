@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
-import {AccessibilityInfo, Animated, Image, Pressable, StyleSheet} from 'react-native';
+import {AccessibilityInfo, Animated, Image, StyleSheet} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';

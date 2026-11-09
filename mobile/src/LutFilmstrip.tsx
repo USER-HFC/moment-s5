@@ -1,5 +1,6 @@
 import React from 'react';
-import {Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Image, ScrollView, StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {LutItem} from './native';
 import {lutDisplayName} from './lutName';

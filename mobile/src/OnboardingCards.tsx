@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {AccessibilityInfo, BackHandler, findNodeHandle, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {AccessibilityInfo, BackHandler, findNodeHandle, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';

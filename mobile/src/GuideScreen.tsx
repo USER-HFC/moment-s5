@@ -1,5 +1,6 @@
 import React from 'react';
-import {Linking, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Linking, ScrollView, StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
 import {PageHeader} from './ui';

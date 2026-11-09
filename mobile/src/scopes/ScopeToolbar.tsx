@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {Pressable, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
+import {Tappable as Pressable} from '../ui';
 import {Text} from 'react-native-paper';
 import CameraControl from '../CameraControl';
 import CameraIcon from '../CameraIcon';
