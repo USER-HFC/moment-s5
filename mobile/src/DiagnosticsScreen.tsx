@@ -1,13 +1,13 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Clipboard, Platform, ScrollView, Share, StyleSheet, View} from 'react-native';
-import {Button, Text} from 'react-native-paper';
+import {Text} from 'react-native-paper';
 import {buildInfoFromModule} from './buildInfo';
 import {connectionModeLabel, diagnosticFacts, diagnosticHeader, diagnosticRows, diagnosticShareText, DiagnosticFacts, presentDiagnostics, scrollDiagnosticsToEnd} from './connection/diagnostics';
 import {camera} from './native';
 import {Notice} from './notice';
 import {ui} from './theme';
-import {RotateCw} from 'lucide-react-native';
-import {Icon, PageHeader, RoundButton} from './ui';
+import {Check, Copy, RotateCw, Share as ShareIcon} from 'lucide-react-native';
+import {Button as UIButton, Icon, PageHeader, RoundButton, Text as UIText} from './ui';
 
 const EMPTY = '还没有诊断记录，连接相机后再来看';
 
@@ -89,12 +89,10 @@ export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => voi
       {!!log && <Text testID="diagnostics-log" selectable style={styles.log}>{log}</Text>}
     </ScrollView>}
     <View style={styles.actions}>
-      <Button mode="outlined" style={styles.action} contentStyle={styles.touch} textColor={ui.color.accent}
-        disabled={!log} testID="diagnostics-copy" accessibilityLabel={copied ? '诊断记录已复制' : '复制诊断记录'}
-        onPress={copy}>{copied ? '已复制' : '复制'}</Button>
-      <Button mode="outlined" style={styles.action} contentStyle={styles.touch} textColor={ui.color.accent}
-        disabled={!log} testID="diagnostics-share" accessibilityLabel="分享诊断记录"
-        onPress={() => { void share(); }}>分享</Button>
+      <UIButton variant="secondary" className="flex-1" disabled={!log} testID="diagnostics-copy" accessibilityLabel={copied ? '诊断记录已复制' : '复制诊断记录'}
+        onPress={copy}><Icon as={copied ? Check : Copy} size={18}/><UIText>{copied ? '已复制' : '复制'}</UIText></UIButton>
+      <UIButton variant="primary" className="flex-1" disabled={!log} testID="diagnostics-share" accessibilityLabel="分享诊断记录"
+        onPress={() => { void share(); }}><Icon as={ShareIcon} size={18} color="#000000"/><UIText>分享</UIText></UIButton>
     </View>
   </View>;
 }
