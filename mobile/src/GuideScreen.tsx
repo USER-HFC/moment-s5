@@ -4,29 +4,26 @@ import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
 import {PageHeader} from './ui';
+import {cannotConnectHelp, hasBackKey, hasVolumeShutter, usbSteps} from './platformText';
 
 const ISSUES = 'https://github.com/USER-HFC/moment-s5/issues/new';
-const USB = [
-  '相机：设置 → USB → PC(Tether)',
-  '用支持数据的 USB-C 线',
-  'OPPO / ColorOS 手机在系统设置里开启 OTG',
-];
+const USB = usbSteps();
 const WIFI = [
   '相机开启 Wi-Fi 遥控拍摄',
   '手机连上相机的 Wi-Fi',
   '填写相机 IP，常见是 192.168.54.1',
 ];
 const SHOOTING = [
-  {title: '拍摄控制', body: '点快门右边的按钮，展开网格、参考、定时、收音和示波器；USB 连接时还有对焦。点其中一项，它的选项会在原处展开。按返回键或再点一次那个按钮就收起。'},
+  {title: '拍摄控制', body: '点快门右边的按钮，展开网格、参考、定时、收音和示波器；USB 连接时还有对焦。点其中一项，它的选项会在原处展开。' + (hasBackKey() ? '按返回键或再点一次那个按钮就收起。' : '再点一次那个按钮就收起。')},
   {title: 'LUT', body: '取景画面下方的胶囊显示当前 LUT，点它打开 LUT 面板。切换时画面实时预览，面板不会自动关。'},
   {title: '设置', body: '右上角的齿轮。左上角是连接状态，点它可以切换 USB、Wi-Fi 或演示。'},
-  {title: '音量键拍摄', body: '在拍摄页按音量键等于按快门。定时开着时先倒计时，倒计时中再按一次取消。不在拍摄页时，音量键仍调节音量。'},
+  ...(hasVolumeShutter() ? [{title: '音量键拍摄', body: '在拍摄页按音量键等于按快门。定时开着时先倒计时，倒计时中再按一次取消。不在拍摄页时，音量键仍调节音量。'}] : []),
   {title: '构图参考', body: '在拍摄控制里点「参考」，可选关、3:2、16:9、1:1、4:5，按钮下方显示当前比例。只加参考框，不裁切预览，也不改变照片。'},
   {title: '快门震动', body: '按下快门时手机会轻震一下。可在设置里关掉「快门震动」。'},
   {title: '反转对焦', body: '近和远在不同机身上可能是反的。打开设置里的「反转近 / 远对焦方向」，两个按钮的动作会互换，按钮上的字不变。'},
 ];
 const QUESTIONS = [
-  {title: '连不上', body: '先看相机是不是 PC(Tether)、线能不能传数据、手机有没有打开 OTG。换一条线或另一个接口后再试。还是不行，打开连接诊断看记录。'},
+  {title: '连不上', body: cannotConnectHelp()},
   {title: '传错照片', body: '先确认设置里的「机身快门照片自动同步」。开着时，用机身快门拍的照片会传进 App。拍摄时不要在机身上回放，以免把正在看的那张传过来。'},
   {title: 'Wi-Fi 是实验功能', body: 'Wi-Fi 遥控还在试验，没有在真实相机上验证。连不上或画面不稳定时，请改用 USB。'},
 ];

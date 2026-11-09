@@ -2,7 +2,8 @@ import React, {useEffect, useState} from 'react';
 import {Clipboard, Image, Linking, ScrollView, StyleSheet, View} from 'react-native';
 import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
-import {BuildInfo, buildInfoText, formatBuiltAt, minAndroidLabel} from './buildInfo';
+import {BuildInfo, buildInfoText, formatBuiltAt} from './buildInfo';
+import {minSystemLabel, minSystemTitle} from './platformText';
 import CameraIcon from './CameraIcon';
 // Rasterized from app/src/main/res/drawable/ic_moment.xml: Image cannot load a native vector drawable by resource name.
 import appIcon from './assets/ic_moment.png';
@@ -94,7 +95,7 @@ export default function AboutScreen({build, onBack}: {build: BuildInfo; onBack: 
           <InfoRow label="提交" value={build.git} testID="about-git"/>
           <InfoRow label="构建类型" value={build.buildType} testID="about-build-type"/>
           <InfoRow label="ABI" value={build.abi} testID="about-abi"/>
-          <InfoRow label="最低 Android 版本" value={minAndroidLabel(build.minSdk)} testID="about-min-sdk"/>
+          <InfoRow label={minSystemTitle()} value={minSystemLabel(build.minSdk)} testID="about-min-sdk"/>
         </Group>
 
         <Text style={styles.note}>尚未在真实相机上逐一验证。</Text>

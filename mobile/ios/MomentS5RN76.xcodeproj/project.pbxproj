@@ -12,8 +12,18 @@
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		18D348B04C9BB1D9710EBA14 /* CaptureEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E5C81BB091EC15AA4C71CC /* CaptureEngine.swift */; };
+		4363D8E7E1E13876A3AB2286 /* MomentLumix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70AB621FB45D378733039FFA /* MomentLumix.swift */; };
+		4A4C7521EB3251248B0B0288 /* MomentLumix.m in Sources */ = {isa = PBXBuildFile; fileRef = B492F99C2FD50D60B1FD61C8 /* MomentLumix.m */; };
+		54934D7AA1D93E1E0DB0983B /* LutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3D249F01A147163FDB84F8 /* LutEngine.swift */; };
+		71161370C243AABCB5D31FE6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		7699B88040F8A987B510C191 /* libPods-MomentS5RN76-MomentS5RN76Tests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-MomentS5RN76-MomentS5RN76Tests.a */; };
+		7CF9EA5218D9C4A2D8245432 /* MomentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17D4285C12804B49072D40CB /* MomentStore.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		B74B20F67492172BC7A8E243 /* MotionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6410E2C61339885166FC4062 /* MotionMedia.swift */; };
+		CD96A6D0F3C3750EFE48D7D9 /* FrameRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 790C5716E7B7B2F1A576B243 /* FrameRing.swift */; };
+		DA4F35F174B99AA4577A7AF0 /* AudioRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C653F736482BD9DF3FA463 /* AudioRing.swift */; };
+		F3B6AA303A404E2AE5118858 /* luts in Resources */ = {isa = PBXBuildFile; fileRef = F5DC661669310CC28BF1E573 /* luts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,14 +47,24 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = MomentS5RN76/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = MomentS5RN76/main.m; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = MomentS5RN76/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		17D4285C12804B49072D40CB /* MomentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MomentStore.swift; sourceTree = "<group>"; };
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-MomentS5RN76-MomentS5RN76Tests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MomentS5RN76-MomentS5RN76Tests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-MomentS5RN76.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MomentS5RN76.debug.xcconfig"; path = "Target Support Files/Pods-MomentS5RN76/Pods-MomentS5RN76.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-MomentS5RN76.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MomentS5RN76.release.xcconfig"; path = "Target Support Files/Pods-MomentS5RN76/Pods-MomentS5RN76.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-MomentS5RN76-MomentS5RN76Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MomentS5RN76-MomentS5RN76Tests.debug.xcconfig"; path = "Target Support Files/Pods-MomentS5RN76-MomentS5RN76Tests/Pods-MomentS5RN76-MomentS5RN76Tests.debug.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-MomentS5RN76.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MomentS5RN76.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6410E2C61339885166FC4062 /* MotionMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionMedia.swift; sourceTree = "<group>"; };
+		70AB621FB45D378733039FFA /* MomentLumix.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MomentLumix.swift; sourceTree = "<group>"; };
+		790C5716E7B7B2F1A576B243 /* FrameRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FrameRing.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = MomentS5RN76/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig"; path = "Target Support Files/Pods-MomentS5RN76-MomentS5RN76Tests/Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig"; sourceTree = "<group>"; };
+		93C653F736482BD9DF3FA463 /* AudioRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioRing.swift; sourceTree = "<group>"; };
+		B0E5653BDF41DC10BB22C8C8 /* MomentS5RN76-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "MomentS5RN76/MomentS5RN76-Bridging-Header.h"; sourceTree = "<group>"; };
+		B492F99C2FD50D60B1FD61C8 /* MomentLumix.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MomentLumix.m; sourceTree = "<group>"; };
+		E6E5C81BB091EC15AA4C71CC /* CaptureEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureEngine.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F5DC661669310CC28BF1E573 /* luts */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; name = luts; path = ../android/app/src/main/assets/luts; sourceTree = "<group>"; };
+		FB3D249F01A147163FDB84F8 /* LutEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LutEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +114,9 @@
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				EF64C90B2BBCA2CBAB49FDCC /* Lumix */,
+				B0E5653BDF41DC10BB22C8C8 /* MomentS5RN76-Bridging-Header.h */,
+				F5DC661669310CC28BF1E573 /* luts */,
 			);
 			name = MomentS5RN76;
 			sourceTree = "<group>";
@@ -148,6 +171,22 @@
 				89C6BE57DB24E9ADA2F236DE /* Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		EF64C90B2BBCA2CBAB49FDCC /* Lumix */ = {
+			isa = PBXGroup;
+			children = (
+				93C653F736482BD9DF3FA463 /* AudioRing.swift */,
+				E6E5C81BB091EC15AA4C71CC /* CaptureEngine.swift */,
+				790C5716E7B7B2F1A576B243 /* FrameRing.swift */,
+				FB3D249F01A147163FDB84F8 /* LutEngine.swift */,
+				B492F99C2FD50D60B1FD61C8 /* MomentLumix.m */,
+				70AB621FB45D378733039FFA /* MomentLumix.swift */,
+				17D4285C12804B49072D40CB /* MomentStore.swift */,
+				6410E2C61339885166FC4062 /* MotionMedia.swift */,
+			);
+			name = Lumix;
+			path = MomentS5RN76/Lumix;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -245,6 +284,8 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				71161370C243AABCB5D31FE6 /* PrivacyInfo.xcprivacy in Resources */,
+				F3B6AA303A404E2AE5118858 /* luts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -396,6 +437,14 @@
 			files = (
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				DA4F35F174B99AA4577A7AF0 /* AudioRing.swift in Sources */,
+				18D348B04C9BB1D9710EBA14 /* CaptureEngine.swift in Sources */,
+				CD96A6D0F3C3750EFE48D7D9 /* FrameRing.swift in Sources */,
+				54934D7AA1D93E1E0DB0983B /* LutEngine.swift in Sources */,
+				4A4C7521EB3251248B0B0288 /* MomentLumix.m in Sources */,
+				4363D8E7E1E13876A3AB2286 /* MomentLumix.swift in Sources */,
+				7CF9EA5218D9C4A2D8245432 /* MomentStore.swift in Sources */,
+				B74B20F67492172BC7A8E243 /* MotionMedia.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -481,8 +530,9 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_BUNDLE_IDENTIFIER = cn.moment.lumix;
 				PRODUCT_NAME = MomentS5RN76;
+				SWIFT_OBJC_BRIDGING_HEADER = "MomentS5RN76/MomentS5RN76-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -508,8 +558,9 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_BUNDLE_IDENTIFIER = cn.moment.lumix;
 				PRODUCT_NAME = MomentS5RN76;
+				SWIFT_OBJC_BRIDGING_HEADER = "MomentS5RN76/MomentS5RN76-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -584,7 +635,14 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -649,7 +707,13 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;

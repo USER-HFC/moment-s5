@@ -55,18 +55,21 @@ function singleLine(value: unknown) {
   return value.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim();
 }
 
-type DeviceConstants = {Release?: unknown; Version?: unknown; Model?: unknown};
+type DeviceConstants = {Release?: unknown; Version?: unknown; Model?: unknown; systemName?: unknown; osVersion?: unknown};
 
 /** Platform's constant union does not share a name with these fields, so read them off a plain object. */
 function deviceConstants(constants: object | null | undefined): DeviceConstants {
   if (!constants) return {};
   const source = constants as DeviceConstants;
-  return {Release: source.Release, Version: source.Version, Model: source.Model};
+  return {Release: source.Release, Version: source.Version, Model: source.Model, systemName: source.systemName, osVersion: source.osVersion};
 }
 
 /** Release is the Android version people recognize. API is only a fallback when Release is missing. */
 export function androidVersionLabel(constants: object | null | undefined) {
   const device = deviceConstants(constants);
+  // iOS reports systemName and osVersion instead of Release and Version.
+  const ios = singleLine(device.osVersion);
+  if (ios) return `${singleLine(device.systemName) || 'iOS'} ${ios}`;
   const release = singleLine(device.Release);
   if (release) return /^android\b/i.test(release) ? release : `Android ${release}`;
   const api = singleLine(device.Version);
@@ -89,7 +92,7 @@ export function connectionModeLabel(state: {active?: boolean; demo?: boolean; tr
 const HEADER_FIELDS: Array<[string, keyof DiagnosticFacts]> = [
   ['App 版本', 'versionName'],
   ['构建号', 'versionCode'],
-  ['Android 版本', 'androidVersion'],
+  ['系统版本', 'androidVersion'],
   ['手机型号', 'phoneModel'],
   ['连接方式', 'connection'],
 ];

@@ -37,7 +37,7 @@ it('prefixes a shared report with version, build, Android, phone and connection 
   expect(header).toBe([
     'App 版本：0.8.0-beta.6',
     '构建号：40',
-    'Android 版本：Android 15',
+    '系统版本：Android 15',
     '手机型号：Pixel 8',
     '连接方式：USB',
   ].join('\n'));
@@ -50,13 +50,13 @@ it('prefixes a shared report with version, build, Android, phone and connection 
   expect(diagnosticHeader(diagnosticFacts(build, {Version: 35, Model: '  sdk_gphone64_arm64\nSN  '}, '演示'))).toBe([
     'App 版本：0.8.0-beta.6',
     '构建号：40',
-    'Android 版本：Android API 35',
+    '系统版本：Android API 35',
     '手机型号：sdk_gphone64_arm64 SN',
     '连接方式：演示',
   ].join('\n'));
   expect(diagnosticFacts({versionName: '  ', versionCode: ''}, null, '  ').androidVersion).toBe('未知');
   expect(diagnosticHeader(diagnosticFacts({versionName: '  ', versionCode: ''}, {Release: 'Android 14'}, ''))).toContain('App 版本：未知');
-  expect(diagnosticHeader(diagnosticFacts({versionName: '  ', versionCode: ''}, {Release: 'Android 14'}, ''))).toContain('Android 版本：Android 14');
+  expect(diagnosticHeader(diagnosticFacts({versionName: '  ', versionCode: ''}, {Release: 'Android 14'}, ''))).toContain('系统版本：Android 14');
   expect(diagnosticShareText(facts, '   ')).toBe(header);
 });
 

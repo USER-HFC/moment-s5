@@ -6,6 +6,7 @@ import {focusDirection} from './focusDirection';
 import {camera, cameraEvents, CameraState, LutItem} from './native';
 import useShootingPreferences from './useShootingPreferences';
 import {VOLUME_SHUTTER_EVENT} from './volumeShutter';
+import {connectSteps} from './platformText';
 import useCaptureCountdown from './useCaptureCountdown';
 import {openMicrophoneSettings, requestMicrophonePermission} from './microphonePermission';
 import ConfirmDialog from './ConfirmDialog';
@@ -42,7 +43,7 @@ type Props = {
 };
 type PreviewSlots = [string | undefined, string | undefined];
 
-const CONNECT_STEPS = ['相机 USB 模式选 PC(Tether)', '用支持数据的 USB-C 线连接', '手机打开 OTG'];
+const CONNECT_STEPS = connectSteps();
 
 export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, preview, buffered, luts, onLut, onImportLut, onRefresh, onConnect, storageLow = false, latestPhoto, notice = null, onDismissNotice, focused = true, suspendBack = false}: Props) {
   const {width, height} = useWindowDimensions();

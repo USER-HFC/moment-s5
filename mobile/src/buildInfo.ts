@@ -1,3 +1,5 @@
+import {minSystemLabel, minSystemTitle} from './platformText';
+
 export type BuildInfo = {
   versionName: string; versionCode: string; builtAt: string; git: string;
   buildType: string; abi: string; minSdk: string;
@@ -23,8 +25,7 @@ export function buildInfoFromModule(module: {buildInfo?: Partial<BuildInfo> | nu
 }
 
 export function minAndroidLabel(api: string) {
-  if (api === '33') return 'Android 13（API 33）';
-  return api === '未知' ? '未知' : `API ${api}`;
+  return minSystemLabel(api, 'android');
 }
 
 /** Build timestamps are UTC ISO strings; people compare them against local clock time. */
@@ -43,6 +44,6 @@ export function buildInfoText(build: BuildInfo) {
     `提交：${build.git}`,
     `构建类型：${build.buildType}`,
     `ABI：${build.abi}`,
-    `最低 Android 版本：${minAndroidLabel(build.minSdk)}`,
+    `${minSystemTitle()}：${minSystemLabel(build.minSdk)}`,
   ].join('\n');
 }

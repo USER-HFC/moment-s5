@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, PermissionsAndroid, Platform, Pressable, StyleSheet, TextInput, TextInputProps, View} from 'react-native';
+import {usbSteps} from '../platformText';
 import {Button, cn, color, Switch, Text} from '../ui';
 import CameraSheet from '../CameraSheet';
 import {CameraState} from '../native';
@@ -13,11 +14,7 @@ const MODES = [
   {value: 'wifi', label: 'Wi-Fi', badge: '实验', accessibilityLabel: 'Wi-Fi（实验）'},
   {value: 'demo', label: '演示', accessibilityLabel: '演示连接方式'},
 ] as const;
-const USB_STEPS = [
-  '相机：设置 → USB → PC(Tether)',
-  '用支持数据的 USB-C 线',
-  'OPPO/ColorOS 在设置里开启 OTG',
-];
+const USB_STEPS = usbSteps(undefined, true);
 const WIFI_STEPS = [
   '相机开启 Wi-Fi 遥控拍摄',
   '手机连上相机热点',

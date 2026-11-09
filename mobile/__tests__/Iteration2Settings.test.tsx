@@ -1,3 +1,4 @@
+import '../jest/androidPlatform';
 import React, {useState} from 'react';
 import renderer, {act} from 'react-test-renderer';
 import {Linking, StyleSheet, Text} from 'react-native';
