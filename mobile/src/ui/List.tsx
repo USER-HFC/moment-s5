@@ -1,4 +1,6 @@
-import React from 'react';
+import React, {useEffect} from 'react';
+import {interpolateColor, useAnimatedStyle, useSharedValue} from 'react-native-reanimated';
+import {AnimatedView, springTo, useMotionReduced} from './motion';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {ChevronLeft, ChevronRight} from 'lucide-react-native';
 import {cn} from './cn';
@@ -52,12 +54,20 @@ export function ListRow({label, detail, value, accessibilityLabel, testID, onPre
   </Pressable>;
 }
 
-/** iOS switch: white track when on, grey when off; the thumb is the opposite tone. */
+/** iOS switch: white track when on, grey when off; the thumb springs across and swaps tone. */
 export function Switch({value}: {value: boolean}) {
-  return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    className={cn('h-[31px] w-[51px] justify-center rounded-full px-[2px]', value ? 'items-end bg-ink' : 'items-start bg-off')}>
-    <View className={cn('h-[27px] w-[27px] rounded-full', value ? 'bg-black' : 'bg-ink')}/>
-  </View>;
+  const reduced = useMotionReduced();
+  const on = useSharedValue(value ? 1 : 0);
+  useEffect(() => { on.value = springTo(value ? 1 : 0, 'snappy', reduced); }, [value, reduced, on]);
+  const track = useAnimatedStyle(() => ({backgroundColor: interpolateColor(on.value, [0, 1], [color.off, color.ink])}));
+  const thumb = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(on.value, [0, 1], [color.ink, '#000000']),
+    transform: [{translateX: on.value * 20}],
+  }));
+  return <AnimatedView accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+    style={[{height: 31, width: 51, borderRadius: 16, paddingHorizontal: 2, justifyContent: 'center'}, track]}>
+    <AnimatedView style={[{height: 27, width: 27, borderRadius: 14}, thumb]}/>
+  </AnimatedView>;
 }
 
 export function ListSwitch({label, detail, value, accessibilityLabel, testID, onValueChange}: {

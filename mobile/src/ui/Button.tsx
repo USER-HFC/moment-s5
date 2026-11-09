@@ -1,11 +1,12 @@
 import React from 'react';
-import {Pressable, PressableProps, StyleSheet, View} from 'react-native';
+import {PressableProps, StyleSheet, View} from 'react-native';
+import {feel, PressableMotion} from './Press';
 import {cva, type VariantProps} from 'class-variance-authority';
 import {cn} from './cn';
 import {TextClassContext} from './Text';
 
 // RN Reusables Button, trimmed to the variants this app uses. Capsules only, no shadows, no outlines.
-export const buttonVariants = cva('flex-row items-center justify-center gap-2 rounded-full active:opacity-70', {
+export const buttonVariants = cva('flex-row items-center justify-center gap-2 rounded-full', {
   variants: {
     variant: {
       primary: 'bg-ink',
@@ -38,15 +39,15 @@ type Props = PressableProps & VariantProps<typeof buttonVariants> & {
 
 export function Button({className, variant, size, tone, disabled, children, ...props}: Props) {
   return <TextClassContext.Provider value={buttonTextVariants({variant, size, tone})}>
-    <Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{disabled: !!disabled}}
-      className={cn(buttonVariants({variant, size}), disabled && 'opacity-40', className)} {...props}>
+    <PressableMotion feel={feel.button} accessibilityRole="button" disabled={disabled} accessibilityState={{disabled: !!disabled}}
+      className={cn(buttonVariants({variant, size}), className)} {...props}>
       {typeof children === 'function' ? children : <>{children}</>}
-    </Pressable>
+    </PressableMotion>
   </TextClassContext.Provider>;
 }
 
 /** Round icon-only button. The visual can be smaller than 44; hitSlop keeps the touch target. */
-export const roundVariants = cva('items-center justify-center rounded-full active:opacity-70', {
+export const roundVariants = cva('items-center justify-center rounded-full', {
   variants: {
     tone: {
       filled: 'bg-grouped',
@@ -62,10 +63,10 @@ type RoundProps = PressableProps & VariantProps<typeof roundVariants> & {classNa
 
 export function RoundButton({className, tone, size = 44, disabled, children, ...props}: RoundProps) {
   const slop = Math.max(0, (44 - size) / 2);
-  return <Pressable accessibilityRole="button" disabled={disabled} hitSlop={slop}
-    className={cn(roundVariants({tone}), disabled && 'opacity-40', className)} style={{width: size, height: size}} {...props}>
+  return <PressableMotion feel={feel.round} accessibilityRole="button" disabled={disabled} hitSlop={slop}
+    className={cn(roundVariants({tone}), className)} style={{width: size, height: size}} {...props}>
     {children}
-  </Pressable>;
+  </PressableMotion>;
 }
 
 export function Separator({className}: {className?: string}) {

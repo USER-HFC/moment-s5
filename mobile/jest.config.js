@@ -8,6 +8,6 @@ module.exports = {
     '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|nativewind|react-native-css-interop|lucide-react-native|@rn-primitives)/)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|nativewind|react-native-css-interop|lucide-react-native|@rn-primitives|react-native-reanimated)/)',
   ],
 };

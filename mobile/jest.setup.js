@@ -49,3 +49,7 @@ jest.mock('react-native-gesture-handler', () => {
 jest.mock('react-native/src/private/animated/NativeAnimatedHelper');
 
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// className is not compiled under Jest (the nativewind babel plugin is skipped), so registering
+// components with NativeWind is a no-op here.
+jest.mock('nativewind', () => ({cssInterop: () => undefined, remapProps: () => undefined}));
