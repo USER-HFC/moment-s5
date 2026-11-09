@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {AccessibilityInfo, BackHandler, findNodeHandle, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
-import {Tappable as Pressable} from './ui';
+import {interpolateColor, useAnimatedStyle, useSharedValue} from 'react-native-reanimated';
+import {AnimatedView, color, Presence, PressableMotion, springTo, Tappable as Pressable, useMotionReduced} from './ui';
 import {Text} from 'react-native-paper';
 import CameraIcon, {CameraIconName} from './CameraIcon';
 import {ui} from './theme';
@@ -13,6 +14,9 @@ const CARDS: {title: string; icon: CameraIconName; body: string}[] = [
 
 export default function OnboardingCards({onDone}: {onDone: () => void}) {
   const [index, setIndex] = useState(0);
+  // Cards push in from the side they come from: forward from the right, back from the left.
+  const direction = useRef<'push' | 'pushBack'>('push');
+  const go = (next: number) => { direction.current = next > index ? 'push' : 'pushBack'; setIndex(next); };
   const nextRef = useRef<View>(null);
   const window = useWindowDimensions();
   const portrait = window.height >= window.width && window.height > 0;
@@ -21,7 +25,7 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
   // Back moves to the previous card. On the first card it is the same as 跳过, so the activity does not finish.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (index > 0) { setIndex(value => value - 1); return true; }
+      if (index > 0) { go(index - 1); return true; }
       onDone();
       return true;
     });
@@ -42,6 +46,7 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
       </Pressable>
     </View>
     <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator>
+      <Presence key={index} visible appear={index > 0 || direction.current === 'pushBack'} kind={direction.current} distance={48} spring="smooth">
       <View testID={`onboarding-card-${index + 1}`} style={[styles.card, portrait && {minHeight: Math.max(320, Math.round(window.height * 0.46))}]}>
         <View style={styles.badge}>
           <CameraIcon name={card.icon} active size={40}/>
@@ -50,18 +55,27 @@ export default function OnboardingCards({onDone}: {onDone: () => void}) {
         <Text style={styles.title}>{card.title}</Text>
         <Text style={styles.body}>{card.body}</Text>
       </View>
+      </Presence>
     </ScrollView>
     <View style={styles.footer}>
       <View style={styles.dots} accessibilityLabel={`第 ${index + 1} 张，共 ${CARDS.length} 张`}>
-        {CARDS.map((item, dot) => <View key={item.title} style={[styles.dot, dot === index && styles.dotOn]}/>)}
+        {CARDS.map((item, dot) => <Dot key={item.title} on={dot === index}/>)}
       </View>
-      <Pressable ref={nextRef} accessibilityRole="button" accessibilityLabel={last ? '开始使用' : '下一步'} testID="onboarding-next"
-        onPress={() => { if (last) onDone(); else setIndex(value => value + 1); }}
-        style={({pressed}) => [styles.next, pressed && styles.nextPressed]}>
+      <PressableMotion ref={nextRef} accessibilityRole="button" accessibilityLabel={last ? '开始使用' : '下一步'} testID="onboarding-next"
+        onPress={() => { if (last) onDone(); else go(index + 1); }} style={styles.next}>
         <Text style={styles.nextLabel}>{last ? '开始使用' : '下一步'}</Text>
-      </Pressable>
+      </PressableMotion>
     </View>
   </View>;
+}
+
+/** Page dot: the current one stretches into a white capsule; the others are small grey dots. */
+function Dot({on}: {on: boolean}) {
+  const reduced = useMotionReduced();
+  const value = useSharedValue(on ? 1 : 0);
+  useEffect(() => { value.value = springTo(on ? 1 : 0, 'snappy', reduced); }, [on, reduced, value]);
+  const style = useAnimatedStyle(() => ({width: 8 + 14 * value.value, backgroundColor: interpolateColor(value.value, [0, 1], [color.separator, color.ink])}));
+  return <AnimatedView style={[styles.dot, style]}/>;
 }
 
 const styles = StyleSheet.create({

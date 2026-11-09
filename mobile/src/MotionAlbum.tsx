@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AccessibilityInfo, Animated, AppState, BackHandler, findNodeHandle, Image, Pressable, ScrollView, SectionList, StyleSheet, View} from 'react-native';
+import {AccessibilityInfo, Animated, AppState, BackHandler, Easing, findNodeHandle, Image, Pressable, ScrollView, SectionList, StyleSheet, View} from 'react-native';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
 import Video, {VideoRef} from 'react-native-video';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
@@ -7,7 +7,7 @@ import {LutItem, MomentDetails, MomentItem} from './native';
 import {ui} from './theme';
 import {Camera, Check, ChevronLeft, Download, Image as ImageIcon, Images, Info, Palette, Play, Share, Square, Trash2, Wifi, X} from 'lucide-react-native';
 import type {LucideIcon} from 'lucide-react-native';
-import {Button, cn, color, Icon, MotionGlyph, RoundButton, Text} from './ui';
+import {Button, cn, color, Icon, MotionGlyph, Presence, RoundButton, SlidingPill, spring, Text, useSlidingPill} from './ui';
 import AlbumSheet from './AlbumSheet';
 import ConfirmDialog from './ConfirmDialog';
 import LutFilmstrip from './LutFilmstrip';
@@ -94,6 +94,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const [compareOriginal, setCompareOriginal] = useState(false);
   const [details, setDetails] = useState<MomentDetails | null | undefined>(undefined);
   const [albumFilter, setAlbumFilter] = useState<AlbumFilter>('all');
+  const filterPill = useSlidingPill(ALBUM_FILTERS.findIndex(filter => filter.id === albumFilter));
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [shareOpen, setShareOpen] = useState(false);
@@ -199,7 +200,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   const fadeChrome = useCallback((visible: boolean) => {
     setChrome(visible);
     if (chromeRef.current === visible) { chromeOpacity.setValue(visible ? 1 : 0); return; }
-    Animated.timing(chromeOpacity, {toValue: visible ? 1 : 0, duration: 180, useNativeDriver: true}).start();
+    Animated.timing(chromeOpacity, {toValue: visible ? 1 : 0, duration: 200, easing: visible ? EASE_IN_PLACE : EASE_AWAY, useNativeDriver: true}).start();
   }, [chromeOpacity]);
   const clearPreview = useCallback(() => {
     previewToken.current += 1;
@@ -366,7 +367,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     scaleRef.current = 2.5;
     zoomedRef.current = true;
     setZoomed(true);
-    Animated.spring(zoom, {toValue: 2.5, useNativeDriver: true, damping: 20, stiffness: 220}).start();
+    Animated.spring(zoom, {toValue: 2.5, useNativeDriver: true, ...spring.smooth}).start();
   };
 
   // One pan both pages and, after a pinch, moves the enlarged photo. A scaled photo must not change pages.
@@ -407,8 +408,8 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
   };
   const springDismissBack = () => {
     Animated.parallel([
-      Animated.spring(dismissY, {toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240}),
-      Animated.spring(dismissOpacity, {toValue: 1, useNativeDriver: true, damping: 22, stiffness: 240}),
+      Animated.spring(dismissY, {toValue: 0, useNativeDriver: true, ...spring.snappy}),
+      Animated.spring(dismissOpacity, {toValue: 1, useNativeDriver: true, ...spring.snappy}),
     ]).start();
   };
   const dismissBlocked = () => zoomedRef.current || scaleRef.current >= 1.05 || pinching.current || sheetOpenRef.current;
@@ -422,8 +423,8 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     if (!viewerDismissPastThreshold(y, event.velocityY || 0, pageHeightRef.current)) { springDismissBack(); return; }
     const height = Math.max(pageHeightRef.current, 1);
     Animated.parallel([
-      Animated.timing(dismissY, {toValue: height, duration: 180, useNativeDriver: true}),
-      Animated.timing(dismissOpacity, {toValue: 0, duration: 180, useNativeDriver: true}),
+      Animated.timing(dismissY, {toValue: height, duration: 200, easing: EASE_AWAY, useNativeDriver: true}),
+      Animated.timing(dismissOpacity, {toValue: 0, duration: 200, easing: EASE_AWAY, useNativeDriver: true}),
     ]).start((result) => {
       if (result && result.finished === false) { springDismissBack(); return; }
       dismissY.setValue(0);
@@ -658,7 +659,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
               <View className="flex-1"/>
               {item.experimentalWifi && <View testID="experimental-wifi-badge"><Icon as={Wifi} size={14}/></View>}
               {selecting && <View className={cn('h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-ink', chosen ? 'bg-ink' : 'bg-black/30')}>
-                {chosen && <Icon as={Check} size={14} strokeWidth={2.6} color="#000000"/>}
+                {chosen && <Presence visible kind="pop" spring="bouncy"><Icon as={Check} size={14} strokeWidth={2.6} color="#000000"/></Presence>}
               </View>}
             </View>
             <View style={styles.cellBottom}>
@@ -677,13 +678,13 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     <View pointerEvents="box-none" style={[styles.header, {height: landscape ? 72 : 112}]}>
       <Gradient top/>
       <View pointerEvents="box-none" className="absolute bottom-2 left-4 right-4 flex-row items-end justify-between gap-3">
-        {selecting ? <View testID="album-select-bar" className="flex-1 flex-row items-end justify-between gap-3">
+        {selecting ? <Presence key="select" visible kind="fade" style={{flex: 1}}><View testID="album-select-bar" className="flex-1 flex-row items-end justify-between gap-3">
           <Text testID="album-selected-count" numberOfLines={1} className="text-large shrink" style={{letterSpacing: -0.4}}>{`已选 ${selected.size}`}</Text>
           <View className="flex-row gap-2 pb-0.5">
             <Button variant="tinted" size="sm" accessibilityLabel={allVisibleSelected ? '取消全选' : '全选'} onPress={selectAllVisible}><Text>{allVisibleSelected ? '取消全选' : '全选'}</Text></Button>
             <Button variant="tinted" size="sm" accessibilityLabel="取消选择" onPress={exitSelection}><Text>取消</Text></Button>
           </View>
-        </View> : <>
+        </View></Presence> : <>
           <View className="shrink gap-0.5">
             <Text accessibilityRole="header" className="text-large" style={{letterSpacing: -0.4}}>相册</Text>
             {!albumEmpty && <Text testID="album-summary" className="text-footnote text-subtle">{motionCount > 0 ? `${listed.length} 张 · ${motionCount} 张动态` : `${listed.length} 张`}</Text>}
@@ -695,31 +696,34 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
         </>}
       </View>
     </View>
-    {!albumEmpty && !selecting && <View pointerEvents="box-none" style={styles.bottomFloat}>
+    {/* The filter capsule and the batch bar trade places: one sinks away as the other rises. */}
+    {!albumEmpty && <Presence visible={!selecting} appear={false} kind="rise" distance={28} spring="smooth" pointerEvents="box-none" style={styles.bottomFloat}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="album-filters" style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
         <View className="h-10 flex-row gap-0.5 rounded-full bg-raised/90 p-[3px]">
-          {ALBUM_FILTERS.map((filter) => {
+          <SlidingPill style={filterPill.style} color={color.faint} testID="album-filter-pill"/>
+          {ALBUM_FILTERS.map((filter, index) => {
             const on = filter.id === albumFilter;
             const count = counts[filter.id];
-            return <Pressable key={filter.id} testID={`album-filter-${filter.id}`} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${filter.label} ${count}`} onPress={() => setAlbumFilter(filter.id)}
-              className={cn('h-[34px] items-center justify-center rounded-full px-[18px] active:opacity-70', on && 'bg-faint')}>
+            return <Pressable key={filter.id} testID={`album-filter-${filter.id}`} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${filter.label} ${count}`} onPress={() => setAlbumFilter(filter.id)} onLayout={filterPill.onLayout(index)}
+              className="h-[34px] items-center justify-center rounded-full px-[18px] active:opacity-70">
               <Text numberOfLines={1} className={cn('text-[14px] leading-[18px] font-semibold', on ? 'text-ink' : 'text-[#D1D1D6]')}>{filter.label}</Text>
             </Pressable>;
           })}
         </View>
       </ScrollView>
-    </View>}
-    {selecting && <View pointerEvents="box-none" style={styles.bottomFloat}>
+    </Presence>}
+    {<Presence visible={selecting} kind="rise" distance={28} spring="smooth" pointerEvents="box-none" style={styles.bottomFloat}>
       <View testID="album-batch-bar" className="w-full max-w-[420px] flex-row gap-1 rounded-full bg-raised/95 p-1">
         {!!onShareMany && batchButton('分享', '分享', Share, () => { void shareSelected(); })}
         {batchButton('导出', '批量导出', Download, () => { void runBatch('导出', (id) => onExport(id, true)); })}
         {batchButton('删除', '批量删除', Trash2, confirmBatchDelete, true)}
       </View>
-    </View>}
+    </Presence>}
   </A11yHideView>;
 
   const sheetCover = lutOpen || infoOpen || shareOpen;
-  const viewer = current && <View style={styles.viewer} testID="motion-viewer" accessibilityViewIsModal>
+  // Opening a photo zooms the viewer in from slightly smaller, on the shared smooth spring.
+  const viewer = current && <Presence key="viewer" visible kind="pop" spring="smooth" style={styles.viewer}><View style={styles.fill} testID="motion-viewer" accessibilityViewIsModal>
     {/* Chrome used to set StatusBar hidden={false}, which put the clock back on the title. The activity keeps the system bars hidden. */}
     <GestureDetector gesture={gesture}><A11yHideView testID="album-viewer-body" collapsable={false} style={styles.fill} accessibilityElementsHidden={sheetCover} importantForAccessibility={sheetCover ? 'no-hide-descendants' : 'auto'}>
       <Animated.View testID="album-dismiss-layer" style={[styles.fill, {opacity: dismissOpacity, transform: [{translateY: dismissY}]}]}>
@@ -799,7 +803,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
         </ScrollView>
       </View>
     </View>}
-  </View>;
+  </View></Presence>;
 
   return <View style={styles.root} onLayout={(event) => { const {width, height} = event.nativeEvent.layout; if (width > 0 && height > 0) setFrame((prev) => prev.width === width && prev.height === height ? prev : {width, height}); }}>
     <View testID="album-screen" accessibilityElementsHidden={!!confirm} importantForAccessibility={confirm ? 'no-hide-descendants' : 'auto'} style={styles.fill}>
@@ -810,6 +814,10 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     {confirm && <ConfirmDialog visible destructive testID="confirm-dialog" confirmTestID="confirm-accept" title={confirm.title} body={confirm.body} confirmLabel="删除" onCancel={() => setConfirm(null)} onConfirm={confirm.onConfirm}/>}
   </View>;
 }
+
+/** Chrome and swipe-away timings use the same curves as the motion layer (ui/motion): decelerate in, accelerate out. */
+const EASE_IN_PLACE = Easing.bezier(0.2, 0, 0, 1);
+const EASE_AWAY = Easing.bezier(0.4, 0, 1, 1);
 
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: ui.color.background}, fill: {flex: 1},

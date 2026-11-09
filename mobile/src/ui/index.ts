@@ -14,3 +14,4 @@ export {feel, PressableMotion, usePressMotion, DISABLED_OPACITY} from './Press';
 export type {PressFeel} from './Press';
 export {Presence} from './Presence';
 export type {PresenceKind} from './Presence';
+export {SlidingPill, useSlidingPill} from './SlidingPill';
