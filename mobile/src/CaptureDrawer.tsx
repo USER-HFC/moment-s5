@@ -6,6 +6,7 @@ import {cn, color, feel, Icon, Presence, PressableMotion, Segmented, Text} from 
 import type {Segment} from './ui';
 import {GUIDE_ORDER, Guide} from './referenceFrame';
 import {ScopeKind, ScopePanelState, SCOPE_KINDS, SCOPE_TITLES} from './scopes/panelState';
+import {scopesSupported} from './scopes/useScopes';
 
 /** The option row that replaces the control row. null shows the controls themselves. */
 export type DrawerOption = 'delay' | 'guide' | 'scopes' | 'focus' | null;
@@ -21,7 +22,7 @@ type Props = {
   guide: Guide; onGuide: (guide: Guide) => void;
   timerEnabled: boolean; delay: number; waiting: boolean; onDelay: (seconds: number | null) => void; onCancelCountdown: () => void;
   audio: boolean; onAudio: () => void;
-  scopes: ScopePanelState; onScope: (kind: ScopeKind) => void;
+  scopes: ScopePanelState; onScope: (kind: ScopeKind) => void; canScope?: boolean;
   canFocus: boolean; focusDisabled: boolean; onFocus: (direction: -1 | 1) => void;
 };
 
@@ -121,7 +122,7 @@ export default function CaptureDrawer(props: Props) {
       accessibilityHint={props.waiting ? '取消倒计时并关闭定时' : '打开定时选项'}
       onPress={() => { if (props.waiting) props.onCancelCountdown(); else onOption('delay'); }}/>,
     <Item key="audio" icon={props.audio ? Mic : MicOff} name="收音" on={props.audio} checked={props.audio} accessibilityLabel={props.audio ? '收音 开' : '收音 关'} onPress={props.onAudio}/>,
-    <Item key="scopes" icon={Activity} name="示波器" on={scopesOpen} accessibilityLabel="示波器" accessibilityHint="打开示波器选项" onPress={() => onOption('scopes')}/>,
+    props.canScope !== false && <Item key="scopes" icon={Activity} name="示波器" on={scopesOpen} accessibilityLabel="示波器" accessibilityHint="打开示波器选项" onPress={() => onOption('scopes')}/>,
     props.canFocus && <Item key="focus" testID="focus-button" icon={ScanEye} name="对焦" on={false} disabled={props.focusDisabled}
       accessibilityLabel="对焦" accessibilityHint="打开近/远对焦" onPress={() => onOption('focus')}/>,
   ], vertical);
@@ -139,7 +140,7 @@ function stagger(items: React.ReactNode[], vertical: boolean) {
 /** Drawer toggle beside the shutter: grey when closed, white when open. */
 export function DrawerToggle({open, onPress}: {open: boolean; onPress: () => void}) {
   return <PressableMotion feel={feel.round} testID="drawer-toggle" accessibilityRole="button" accessibilityLabel="拍摄控制" accessibilityState={{expanded: open}}
-    accessibilityHint={open ? '收起拍摄控制' : '展开网格、参考、定时、收音和示波器'} onPress={onPress}
+    accessibilityHint={open ? '收起拍摄控制' : `展开${scopesSupported() ? '网格、参考、定时、收音和示波器' : '网格、参考、定时和收音'}`} onPress={onPress}
     className={cn('h-12 w-12 items-center justify-center rounded-full', open ? 'bg-ink' : 'bg-grouped')}>
     <Icon as={SlidersHorizontal} size={22} color={open ? '#000000' : color.ink}/>
   </PressableMotion>;

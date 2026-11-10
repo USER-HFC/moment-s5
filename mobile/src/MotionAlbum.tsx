@@ -787,7 +787,7 @@ export default function MotionAlbum({moments, luts = noLuts, initialMomentId = n
     </AlbumSheet>}
     {shareOpen && onShare && <View style={styles.shareWrap} pointerEvents="box-none">
       <Pressable style={styles.shareBackdrop} accessibilityRole="button" accessibilityLabel="关闭分享" onPress={() => setShareOpen(false)}/>
-      <View testID="album-share-sheet" accessibilityViewIsModal style={[styles.shareSheet, {height: Math.min(Math.round(pageHeight * (landscape ? 0.88 : 0.78)), 36 + ui.icon.touch + (shareKinds(current).length + 1) * 72)}]}>
+      <View testID="album-share-sheet" accessibilityViewIsModal style={[styles.shareSheet, {maxHeight: Math.round(pageHeight * (landscape ? 0.88 : 0.78))}]}>
         <View style={styles.shareHandle}/>
         <View ref={shareTitleRef} accessible accessibilityRole="header" accessibilityLabel={shareDialogTitle(current)}>
           <Text className="py-2 text-title">{shareDialogTitle(current)}</Text>
@@ -848,6 +848,7 @@ const styles = StyleSheet.create({
   shareBackdrop: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#00000073'},
   shareSheet: {borderRadius: 32, backgroundColor: ui.color.surface, paddingHorizontal: 16, paddingBottom: 12, width: '100%', maxWidth: 680, alignSelf: 'center', elevation: 0},
   shareHandle: {width: 36, height: 5, borderRadius: 3, backgroundColor: '#48484A', alignSelf: 'center', marginTop: 6, marginBottom: 4},
-  shareScroll: {flex: 1},
+  // Hug the rows: a fixed estimate left a gap under 取消 wherever rows render shorter than guessed.
+  shareScroll: {flexGrow: 0, flexShrink: 1},
   shareOption: {minHeight: 56, justifyContent: 'center', gap: 2, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: ui.color.outline},
 });

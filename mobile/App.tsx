@@ -26,6 +26,7 @@ import {Presence} from './src/ui';
 import {DISCONNECT_BANNER, RECONNECT_ACTION, USB_ATTACH_ACTION, USB_ATTACH_BANNER, classifySessionLoss, connectionToRemember, reconnectPlan, sessionLossAction} from './src/connection/sessionNotice';
 import {USB_CAMERA_ATTACHED_EVENT} from './src/volumeShutter';
 import {BatteryNoticeSession, LOW_CAMERA_BATTERY_MESSAGE, noteLowCameraBattery} from './src/lowBattery';
+import {exportedNotice} from './src/platformText';
 
 const emptyState: CameraState = {active: false, busy: false, ready: false, demo: false, lut: null};
 
@@ -242,7 +243,7 @@ export default function App() {
       if (!camera) throw new Error('当前平台没有相机桥');
       await camera.exportMoment(id);
       setMoments((items) => items.map((item) => item.id === id ? {...item, exported: true} : item));
-      if (!quiet) showNotice('已导出到 DCIM/MomentS5');
+      if (!quiet) showNotice(exportedNotice());
     } catch (e) {
       if (quiet) throw e;
       showNotice(errorText(e));

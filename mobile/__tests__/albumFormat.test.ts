@@ -38,6 +38,8 @@ it('names the shutter origin, transport and shareable files', () => {
   expect(shareOptionHint('display', {lut: 'Velvia'})).toBe('带 LUT 的画面');
   expect(shareOptionHint('display', {})).toBe('正在查看的画面');
   expect(shareOptionHint('original', {})).toBe('未套用 LUT');
+  expect(shareOptionHint('motion', {}, 'android')).toBe('可在相册里播放');
+  expect(shareOptionHint('motion', {}, 'ios')).toBe('照片和视频两个文件');
   expect(shareDialogTitle({...files, videoUri: 'file://v', complete: true})).toBe('分享动态照片');
   expect(shareDialogTitle({...files, captureMode: 'photo', complete: true})).toBe('分享照片');
   expect(shareDialogTitle({videoUri: 'file://v', complete: false})).toBe('分享照片');

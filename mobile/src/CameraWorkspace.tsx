@@ -11,7 +11,7 @@ import useCaptureCountdown from './useCaptureCountdown';
 import {openMicrophoneSettings, requestMicrophonePermission} from './microphonePermission';
 import ConfirmDialog from './ConfirmDialog';
 import ScopesOverlay from './scopes/ScopesOverlay';
-import {changeScopePanel, resetScopeRevealHint, useScopePanels} from './scopes/useScopes';
+import {changeScopePanel, resetScopeRevealHint, scopesSupported, useScopePanels} from './scopes/useScopes';
 import LutFlyout from './LutFlyout';
 import CaptureDrawer, {DrawerOption, DrawerToggle} from './CaptureDrawer';
 import CountdownOverlay from './CountdownOverlay';
@@ -160,7 +160,8 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
 
   function acknowledgeShutter() {
     if (shutterVibration) {
-      try { Vibration.vibrate(20); } catch { /* VIBRATE permission may be missing on forks. */ }
+      // iOS gets a light tap from the native module; Vibration there is a long buzz whatever the duration.
+      try { if (camera?.haptic) camera.haptic(); else Vibration.vibrate(20); } catch { /* VIBRATE permission may be missing on forks. */ }
     }
     if (reduceMotion.current) return;
     flash.setValue(0.45);
@@ -256,7 +257,7 @@ export default function CameraWorkspace({onAlbum, onSettings, onStorage, state, 
     guide={guide} onGuide={selectGuide}
     timerEnabled={timerEnabled} delay={delay} waiting={waiting} onDelay={selectDelay} onCancelCountdown={() => {cancelCountdown(); setTimerEnabled(false);}}
     audio={audio} onAudio={() => {void toggleAudio();}}
-    scopes={scopePanels} onScope={kind => changeScopePanel({type: 'toggle', kind})}
+    scopes={scopePanels} onScope={kind => changeScopePanel({type: 'toggle', kind})} canScope={scopesSupported()}
     canFocus={canManualFocus} focusDisabled={state.busy || waiting} onFocus={direction => camera?.focus(focusDirection(direction, reverseFocus))}/>;
 
   const shutter = <ShutterButton accessibilityLabel={captureLabel} disabled={disabled} waiting={waiting} onPress={fire}/>;

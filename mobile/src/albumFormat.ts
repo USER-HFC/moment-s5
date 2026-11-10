@@ -1,5 +1,6 @@
 import {MomentItem} from './native';
 import {lutDisplayName} from './lutName';
+import {OS, currentOS} from './platformText';
 
 export type ShareKind = 'display' | 'original' | 'video' | 'motion';
 
@@ -127,9 +128,10 @@ export const shareOptionLabel: Record<ShareKind, string> = {
   display: '当前画面',
 };
 
-export function shareOptionHint(kind: ShareKind, moment: {lut?: string | null}) {
+/** iOS has no file format that every receiving app turns back into a Live Photo, so it says what is sent. */
+export function shareOptionHint(kind: ShareKind, moment: {lut?: string | null}, os: OS = currentOS()) {
   switch (kind) {
-    case 'motion': return '可在相册里播放';
+    case 'motion': return os === 'ios' ? '照片和视频两个文件' : '可在相册里播放';
     case 'video': return '单独的视频';
     case 'original': return '未套用 LUT';
     case 'display': return moment.lut ? '带 LUT 的画面' : '正在查看的画面';

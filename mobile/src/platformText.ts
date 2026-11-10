@@ -25,6 +25,13 @@ export function usbSteps(os: OS = currentOS(), compact = false) {
 /** iOS has no system back key and no volume-key shutter yet. */
 export const hasBackKey = (os: OS = currentOS()) => os === 'android';
 export const hasVolumeShutter = (os: OS = currentOS()) => os === 'android';
+/** The live scopes need a native frame analyser that only Android has so far. */
+export const hasScopes = (os: OS = currentOS()) => os === 'android';
+
+/** The shooting-controls tray, as the guide lists it. */
+export function shootingControls(os: OS = currentOS()) {
+  return hasScopes(os) ? '网格、参考、定时、收音和示波器' : '网格、参考、定时和收音';
+}
 
 export function cannotConnectHelp(os: OS = currentOS()) {
   return os === 'ios'
@@ -38,4 +45,16 @@ export function minSystemLabel(value: string, os: OS = currentOS()) {
   if (value === '未知') return value;
   if (os === 'ios') return `iOS ${value}`;
   return value === '33' ? 'Android 13（API 33）' : `API ${value}`;
+}
+
+/** After an export. Android writes to a DCIM folder; iOS hands the file to the Photos app. */
+export function exportedNotice(os: OS = currentOS()) {
+  return os === 'ios' ? '已存入「照片」' : '已导出到 DCIM/MomentS5';
+}
+
+/** Under the clear-exported button. iOS can only clear copies it can still find in Photos. */
+export function clearExportedFootnote(os: OS = currentOS()) {
+  return os === 'ios'
+    ? '只删除确认还在「照片」里的 App 内副本。只给了「添加照片」权限时无法核对，这些照片会保留。'
+    : '只删除已经导出到系统相册的 App 内副本。未导出的照片会保留。';
 }

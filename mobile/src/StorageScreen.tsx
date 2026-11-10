@@ -4,6 +4,7 @@ import ConfirmDialog from './ConfirmDialog';
 import {camera} from './native';
 import {Notice} from './notice';
 import {clearableSummary, formatBytes, StorageUsage} from './preferences';
+import {clearExportedFootnote} from './platformText';
 import {cn, PageHeader, Text} from './ui';
 
 export default function StorageScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {
@@ -81,7 +82,7 @@ export default function StorageScreen({onBack, onNotice}: {onBack: () => void; o
               <Text testID="storage-clearable" className="text-footnote text-muted">{summary}</Text>
             </Pressable>
           </View>
-          <Text className="px-4 text-footnote text-muted">只删除已经导出到系统相册的 App 内副本。未导出的照片会保留。</Text>
+          <Text className="px-4 text-footnote text-muted">{clearExportedFootnote()}</Text>
         </View>
       </View>
     </ScrollView>

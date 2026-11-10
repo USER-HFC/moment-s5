@@ -51,7 +51,8 @@ export default function PhotoInfo({details, moment}: {details: MomentDetails; mo
   const cameraFile = details.cameraFile || (moment.demo ? '演示素材' : moment.source);
   const dimensions = details.width && details.height ? formatDimensions(details.width, details.height) : '未知';
   const size = details.files.length ? formatBytes(details.files.reduce((sum, file) => sum + file.bytes, 0)) : '未知';
-  const library = !details.exportKnown ? '无法确认' : details.exported ? '已导出' : '未导出';
+  // iOS add-only access can save to Photos but not look the copy up again, so an export we made stays unverified.
+  const library = !details.exportKnown ? (details.exported ? '已导出（无法核对）' : '无法确认') : details.exported ? '已导出' : '未导出';
 
   return <View>
     <Section title="拍摄参数">

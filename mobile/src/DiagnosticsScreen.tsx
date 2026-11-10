@@ -12,7 +12,9 @@ import {Button as UIButton, Icon, PageHeader, RoundButton, Text as UIText} from 
 const EMPTY = '还没有诊断记录，连接相机后再来看';
 
 function factsNow(connection: string): DiagnosticFacts {
-  return diagnosticFacts(buildInfoFromModule(camera), Platform.constants, connection);
+  // iOS Platform.constants has no Model; the native module reports the device identifier instead.
+  const constants = {...Platform.constants, Model: (Platform.constants as {Model?: unknown}).Model ?? camera?.deviceModel};
+  return diagnosticFacts(buildInfoFromModule(camera), constants, connection);
 }
 
 export default function DiagnosticsScreen({onBack, onNotice}: {onBack: () => void; onNotice: (notice: Notice) => void}) {

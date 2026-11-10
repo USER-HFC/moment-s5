@@ -4,7 +4,7 @@ import {Tappable as Pressable} from './ui';
 import {Text} from 'react-native-paper';
 import {ui} from './theme';
 import {PageHeader} from './ui';
-import {cannotConnectHelp, hasBackKey, hasVolumeShutter, usbSteps} from './platformText';
+import {cannotConnectHelp, hasBackKey, hasVolumeShutter, shootingControls, usbSteps} from './platformText';
 
 const ISSUES = 'https://github.com/USER-HFC/moment-s5/issues/new';
 const USB = usbSteps();
@@ -14,7 +14,7 @@ const WIFI = [
   '填写相机 IP，常见是 192.168.54.1',
 ];
 const SHOOTING = [
-  {title: '拍摄控制', body: '点快门右边的按钮，展开网格、参考、定时、收音和示波器；USB 连接时还有对焦。点其中一项，它的选项会在原处展开。' + (hasBackKey() ? '按返回键或再点一次那个按钮就收起。' : '再点一次那个按钮就收起。')},
+  {title: '拍摄控制', body: `点快门右边的按钮，展开${shootingControls()}；USB 连接时还有对焦。` + '点其中一项，它的选项会在原处展开。' + (hasBackKey() ? '按返回键或再点一次那个按钮就收起。' : '再点一次那个按钮就收起。')},
   {title: 'LUT', body: '取景画面下方的胶囊显示当前 LUT，点它打开 LUT 面板。切换时画面实时预览，面板不会自动关。'},
   {title: '设置', body: '右上角的齿轮。左上角是连接状态，点它可以切换 USB、Wi-Fi 或演示。'},
   ...(hasVolumeShutter() ? [{title: '音量键拍摄', body: '在拍摄页按音量键等于按快门。定时开着时先倒计时，倒计时中再按一次取消。不在拍摄页时，音量键仍调节音量。'}] : []),

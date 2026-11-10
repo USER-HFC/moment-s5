@@ -354,6 +354,24 @@ it('shows a single no-EXIF line instead of a column of dashes', async () => {
   act(() => tree!.unmount());
 });
 
+it('marks an export it cannot look up again as exported, not unknown', async () => {
+  const onDetails = jest.fn(async () => ({
+    origin: '演示', transport: '演示', cameraFile: null, capturedAt: 1700000000000,
+    camera: null, lens: null, iso: null, shutter: null, aperture: null, focalLength: null,
+    width: 2400, height: 1600, lut: null, lutApplied: false, directory: '/var/mobile/Containers/Data/Application/X/Library/Application Support/moments/M1',
+    files: [{name: 'original.jpg', bytes: 2048}],
+    exportKnown: false, exported: true, exportPath: '照片 App',
+  }));
+  let tree: renderer.ReactTestRenderer;
+  act(() => { tree = renderer.create(<MotionAlbum moments={[{...moments[0], demo: true, transport: 'demo'}]} onBack={jest.fn()} onExport={exportMock} onDelete={exportMock} onDetails={onDetails}/>); });
+  open(tree!);
+  await act(async () => { tree!.root.findByProps({accessibilityLabel: '照片信息'}).props.onPress(); });
+  const text = JSON.stringify(tree!.toJSON());
+  expect(text).toContain('已导出（无法核对）');
+  expect(text).not.toContain('无法确认');
+  act(() => tree!.unmount());
+});
+
 it('shows the original while the photo is held in the LUT sheet', async () => {
   const luts = [{id: 'builtin:classic-chrome', name: 'Classic Chrome', size: 12, builtIn: true}];
   const onPreview = jest.fn(async (_id: string, lutId: string) => `file://preview-${lutId}`);

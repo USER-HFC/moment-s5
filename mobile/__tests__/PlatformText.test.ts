@@ -1,5 +1,5 @@
 import {expect, it} from '@jest/globals';
-import {cannotConnectHelp, connectSteps, hasBackKey, hasVolumeShutter, minSystemLabel, minSystemTitle, usbSteps} from '../src/platformText';
+import {cannotConnectHelp, clearExportedFootnote, connectSteps, exportedNotice, hasBackKey, hasScopes, shootingControls, hasVolumeShutter, minSystemLabel, minSystemTitle, usbSteps} from '../src/platformText';
 
 it('never tells an iPhone user about OTG, the back key or the volume-key shutter', () => {
   const ios = [...connectSteps('ios'), ...usbSteps('ios'), ...usbSteps('ios', true), cannotConnectHelp('ios')].join('\n');
@@ -24,4 +24,20 @@ it('names the minimum system by platform', () => {
   expect(minSystemTitle('android')).toBe('最低 Android 版本');
   expect(minSystemLabel('33', 'android')).toBe('Android 13（API 33）');
   expect(minSystemLabel('未知', 'ios')).toBe('未知');
+});
+
+it('says where an export went', () => {
+  expect(exportedNotice('ios')).toBe('已存入「照片」');
+  expect(exportedNotice('android')).toBe('已导出到 DCIM/MomentS5');
+});
+
+it('explains on iOS why an unverified export is not cleared', () => {
+  expect(clearExportedFootnote('ios')).toContain('无法核对');
+  expect(clearExportedFootnote('android')).toBe('只删除已经导出到系统相册的 App 内副本。未导出的照片会保留。');
+});
+
+it('leaves the scopes out of the iOS guide until iOS has them', () => {
+  expect(hasScopes('ios')).toBe(false);
+  expect(shootingControls('ios')).toBe('网格、参考、定时和收音');
+  expect(shootingControls('android')).toBe('网格、参考、定时、收音和示波器');
 });

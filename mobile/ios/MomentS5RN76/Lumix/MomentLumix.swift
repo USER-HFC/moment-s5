@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import UIKit
 
@@ -40,6 +41,12 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
   override func startObserving() { listening = true }
   override func stopObserving() { listening = false }
 
+  static func modelIdentifier() -> String {
+    if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"], !simulated.isEmpty { return simulated }
+    var info = utsname(); uname(&info)
+    return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+  }
+
   override func constantsToExport() -> [AnyHashable: Any]! {
     let info = Bundle.main.infoDictionary ?? [:]
     func text(_ key: String) -> String { let v = (info[key] as? String ?? "").trimmingCharacters(in: .whitespaces); return v.isEmpty ? "未知" : v }
@@ -52,8 +59,10 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
       // Wi-Fi is not implemented on iOS yet, so the any-host debug entry has nothing to reach.
       "wifiDebugEnabled": false,
       "platform": "ios",
+      // RN has no phone model on iOS; the diagnostics header reads this instead (e.g. iPhone17,1).
+      "deviceModel": MomentLumix.modelIdentifier(),
       "buildInfo": [
-        "versionName": text("CFBundleShortVersionString"), "versionCode": text("CFBundleVersion"),
+        "versionName": text("MomentVersionName") == "未知" ? text("CFBundleShortVersionString") : text("MomentVersionName"), "versionCode": text("CFBundleVersion"),
         "builtAt": text("MomentBuiltAt"), "git": text("MomentGit"), "buildType": buildType,
         "abi": "arm64", "minSdk": text("MinimumOSVersion"),
       ],
@@ -393,6 +402,29 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
     }
   }
 
+  /// Asks once, like the Android permission check; a denial is then explained by the in-app dialog.
+  @objc func requestMicrophone(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    if #available(iOS 17.0, *) {
+      switch AVAudioApplication.shared.recordPermission {
+      case .granted: resolve(true)
+      case .denied: resolve(false)
+      default: AVAudioApplication.requestRecordPermission { resolve($0) }
+      }
+    } else {
+      let session = AVAudioSession.sharedInstance()
+      switch session.recordPermission {
+      case .granted: resolve(true)
+      case .denied: resolve(false)
+      default: session.requestRecordPermission { resolve($0) }
+      }
+    }
+  }
+
+  /// The shutter tick. RN's Vibration on iOS ignores the duration and buzzes for about 400 ms.
+  @objc func haptic() {
+    DispatchQueue.main.async { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+  }
+
   @objc func openAppSettings(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async {
       guard let url = URL(string: UIApplication.openSettingsURLString) else { reject("SETTINGS", "无法打开系统设置", nil); return }
@@ -479,8 +511,8 @@ enum MomentRender {
     return try filter.applyJpeg(bytes, maxEdge: maxEdge)
   }
 
-  /// What the share sheet gets. On iOS "motion" shares the still and the clip together; the packed
-  /// MOMENT_MP.jpg is an Android motion-photo container that iOS apps would show as a plain photo.
+  /// What the share sheet gets. On iOS "motion" shares a Live Photo pair (same-named JPEG and MOV with one
+  /// content identifier); the packed MOMENT_MP.jpg is an Android container that iOS shows as a plain photo.
   static func shareFiles(_ dir: URL, meta: Meta, kind: String?) throws -> [URL] {
     let rendered = dir.appendingPathComponent("rendered.jpg"), original = dir.appendingPathComponent("original.jpg")
     let display = (meta["lutApplied"] as? Bool ?? false) && FileManager.default.fileExists(atPath: rendered.path) ? rendered : original
@@ -490,7 +522,13 @@ enum MomentRender {
     case "", "display": files = [display]
     case "original": files = [original]
     case "video": files = [video]
-    case "motion": files = [display, video]
+    case "motion":
+      guard meta["complete"] as? Bool ?? false else { throw LumixError("动态照片还在生成，稍后再分享") }
+      let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("share-live", isDirectory: true)
+      try? FileManager.default.removeItem(at: folder)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      let (jpeg, mov) = try LivePhoto.make(still: display, video: video, stillUs: (meta["stillUs"] as? NSNumber)?.int64Value ?? 0, in: folder, name: dir.lastPathComponent)
+      files = [jpeg, mov]
     default: throw LumixError("未知分享类型")
     }
     for file in files where ((try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int) ?? 0) == 0 { throw LumixError("文件尚未生成") }

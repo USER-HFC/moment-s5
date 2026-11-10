@@ -27,11 +27,14 @@ export function resetScopeRevealHint() {revealHintShown = false;}
 type ScopeApi = {setScopesEnabled?: (enabled: boolean, rotateClockwise: boolean, sourceAspectRatio: number) => void};
 const scopeApi = NativeModules.MomentLumix as ScopeApi | undefined;
 
+/** The scopes need the native frame analyser; iOS does not have one yet, so the drawer leaves the button out. */
+export function scopesSupported() { return typeof scopeApi?.setScopesEnabled === 'function' && !!cameraEvents; }
+
 export function useScopeData(requested: boolean, rotateClockwise: boolean, sourceAspectRatio: number) {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [data, setData] = useState<ScopeFrame | null>(null);
   const [stale, setStale] = useState(false);
-  const supported = typeof scopeApi?.setScopesEnabled === 'function' && !!cameraEvents;
+  const supported = scopesSupported();
   const enabled = requested && foreground && supported;
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => setForeground(next === 'active'));

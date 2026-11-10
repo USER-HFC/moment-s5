@@ -204,10 +204,11 @@ enum PhotoExport {
 }
 
 enum LivePhoto {
-  /// Writes still.jpg (Apple MakerNote content identifier) and motion.mov (same identifier plus a still-image-time marker).
-  static func make(still: URL, video: URL, stillUs: Int64, in folder: URL) throws -> (URL, URL) {
+  /// Writes <name>.jpg (Apple MakerNote content identifier) and <name>.mov (same identifier plus a still-image-time marker).
+  /// Both files share `name`, which is how AirDrop and Messages recognise the pair as one Live Photo.
+  static func make(still: URL, video: URL, stillUs: Int64, in folder: URL, name: String = "live") throws -> (URL, URL) {
     let id = UUID().uuidString
-    let jpeg = folder.appendingPathComponent("still.jpg"), mov = folder.appendingPathComponent("motion.mov")
+    let jpeg = folder.appendingPathComponent("\(name).jpg"), mov = folder.appendingPathComponent("\(name).mov")
     guard let source = CGImageSourceCreateWithURL(still as CFURL, nil),
           let dest = CGImageDestinationCreateWithURL(jpeg as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else { throw LumixError("实况照片静帧写入失败") }
     CGImageDestinationAddImageFromSource(dest, source, 0, [kCGImagePropertyMakerAppleDictionary: ["17": id]] as CFDictionary)

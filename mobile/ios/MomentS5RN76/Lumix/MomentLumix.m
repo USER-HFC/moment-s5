@@ -41,5 +41,7 @@ RCT_EXTERN_METHOD(storageUsage:(RCTPromiseResolveBlock)resolve rejecter:(RCTProm
 RCT_EXTERN_METHOD(usableSpace:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(clearExportedCopies:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(openAppSettings:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(haptic)
+RCT_EXTERN_METHOD(requestMicrophone:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
 @end

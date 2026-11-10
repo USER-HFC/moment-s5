@@ -5,6 +5,8 @@ import {afterEach, beforeEach, expect, it, jest} from '@jest/globals';
 
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView: ({children}: any) => children}));
 jest.mock('../src/native', () => ({camera: {capture: jest.fn(), captureStill: jest.fn(), focus: jest.fn(), setAudio: jest.fn(), disconnect: jest.fn()}}));
+const mockScopes = {supported: true};
+jest.mock('../src/scopes/useScopes', () => ({...jest.requireActual<object>('../src/scopes/useScopes'), scopesSupported: () => mockScopes.supported}));
 jest.mock('../src/microphonePermission', () => ({requestMicrophonePermission: jest.fn(async () => true), openMicrophoneSettings: jest.fn(async () => {})}));
 
 import CameraWorkspace from '../src/CameraWorkspace';
@@ -26,6 +28,7 @@ beforeEach(() => {
   });
   jest.spyOn(BackHandler, 'exitApp').mockImplementation(() => undefined);
   jest.mocked(requestMicrophonePermission).mockResolvedValue(true);
+  mockScopes.supported = true;
   act(() => { tree = renderer.create(<CameraWorkspace {...props}/>); });
 });
 afterEach(() => { act(() => tree.unmount()); jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
@@ -305,6 +308,17 @@ it('opens the drawer beside the shutter and swaps the mode switch for the contro
   for (const label of ['构图网格', '构图参考 关', '定时 关', '收音 关', '示波器']) expect(pressable(label)).toBeTruthy();
   pressNow('拍摄控制');
   expect(drawer()).toHaveLength(0);
+});
+
+it('leaves the scopes button out where the platform has no scopes (iOS for now)', () => {
+  mockScopes.supported = false;
+  act(() => { tree.update(<CameraWorkspace {...props} buffered={2}/>); });
+  pressNow('拍摄控制');
+  expect(pressable('收音 关')).toBeTruthy();
+  expect(pressable('示波器')).toBeUndefined();
+  expect(tree.root.findByProps({testID: 'drawer-toggle'}).props.accessibilityHint).toBe('收起拍摄控制');
+  pressNow('拍摄控制');
+  expect(tree.root.findByProps({testID: 'drawer-toggle'}).props.accessibilityHint).toBe('展开网格、参考、定时和收音');
 });
 
 it('opens timer options in place of the controls and closes the LUT panel', () => {

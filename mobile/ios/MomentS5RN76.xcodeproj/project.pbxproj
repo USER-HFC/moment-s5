@@ -224,6 +224,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+				1EBFC492F8F0A42683FD00BD /* Stamp build info */,
 			);
 			buildRules = (
 			);
@@ -324,6 +325,26 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MomentS5RN76/Pods-MomentS5RN76-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		1EBFC492F8F0A42683FD00BD /* Stamp build info */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../android/app/build.gradle",
+			);
+			name = "Stamp build info";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/stamp-build-info.sh\"\n";
 		};
 		A55EABD7B0C7F3A422A6CC61 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -533,7 +554,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = cn.moment.lumix;
 				PRODUCT_NAME = MomentS5RN76;
 				SWIFT_OBJC_BRIDGING_HEADER = "MomentS5RN76/MomentS5RN76-Bridging-Header.h";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
