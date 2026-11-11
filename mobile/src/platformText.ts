@@ -33,6 +33,27 @@ export function shootingControls(os: OS = currentOS()) {
   return hasScopes(os) ? '网格、参考、定时、收音和示波器' : '网格、参考、定时和收音';
 }
 
+/** Wi-Fi steps; the guide spells the IP out. An iPhone joins the camera hotspot in Settings, not in the app. */
+export function wifiSteps(os: OS = currentOS(), guide = false) {
+  if (guide) {
+    return os === 'ios'
+      ? ['相机开启 Wi-Fi 遥控拍摄', '在「设置」→「无线局域网」加入相机的 Wi-Fi', '回到 App 填写相机 IP，常见是 192.168.54.1']
+      : ['相机开启 Wi-Fi 遥控拍摄', '手机连上相机的 Wi-Fi', '填写相机 IP，常见是 192.168.54.1'];
+  }
+  return os === 'ios'
+    ? ['相机开启 Wi-Fi 遥控拍摄', '在「设置」→「无线局域网」加入相机热点', '确认相机 IP，一般不用改']
+    : ['相机开启 Wi-Fi 遥控拍摄', '手机连上相机热点', '确认相机 IP，一般不用改'];
+}
+
+/** Joining a hotspot by SSID needs Android's network request; iOS would need an extra entitlement. */
+export const canJoinWifiByName = (os: OS = currentOS()) => os === 'android';
+
+/** The mock camera's address as the debug build reaches it: the Android emulator's host alias, or the Mac itself. */
+export function debugEndpointDefault(os: OS = currentOS()) { return os === 'ios' ? '127.0.0.1:18080' : '10.0.2.2:18080'; }
+export function debugFixtureNote(os: OS = currentOS()) {
+  return os === 'ios' ? '使用本项目 mock。模拟器和 Mac 共用网络，可直接连 127.0.0.1。' : '使用本项目 mock。模拟器须单独配置 UDP 端口转发。';
+}
+
 export function cannotConnectHelp(os: OS = currentOS()) {
   return os === 'ios'
     ? '先看相机是不是 PC(Tether)、线能不能传数据。换一条线后再试。还是不行，打开连接诊断看记录。'

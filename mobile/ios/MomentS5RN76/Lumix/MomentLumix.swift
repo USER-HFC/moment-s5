@@ -3,8 +3,8 @@ import Foundation
 import UIKit
 
 /// The JS contract in mobile/src/native.ts, implemented for iOS. Same method names, payloads and
-/// Chinese messages as MomentS5Module.java. Camera transports (USB, Wi-Fi) are not in this build:
-/// connect() and connectWifi() say so instead of pretending.
+/// Chinese messages as MomentS5Module.java. Wi-Fi is the experimental transport ported from Android;
+/// USB is not in this build yet, so connect() says so instead of pretending.
 @objc(MomentLumix)
 final class MomentLumix: RCTEventEmitter, CaptureListener {
   private static let defaultCameraIp = "192.168.54.1"
@@ -30,7 +30,20 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
       NSLog("MomentLumix storage unavailable: %@", error.localizedDescription)
     }
     engine = CaptureEngine(store: store, listener: self)
-    DispatchQueue.main.async { [weak self] in self?.watchBattery() }
+    DispatchQueue.main.async { [weak self] in
+      self?.watchBattery()
+      NotificationCenter.default.addObserver(self as Any, selector: #selector(MomentLumix.enteredBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+    }
+  }
+
+  /// iOS suspends the camera sockets in the background, so the session ends cleanly here instead of
+  /// timing out later. Android does the same when the app pauses.
+  @objc private func enteredBackground() {
+    queue.async { [self] in
+      guard engine.hasCamera else { return }
+      engine.disconnect()
+      status("App 切到后台，Wi-Fi 已断开 · 回来后请重新连接", ready: false)
+    }
   }
 
   deinit { NotificationCenter.default.removeObserver(self); engine?.shutdown() }
@@ -56,8 +69,8 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
     let buildType = "release"
     #endif
     return [
-      // Wi-Fi is not implemented on iOS yet, so the any-host debug entry has nothing to reach.
-      "wifiDebugEnabled": false,
+      // The any-host fixture entry (tools/s5-wifi/mock_camera.py) exists only in debug builds.
+      "wifiDebugEnabled": buildType == "debug",
       "platform": "ios",
       // RN has no phone model on iOS; the diagnostics header reads this instead (e.g. iPhone17,1).
       "deviceModel": MomentLumix.modelIdentifier(),
@@ -79,35 +92,55 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
   func status(_ message: String, ready: Bool) { emit("cameraStatus", ["message": message, "ready": ready]) }
   func frame(_ jpeg: Data, bufferedUs: Int64, demo: Bool) {
     emit("cameraFrame", ["jpegBase64": jpeg.base64EncodedString(), "bufferedUs": Double(bufferedUs), "ready": engine.ready, "demo": demo,
-                         "exposure": engine.exposureValue, "exposureAgeMs": NSNull()])
+                         "exposure": engine.exposureValue, "exposureAgeMs": exposureAge()])
   }
+  private func exposureAge() -> Any { engine.exposureAgeMs.map { Double($0) } ?? NSNull() }
   func saved(_ directory: URL) { emit("cameraSaved", ["directory": directory.path]) }
   func failed(_ directory: URL, _ message: String) { emit("cameraFailed", ["directory": directory.path, "error": message.isEmpty ? "动态照片处理失败" : message]) }
   func log(_ message: String) { emit("cameraLog", ["message": message]) }
-  func exposure(_ value: String) { emit("cameraExposure", ["value": value, "exposureAgeMs": NSNull()]) }
+  func exposure(_ value: String) { emit("cameraExposure", ["value": value, "exposureAgeMs": exposureAge()]) }
 
   // MARK: Connection
 
   @objc func connect(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     reject("USB_CONNECT", "iOS 版的 USB 连接还在开发中，可以先体验演示", nil)
   }
+  /// The user joins the camera network in Settings first: joining by SSID needs the Hotspot Configuration
+  /// entitlement, which this build does not carry. Camera traffic is pinned to that Wi-Fi interface.
   @objc func connectWifi(_ options: NSDictionary, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    reject("WIFI_CONNECT", "iOS 版的 Wi-Fi 连接还在开发中，可以先体验演示", nil)
+    if engine.busy { reject("WIFI_BUSY", "正在保存，请稍候", nil); return }
+    let debugEndpoint = (options["debugEndpoint"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    let debug = debugEndpoint != nil
+    #if !DEBUG
+    if debug { reject("WIFI_DEBUG_DISABLED", "模拟相机调试仅限 debug 版本", nil); return }
+    #endif
+    if !(options["manual"] as? Bool ?? true) && !debug { reject("WIFI_CONNECT", "请先在「设置」→「无线局域网」加入相机网络，再回来连接", nil); return }
+    let endpoint = debugEndpoint ?? (options["cameraIp"] as? String ?? MomentLumix.defaultCameraIp)
+    let port = debug ? (options["udpPort"] as? NSNumber)?.intValue ?? 49152 : 49152
+    engine.disconnect()
+    do {
+      let target = try WifiProtocol.cameraUrl(endpoint, debug: debug)
+      let route = debug ? WifiRoute(interface: nil) : try WifiRoute.camera(target.host ?? "")
+      engine.connectWifi(route: route, endpoint: endpoint, port: port, debug: debug)
+      status("正在连接 Wi-Fi（实验）· 未经真机验证", ready: false)
+      resolve(nil)
+    } catch { reject("WIFI_CONNECT", error.localizedDescription, error) }
   }
   @objc func demo() { engine.demo() }
   @objc func disconnect() { engine.disconnect(); status("相机已断开 · 请重新连接", ready: false) }
   @objc func capture() { engine.capture(motion: true) }
   @objc func captureStill() { engine.capture(motion: false) }
   @objc func remoteShutter() { engine.remoteShutter() }
-  @objc func focus(_ direction: NSNumber) {}
+  @objc func focus(_ direction: NSNumber) { engine.focus(direction.intValue) }
   @objc func setCaptureScreen(_ capture: Bool) {}
   @objc func setAudio(_ enabled: Bool) { engine.setAudio(enabled) }
 
   @objc func getState(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     resolve([
       "active": engine.active, "busy": engine.busy, "ready": engine.ready, "demo": engine.demoMode, "audio": engine.audioEnabled,
-      "lut": engine.lutTitle ?? NSNull(), "transport": engine.transportKind, "exposure": engine.exposureValue, "exposureAgeMs": NSNull(),
-      "phoneBattery": batteryMap(), "cameraBattery": NSNull(), "autofocus": false, "manualFocus": false, "cameraModel": NSNull(),
+      "lut": engine.lutTitle ?? NSNull(), "transport": engine.transportKind, "exposure": engine.exposureValue, "exposureAgeMs": exposureAge(),
+      "phoneBattery": batteryMap(), "cameraBattery": NSNull(), "autofocus": engine.supportsAutofocus, "manualFocus": engine.supportsManualFocus,
+      "cameraModel": engine.cameraModel ?? NSNull(),
     ])
   }
   @objc func diagnostics(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { resolve(engine.diagnostics()) }

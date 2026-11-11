@@ -26,6 +26,13 @@ describe('user-facing capture errors', () => {
     expect(userFacingError('机身未执行对焦步进（响应 0x2002）；部分机型需在菜单开启 AF+MF 或切到 MF')).toBe('相机没有执行对焦，请在相机里打开手动对焦后再试');
   });
 
+  it('explains the iOS socket failures without errno words', () => {
+    expect(userFacingError('无法连接相机：网络不可达；请确认连着相机 Wi-Fi，并在「设置」里允许本 App 访问本地网络')).toContain('允许本 App 访问本地网络');
+    expect(userFacingError('连接相机超时；请确认手机连着相机 Wi-Fi，并允许本 App 访问本地网络')).toBe('连不上相机，请确认相机 IP，并在相机上打开 Wi-Fi 遥控');
+    expect(userFacingError('无法连接相机：相机拒绝连接；请确认机身在遥控拍摄等待连接')).toBe('相机没有在等待连接，请在相机上打开 Wi-Fi 遥控拍摄');
+    expect(userFacingError('App 切到后台，Wi-Fi 已断开 · 回来后请重新连接')).toBe('切到后台时 Wi-Fi 会断开，回来后请重新连接');
+  });
+
   it('leaves unknown and already-saved text unchanged, including the short JPEG miss', () => {
     expect(userFacingError('未找到本次 JPEG')).toBe('未找到本次 JPEG');
     expect(userFacingError('附近 Wi-Fi 设备权限未授权；可在系统设置手动连接相机 Wi-Fi')).toContain('权限未授权');

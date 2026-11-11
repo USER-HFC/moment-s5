@@ -23,6 +23,9 @@
 		B74B20F67492172BC7A8E243 /* MotionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6410E2C61339885166FC4062 /* MotionMedia.swift */; };
 		CD96A6D0F3C3750EFE48D7D9 /* FrameRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 790C5716E7B7B2F1A576B243 /* FrameRing.swift */; };
 		DA4F35F174B99AA4577A7AF0 /* AudioRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C653F736482BD9DF3FA463 /* AudioRing.swift */; };
+		B40860907E838E2F5685C339 /* WifiTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66B2A47AE742F46C1B8CEE5 /* WifiTransport.swift */; };
+		C2E762CF8A2B220BAEB72556 /* WifiHttp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08371511FD849A69F5E2146B /* WifiHttp.swift */; };
+		9CA98B7EC6C9C37E77BBDA5C /* WifiProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3348166A2F9C30C1FE74C4 /* WifiProtocol.swift */; };
 		F3B6AA303A404E2AE5118858 /* luts in Resources */ = {isa = PBXBuildFile; fileRef = F5DC661669310CC28BF1E573 /* luts */; };
 /* End PBXBuildFile section */
 
@@ -59,6 +62,9 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = MomentS5RN76/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig"; path = "Target Support Files/Pods-MomentS5RN76-MomentS5RN76Tests/Pods-MomentS5RN76-MomentS5RN76Tests.release.xcconfig"; sourceTree = "<group>"; };
 		93C653F736482BD9DF3FA463 /* AudioRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioRing.swift; sourceTree = "<group>"; };
+		E66B2A47AE742F46C1B8CEE5 /* WifiTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WifiTransport.swift; sourceTree = "<group>"; };
+		08371511FD849A69F5E2146B /* WifiHttp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WifiHttp.swift; sourceTree = "<group>"; };
+		3C3348166A2F9C30C1FE74C4 /* WifiProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WifiProtocol.swift; sourceTree = "<group>"; };
 		B0E5653BDF41DC10BB22C8C8 /* MomentS5RN76-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "MomentS5RN76/MomentS5RN76-Bridging-Header.h"; sourceTree = "<group>"; };
 		B492F99C2FD50D60B1FD61C8 /* MomentLumix.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MomentLumix.m; sourceTree = "<group>"; };
 		E6E5C81BB091EC15AA4C71CC /* CaptureEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureEngine.swift; sourceTree = "<group>"; };
@@ -177,6 +183,9 @@
 			isa = PBXGroup;
 			children = (
 				93C653F736482BD9DF3FA463 /* AudioRing.swift */,
+				E66B2A47AE742F46C1B8CEE5 /* WifiTransport.swift */,
+				08371511FD849A69F5E2146B /* WifiHttp.swift */,
+				3C3348166A2F9C30C1FE74C4 /* WifiProtocol.swift */,
 				E6E5C81BB091EC15AA4C71CC /* CaptureEngine.swift */,
 				790C5716E7B7B2F1A576B243 /* FrameRing.swift */,
 				FB3D249F01A147163FDB84F8 /* LutEngine.swift */,
@@ -459,6 +468,9 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				DA4F35F174B99AA4577A7AF0 /* AudioRing.swift in Sources */,
+				B40860907E838E2F5685C339 /* WifiTransport.swift in Sources */,
+				C2E762CF8A2B220BAEB72556 /* WifiHttp.swift in Sources */,
+				9CA98B7EC6C9C37E77BBDA5C /* WifiProtocol.swift in Sources */,
 				18D348B04C9BB1D9710EBA14 /* CaptureEngine.swift in Sources */,
 				CD96A6D0F3C3750EFE48D7D9 /* FrameRing.swift in Sources */,
 				54934D7AA1D93E1E0DB0983B /* LutEngine.swift in Sources */,

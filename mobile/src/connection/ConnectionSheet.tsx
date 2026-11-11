@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, PermissionsAndroid, Platform, Pressable, StyleSheet, TextInput, TextInputProps, View} from 'react-native';
-import {usbSteps} from '../platformText';
+import {canJoinWifiByName, debugEndpointDefault, debugFixtureNote, usbSteps, wifiSteps} from '../platformText';
 import {Button, cn, color, Switch, Text} from '../ui';
 import CameraSheet from '../CameraSheet';
 import {CameraState} from '../native';
@@ -15,11 +15,6 @@ const MODES = [
   {value: 'demo', label: '演示', accessibilityLabel: '演示连接方式'},
 ] as const;
 const USB_STEPS = usbSteps(undefined, true);
-const WIFI_STEPS = [
-  '相机开启 Wi-Fi 遥控拍摄',
-  '手机连上相机热点',
-  '确认相机 IP，一般不用改',
-];
 
 /** Numbered steps in a grouped card, separators inset past the number like iOS lists. */
 function Steps({items, testID}: {items: readonly string[]; testID: string}) {
@@ -59,7 +54,8 @@ export async function requestWifiPermission(): Promise<boolean> {
 
 export default function ConnectionSheet({visible, state, status, debugAllowed, remembered = DEFAULT_CONNECTION, onClose, onUsb, onWifi, onDemo, onDisconnect}: Props) {
   const [mode, setMode] = useState<'usb' | 'wifi' | 'demo'>('usb');
-  const [form, setForm] = useState<ConnectionForm>(initialConnectionForm);
+  const [form, setForm] = useState<ConnectionForm>(() => ({...initialConnectionForm, debugEndpoint: debugEndpointDefault()}));
+  const joinByName = canJoinWifiByName();
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [error, setError] = useState('');
@@ -70,7 +66,8 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
     else if (remembered.method) setMode(remembered.method);
     setForm(current => current.cameraIp === remembered.cameraIp ? current : {...current, cameraIp: remembered.cameraIp});
   }, [visible, state.active, state.demo, state.transport, remembered.method, remembered.cameraIp]);
-  const set = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) => setForm(current => ({...current, [key]: value}));
+  // A changed field makes the last failure stale: it was about the previous address or mode.
+  const set = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) => {setForm(current => ({...current, [key]: value})); setError('');};
   const submit = async () => {
     if (pendingRef.current || state.busy) return;
     pendingRef.current = true;
@@ -79,7 +76,8 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
       if (mode === 'usb') await onUsb();
       else if (mode === 'demo') await onDemo();
       else {
-        const options = connectionOptions(form, debugAllowed);
+        // An iPhone is always already on the camera network: the app cannot join a hotspot by name.
+        const options = connectionOptions(joinByName ? form : {...form, manual: true}, debugAllowed);
         if (!options.manual && !(await requestWifiPermission())) throw new Error('附近 Wi-Fi 设备权限未授权；可在系统设置手动连接相机 Wi-Fi');
         await onWifi(options);
       }
@@ -104,12 +102,12 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
         {mode === 'usb' && <Steps testID="usb-steps" items={USB_STEPS}/>}
         {mode === 'demo' && <Text className="text-[15px] leading-[20px] text-muted">演示画面，不连接相机。可以先熟悉拍摄、相册和 LUT。</Text>}
         {mode === 'wifi' && <>
-          <Steps testID="wifi-steps" items={WIFI_STEPS}/>
-          <View className="gap-1.5">
+          <Steps testID="wifi-steps" items={wifiSteps()}/>
+          {joinByName && <View className="gap-1.5">
             <ToggleRow label="我已在系统设置里连上相机 Wi-Fi" value={form.manual} disabled={form.debug} onValueChange={value => set('manual', value)}/>
             <Text className="px-1 text-footnote text-muted">打开后直接使用当前网络，不会再弹出连接相机热点的请求。</Text>
-          </View>
-          {!form.manual && !form.debug && <>
+          </View>}
+          {joinByName && !form.manual && !form.debug && <>
             <Field label="相机 Wi-Fi 名称" autoCapitalize="none" autoCorrect={false} value={form.ssid} onChangeText={value => set('ssid', value)}/>
             <Field label="Wi-Fi 密码（开放网络可留空）" accessibilityLabel="相机 Wi-Fi 密码" secureTextEntry value={form.password} onChangeText={value => set('password', value)}/>
           </>}
@@ -120,7 +118,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
             {form.debug && <>
               <Field label="调试主机:端口" autoCapitalize="none" autoCorrect={false} value={form.debugEndpoint} onChangeText={value => set('debugEndpoint', value)}/>
               <Field label="UDP 接收端口" keyboardType="number-pad" value={form.udpPort} onChangeText={value => set('udpPort', value)}/>
-              <Text className="px-1 text-footnote text-muted">使用本项目 mock。模拟器须单独配置 UDP 端口转发。</Text>
+              <Text className="px-1 text-footnote text-muted">{debugFixtureNote()}</Text>
             </>}
           </>}
         </>}

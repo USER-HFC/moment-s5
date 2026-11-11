@@ -31,6 +31,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用 Wi-Fi 连接相机时，需要访问相机所在的本地网络来取景、拍摄和接收照片。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>动态照片可以带上快门前 3 秒的环境声，只在你打开收音时使用麦克风。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
