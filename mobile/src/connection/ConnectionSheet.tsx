@@ -59,6 +59,8 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [error, setError] = useState('');
+  // The native status line belongs to the way last tried here. Another tab must not show, say, a USB failure.
+  const [statusMode, setStatusMode] = useState<'usb' | 'wifi' | 'demo' | null>(null);
   useEffect(() => {
     if (!visible) return;
     // An active session wins. Otherwise reopen on the last successful way and IP, never on a failed attempt.
@@ -71,7 +73,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
   const submit = async () => {
     if (pendingRef.current || state.busy) return;
     pendingRef.current = true;
-    setPending(true); setError('');
+    setPending(true); setError(''); setStatusMode(mode);
     try {
       if (mode === 'usb') await onUsb();
       else if (mode === 'demo') await onDemo();
@@ -122,7 +124,7 @@ export default function ConnectionSheet({visible, state, status, debugAllowed, r
             </>}
           </>}
         </>}
-        {!!(error || status) && <Text accessibilityLiveRegion="polite" testID="connection-status" className={cn('text-footnote', error ? 'text-danger' : 'text-muted')}>{error || userFacingError(status)}</Text>}
+        {!!(error || (status && (state.active || !statusMode || statusMode === mode))) && <Text accessibilityLiveRegion="polite" testID="connection-status" className={cn('text-footnote', error ? 'text-danger' : 'text-muted')}>{error || userFacingError(status)}</Text>}
 
         <Button variant="primary" size="lg" accessibilityLabel={submitLabel} disabled={busy} onPress={() => {void submit();}}>
           {pending && <ActivityIndicator color="#000000"/>}

@@ -43,3 +43,15 @@ it('drops a stale failure once a field changes', async () => {
   act(() => tree.root.findAllByType(TextInput)[0].props.onChangeText('192.168.54.2'));
   expect(tree.root.findAllByProps({testID: 'connection-status'})).toHaveLength(0);
 });
+
+it('keeps a USB failure under USB and off the Wi-Fi tab', async () => {
+  await act(async () => press('USB 连接方式'));
+  await act(async () => press('连接 USB 相机'));
+  // The native side reports the outcome as a status line after connect() resolves.
+  act(() => tree.update(<ConnectionSheet {...props} status="当前设备不支持 USB 主机连接（模拟器没有 USB）"/>));
+  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('这台手机不能用 USB 连接相机');
+  act(() => press('Wi-Fi（实验）'));
+  expect(tree.root.findAllByProps({testID: 'connection-status'})).toHaveLength(0);
+  act(() => press('USB 连接方式'));
+  expect(tree.root.findByProps({testID: 'connection-status'}).props.children).toBe('这台手机不能用 USB 连接相机');
+});

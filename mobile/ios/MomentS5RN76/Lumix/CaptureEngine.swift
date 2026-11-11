@@ -10,9 +10,9 @@ protocol CaptureListener: AnyObject {
   func exposure(_ value: String)
 }
 
-/// The capture session behind the shutter. Port of CaptureEngine.java: the synthetic demo and the
-/// experimental Wi-Fi transport share the pre-shutter ring, the save layout and the status lines, so USB
-/// can slot in later without changing what JS sees.
+/// The capture session behind the shutter. Port of CaptureEngine.java: the synthetic demo, USB through
+/// ImageCaptureCore and the experimental Wi-Fi transport share the pre-shutter ring, the save layout and the
+/// status lines, so JS sees the same events as on Android.
 final class CaptureEngine {
   private weak var listener: CaptureListener?
   private let store: MomentStore
@@ -33,6 +33,9 @@ final class CaptureEngine {
   private var _transport = "usb"
   /// The catalog read while preparing the session, before any shutter tap.
   private var preparedHandles: CaptureBaseline?
+  /// Keys of every original saved in this camera session, app shutter or body shutter.
+  private var savedOriginals = Set<String>()
+  private var _syncBodyPhotos = true
   private var epoch = 0
 
   init(store: MomentStore, listener: CaptureListener) {
@@ -47,6 +50,7 @@ final class CaptureEngine {
   var busy: Bool { locked { _busy } }
   var audioEnabled: Bool { locked { _audio } }
   var lutTitle: String? { locked { _lut?.title } }
+  var syncBodyPhotos: Bool { get { locked { _syncBodyPhotos } } set { locked { _syncBodyPhotos = newValue } } }
   var transportKind: String { locked { _demo ? "demo" : _transport } }
   private var camera: CameraTransport? { locked { _camera } }
   /// A camera session exists, connected or still opening.
@@ -105,6 +109,26 @@ final class CaptureEngine {
     }
   }
 
+  func connectUsb() {
+    connectTransport(kind: "usb", message: "正在打开 USB 相机会话…") { [self] in
+      let device = try UsbCameraBrowser.shared.findCamera { [weak self] in self?.log($0) }
+      let link = IccLink(device: device) { [weak self] in self?.log($0) }
+      try link.open()
+      return UsbTransport(link: link) { [weak self] in self?.log($0) }
+    }
+  }
+
+  /// The cable came out. Only the USB session it belonged to ends.
+  func detach(_ device: AnyObject) {
+    guard let usb = locked({ _transport == "usb" ? _camera as? UsbTransport : nil }),
+          let link = usb.link as? IccLink, link.device === device else { return }
+    disconnect()
+    worker.async { [self] in
+      let raw = "USB 已拔出 · 照片保留在机身或本机"
+      log(raw); listener?.status(raw, ready: false)
+    }
+  }
+
   private func connectTransport(kind: String, message: String, create: @escaping () throws -> CameraTransport) {
     if locked({ _busy || _shuttingDown }) { listener?.status("正在保存，请稍候", ready: false); return }
     let requested = locked { epoch }
@@ -126,6 +150,7 @@ final class CaptureEngine {
           locked { preparedHandles = nil }
           log("快门前照片索引暂不可用，将仅接受快门后的照片事件：\(error.localizedDescription)")
         }
+        created.clearCaptureEvents()
         try locked {
           if created.closed || connecting != epoch { throw LumixError("相机会话已失效或连接已取消，请重新连接相机") }
           _active = true; _demo = false
@@ -157,7 +182,7 @@ final class CaptureEngine {
     stopAudio()
     let current = locked { () -> CameraTransport? in
       if invalidate { epoch += 1 }
-      _active = false; _demo = false; preparedHandles = nil
+      _active = false; _demo = false; preparedHandles = nil; savedOriginals.removeAll()
       let c = _camera; _camera = nil; return c
     }
     polling?.cancel(); polling = nil
@@ -197,6 +222,86 @@ final class CaptureEngine {
     if !still { return }
     ring.add(frame.receivedUs, bytes)
     listener?.frame(bytes, bufferedUs: ring.durationUs, demo: demo)
+    if !demo, let session, session.reportsNewPhotos, locked({ _active && !_busy && _camera === session }) { try syncCameraPhoto(session) }
+  }
+
+  /// A photo taken with the camera's own shutter: download it and save it like an app photo.
+  private func syncCameraPhoto(_ session: CameraTransport) throws {
+    let photo: CameraOriginal?
+    do { photo = try session.nextCameraPhoto(locked { preparedHandles }, saved: locked { savedOriginals }) }
+    catch { if session.closed { throw error }; log("机身新照片暂时无法读取：\(error.localizedDescription)"); return }
+    guard let photo else { return }
+    if !syncBodyPhotos { rememberBodyPhoto(session, photo); return }
+    let claimed = locked { () -> Bool in
+      if !_active || _busy || _camera !== session { return false }
+      _busy = true; return true
+    }
+    if !claimed { return }
+    importCameraPhoto(session, photo)
+    ring.clear(); locked { _busy = false }
+  }
+
+  /// Keep this body photo out of the next pairing without downloading it.
+  private func rememberBodyPhoto(_ session: CameraTransport, _ photo: CameraOriginal) {
+    _ = locked { savedOriginals.insert(photo.key) }
+    session.noteSaved(photo)
+    locked { preparedHandles = session.withPhoto(preparedHandles, photo) }
+    log("已记下机身照片 \(photo.filename)，未下载")
+  }
+
+  /// After the timer remote shutter: wait for its photo so the next app capture's baseline includes it.
+  private func awaitRemotePhoto(_ session: CameraTransport, _ captureEpoch: Int) throws {
+    let deadline = monotonicMicros() + 30_000_000
+    while monotonicMicros() < deadline && sameSession(captureEpoch, session, demo: false) {
+      if let photo = try session.nextCameraPhoto(locked { preparedHandles }, saved: locked { savedOriginals }) {
+        importCameraPhoto(session, photo); return
+      }
+      usleep(100_000)
+    }
+    locked { preparedHandles = nil }
+    log("遥控快门的照片尚未出现在机身索引中；下一次拍摄只接受快门后的照片事件")
+  }
+
+  private func importCameraPhoto(_ session: CameraTransport, _ photo: CameraOriginal) {
+    let foundUs = monotonicMicros()
+    let filter = locked { _lut }
+    var dir: URL?
+    var meta: Meta = [:]
+    do {
+      listener?.status("正在同步机身拍摄的照片", ready: false)
+      let folder = try store.create(); dir = folder
+      meta = ["schema": 1, "demo": false, "createdAt": Int64(Date().timeIntervalSince1970 * 1000),
+              "captureMode": "photo", "mediaType": "photo", "cameraTriggered": true, "source": photo.filename,
+              "transport": session.kind, "experimentalWifi": session.kind == "wifi",
+              "lutRequested": filter?.title ?? NSNull(), "lut": NSNull(), "lutApplied": false,
+              "frames": 0, "durationUs": 0, "audio": false, "hasPostFrames": false, "complete": false]
+      try MomentStore.write(meta, to: folder)
+      let original = folder.appendingPathComponent("original.jpg"), part = folder.appendingPathComponent("original.jpg.part")
+      var timing = SyncTiming(tapUs: foundUs, shutterSentUs: foundUs, shutterDoneUs: foundUs)
+      timing.found = foundUs
+      do {
+        defer { try? FileManager.default.removeItem(at: part) }
+        try session.downloadOriginal(photo, to: part)
+        timing.bytes = Int64((try? FileManager.default.attributesOfItem(atPath: part.path)[.size] as? Int) ?? 0)
+        timing.downloaded = monotonicMicros()
+        try FileManager.default.moveItem(at: part, to: original)
+      }
+      _ = locked { savedOriginals.insert(photo.key) }
+      session.noteSaved(photo)
+      locked { if preparedHandles != nil { preparedHandles = session.withPhoto(preparedHandles, photo) } }
+      let lutStartUs = monotonicMicros()
+      let applied = try renderLut(folder, original: original, filter: filter, motion: false)
+      timing.lut = applied ? monotonicMicros() - lutStartUs : -1
+      meta["lut"] = applied ? filter!.title : NSNull(); meta["lutApplied"] = applied; meta["complete"] = true
+      try MomentStore.write(meta, to: folder)
+      log(timing.line("机身照片", endUs: monotonicMicros()))
+      listener?.saved(folder)
+      listener?.status("已同步机身照片 \(photo.filename)", ready: false)
+      log("已同步机身拍摄的照片 \(photo.filename)")
+    } catch {
+      if let dir { saveFailure(dir, &meta, error); listener?.failed(dir, error.localizedDescription) }
+      fail(error)
+    }
   }
 
   func focus(_ direction: Int) {
@@ -232,7 +337,10 @@ final class CaptureEngine {
   func remoteShutter() {
     let snapshot: (Int, CameraTransport?, Bool)? = locked {
       if !_active || _busy || _shuttingDown { return nil }
-      _busy = true; preparedHandles = nil
+      _busy = true
+      // A remote shot can appear in the index later. Without ObjectAdded events the old baseline is no longer
+      // safe; with them the shot is synced below and folded into the baseline.
+      if _demo || _camera == nil || !_camera!.reportsNewPhotos { preparedHandles = nil }
       return (epoch, _camera, _demo)
     }
     guard let (captureEpoch, session, synthetic) = snapshot else { listener?.status("相机未连接或正在处理拍摄", ready: false); return }
@@ -247,7 +355,7 @@ final class CaptureEngine {
           if session.freshBaselineRequired {
             _ = try session.awaitNewJpeg(before) { sameSession(captureEpoch, session, demo: false) }
             session.completeWithoutDownload()
-          }
+          } else if session.reportsNewPhotos { try awaitRemotePhoto(session, captureEpoch) }
         }
         result = synthetic ? "演示：遥控快门已触发（未连接机身）" : "遥控指令已完成 · 请在机身确认照片"
         log(result!)
@@ -282,6 +390,7 @@ final class CaptureEngine {
         var baseline = prepared
         if !demo, let session, session.freshBaselineRequired { baseline = try session.prepareCaptureBaseline() }
         if !sameSession(captureEpoch, session, demo: demo) { throw LumixError("相机已断开，尚未触发快门") }
+        if !demo { session?.clearCaptureEvents() }
         listener?.status(motion ? "正在拍摄 · 已保留快门前 3 秒" : "正在拍摄照片", ready: false)
         let shutterSentUs = monotonicMicros()
         if !demo { try session!.shutter() }
@@ -310,6 +419,8 @@ final class CaptureEngine {
           timing.bytes = Int64((try? FileManager.default.attributesOfItem(atPath: part.path)[.size] as? Int) ?? 0)
           timing.downloaded = monotonicMicros()
           try FileManager.default.moveItem(at: part, to: original)
+          _ = locked { savedOriginals.insert(source.key) }
+          session.noteSaved(source)
           // Refresh the next button boundary after this transfer; it can never delay the current capture.
           do { let next = try session.prepareCaptureBaseline(); locked { preparedHandles = next } }
           catch { locked { preparedHandles = nil }; log("下一次拍摄的照片索引暂不可用：\(error.localizedDescription)") }

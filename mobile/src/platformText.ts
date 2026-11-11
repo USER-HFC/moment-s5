@@ -10,7 +10,7 @@ export const currentOS = (): OS => (Platform.OS === 'ios' ? 'ios' : 'android');
 /** The empty capture screen's three steps. */
 export function connectSteps(os: OS = currentOS()) {
   return os === 'ios'
-    ? ['相机 USB 模式选 PC(Tether)', '用支持数据的 USB-C 线连接', 'iPhone 提示时允许连接配件']
+    ? ['相机 USB 模式选 PC(Tether)', '用支持数据的 USB-C 线连接', '首次连接时允许 App 控制相机']
     : ['相机 USB 模式选 PC(Tether)', '用支持数据的 USB-C 线连接', '手机打开 OTG'];
 }
 

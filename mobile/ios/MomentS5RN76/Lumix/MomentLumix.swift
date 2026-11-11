@@ -3,8 +3,8 @@ import Foundation
 import UIKit
 
 /// The JS contract in mobile/src/native.ts, implemented for iOS. Same method names, payloads and
-/// Chinese messages as MomentS5Module.java. Wi-Fi is the experimental transport ported from Android;
-/// USB is not in this build yet, so connect() says so instead of pretending.
+/// Chinese messages as MomentS5Module.java. USB goes through ImageCaptureCore's PTP pass-through;
+/// Wi-Fi is the experimental transport ported from Android.
 @objc(MomentLumix)
 final class MomentLumix: RCTEventEmitter, CaptureListener {
   private static let defaultCameraIp = "192.168.54.1"
@@ -30,20 +30,34 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
       NSLog("MomentLumix storage unavailable: %@", error.localizedDescription)
     }
     engine = CaptureEngine(store: store, listener: self)
+    engine.syncBodyPhotos = flag("syncBodyPhotos")
     DispatchQueue.main.async { [weak self] in
       self?.watchBattery()
+      self?.watchUsb()
       NotificationCenter.default.addObserver(self as Any, selector: #selector(MomentLumix.enteredBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
     }
   }
 
-  /// iOS suspends the camera sockets in the background, so the session ends cleanly here instead of
-  /// timing out later. Android does the same when the app pauses.
+  /// iOS suspends the app in the background, so the session ends cleanly here instead of timing out
+  /// later. Android does the same when the app pauses.
   @objc private func enteredBackground() {
     queue.async { [self] in
       guard engine.hasCamera else { return }
+      let kind = engine.transportKind == "wifi" ? "Wi-Fi" : "USB"
       engine.disconnect()
-      status("App 切到后台，Wi-Fi 已断开 · 回来后请重新连接", ready: false)
+      status("App 切到后台，\(kind) 已断开 · 回来后请重新连接", ready: false)
     }
+  }
+
+  /// Plugging the body in offers a connection; pulling it out ends that session. Main thread.
+  private func watchUsb() {
+    let browser = UsbCameraBrowser.shared
+    browser.onAttach = { [weak self] in
+      guard let self, UIApplication.shared.applicationState == .active, !self.engine.active, !self.engine.busy else { return }
+      self.emit("usbCameraAttached", [:])
+    }
+    browser.onDetach = { [weak self] device in self?.engine.detach(device) }
+    browser.startIfAllowed()
   }
 
   deinit { NotificationCenter.default.removeObserver(self); engine?.shutdown() }
@@ -102,8 +116,12 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
 
   // MARK: Connection
 
+  /// Finding the body, the control prompt and opening the session happen on the capture worker; the outcome
+  /// arrives as status events, the same as Wi-Fi.
   @objc func connect(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    reject("USB_CONNECT", "iOS 版的 USB 连接还在开发中，可以先体验演示", nil)
+    if engine.busy { reject("USB_BUSY", "正在保存，请稍候", nil); return }
+    engine.connectUsb()
+    resolve(nil)
   }
   /// The user joins the camera network in Settings first: joining by SSID needs the Hotspot Configuration
   /// entitlement, which this build does not carry. Camera traffic is pinned to that Wi-Fi interface.
@@ -380,6 +398,7 @@ final class MomentLumix: RCTEventEmitter, CaptureListener {
   @objc func setPreference(_ key: String, value: Bool, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     guard MomentLumix.flags[key] != nil else { reject("PREFERENCE", "未知的设置项", nil); return }
     prefs.set(value, forKey: key)
+    if key == "syncBodyPhotos" { engine.syncBodyPhotos = value }
     resolve(nil)
   }
 

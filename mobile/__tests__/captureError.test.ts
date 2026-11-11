@@ -30,7 +30,18 @@ describe('user-facing capture errors', () => {
     expect(userFacingError('无法连接相机：网络不可达；请确认连着相机 Wi-Fi，并在「设置」里允许本 App 访问本地网络')).toContain('允许本 App 访问本地网络');
     expect(userFacingError('连接相机超时；请确认手机连着相机 Wi-Fi，并允许本 App 访问本地网络')).toBe('连不上相机，请确认相机 IP，并在相机上打开 Wi-Fi 遥控');
     expect(userFacingError('无法连接相机：相机拒绝连接；请确认机身在遥控拍摄等待连接')).toBe('相机没有在等待连接，请在相机上打开 Wi-Fi 遥控拍摄');
-    expect(userFacingError('App 切到后台，Wi-Fi 已断开 · 回来后请重新连接')).toBe('切到后台时 Wi-Fi 会断开，回来后请重新连接');
+    expect(userFacingError('App 切到后台，Wi-Fi 已断开 · 回来后请重新连接')).toBe('切到后台时相机会断开，回来后请重新连接');
+    expect(userFacingError('App 切到后台，USB 已断开 · 回来后请重新连接')).toBe('切到后台时相机会断开，回来后请重新连接');
+  });
+
+  it('explains the iOS USB failures without Android wording', () => {
+    expect(userFacingError('未找到 USB 相机')).toBe('没有发现相机，请检查数据线，并在相机里选择 PC(Tether)');
+    expect(userFacingError('未找到 USB 相机（系统未返回控制授权：notDetermined）')).not.toContain('OTG');
+    expect(userFacingError('未获准控制 USB 相机')).toBe('手机没有允许本 App 控制相机，请到「设置」里允许后再连接');
+    expect(userFacingError('USB 会话打开超时；请重新插拔数据线')).toBe('相机没有响应，请重新插拔数据线后再连');
+    expect(userFacingError('没有 PTP 双向端点；仅支持 Panasonic PTP，请在相机里选择 PC(Tether)')).toBe('相机没有进入电脑连接，请在相机里选择 PC(Tether)，并检查数据线');
+    expect(userFacingError('USB 已拔出 · 照片保留在机身或本机')).toBe('相机已断开，请检查数据线');
+    expect(userFacingError('USB 访问未授权（指令 0x9706）')).toBe('手机没有允许连接相机，请重新点连接并允许');
   });
 
   it('leaves unknown and already-saved text unchanged, including the short JPEG miss', () => {

@@ -31,6 +31,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>用 USB 连接松下相机时，需要控制相机取景、拍摄并接收照片。本 App 不使用手机自带的摄像头。</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用 Wi-Fi 连接相机时，需要访问相机所在的本地网络来取景、拍摄和接收照片。</string>
 	<key>NSMicrophoneUsageDescription</key>

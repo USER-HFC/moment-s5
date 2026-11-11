@@ -1,35 +1,5 @@
 import Foundation
 
-/// Camera I/O only. Capture timing, LUTs, encoding and storage stay in CaptureEngine. Port of CameraTransport.java.
-protocol CaptureBaseline: AnyObject {}
-
-struct CameraPreview { let jpeg: Data; let receivedUs: Int64 }
-struct CameraOriginal { let key: String; let filename: String; let size: Int64 }
-struct CameraCapabilities { let autofocus: Bool; let manualFocus: Bool; let exposure: Bool }
-
-protocol CameraTransport: AnyObject {
-  var kind: String { get }
-  /// Body name from the description. Nil until that read succeeds.
-  var cameraModel: String? { get }
-  func open() throws
-  func preview() throws -> CameraPreview?
-  var capabilities: CameraCapabilities { get }
-  func autofocus() throws
-  func focus(far: Bool) throws
-  var exposure: String { get }
-  var exposureUpdatedAtUs: Int64 { get }
-  func prepareCaptureBaseline() throws -> CaptureBaseline
-  var freshBaselineRequired: Bool { get }
-  /// One invocation, no automatic retry, including a lost response.
-  func shutter() throws
-  func awaitNewJpeg(_ baseline: CaptureBaseline?, valid: () -> Bool) throws -> CameraOriginal
-  func downloadOriginal(_ original: CameraOriginal, to destination: URL) throws
-  func completeWithoutDownload()
-  var closed: Bool { get }
-  func abort()
-  func close()
-}
-
 /// Experimental legacy cam.cgi + GENA + UDP + DLNA, ported from WifiS5Transport.java. Original DC-S5
 /// firmware 2.9 is unverified. Ordering, retry budgets and S5 quirks follow the protocol notes published by
 /// sapoepsilon/lumix-remote (MIT, verified on DC-S5 fw 2.03); no code is copied from it.
